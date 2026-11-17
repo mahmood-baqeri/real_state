@@ -1,0 +1,260 @@
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+from app.core.django_bridge import run_django
+from app.dependencies.auth import RequestContext, require_agency_context
+from app.schemas.common import ok
+
+router = APIRouter(tags=["Customers & Leads"])
+
+
+class CustomerCreateBody(BaseModel):
+    customer_type: str = "BUYER"
+    full_name: str
+    primary_phone: str
+    secondary_phone: str = ""
+    email: str = ""
+    source: str = "PORTAL"
+    assigned_membership_id: Optional[UUID] = None
+    lead_score: int = 50
+    readiness_level: str = "MEDIUM"
+    tags: list[str] = []
+
+
+class CustomerPatchBody(BaseModel):
+    customer_type: Optional[str] = None
+    full_name: Optional[str] = None
+    secondary_phone: Optional[str] = None
+    email: Optional[str] = None
+    lead_score: Optional[int] = None
+    readiness_level: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class CustomerShareBody(BaseModel):
+    membership_id: UUID
+    access_level: str = "VIEW"
+
+
+class CustomerRequirementBody(BaseModel):
+    deal_type_id: str
+    property_type_id: str
+    target_city: str = ""
+    target_districts: list[str] = []
+    min_area_sqm: Decimal = Decimal("0")
+    max_area_sqm: Decimal = Decimal("99999")
+    currency_id: str = "IRT"
+    min_budget: Decimal = Decimal("0")
+    max_budget: Decimal = Decimal("0")
+    min_bedrooms: int = 0
+    priority: str = "NORMAL"
+
+
+class LeadCreateBody(BaseModel):
+    full_name: str
+    phone_number: str
+    request_type: str = "BUY"
+    property_id: Optional[UUID] = None
+    source: str = "PORTAL"
+    notes: str = ""
+
+
+class LeadPatchBody(BaseModel):
+    status: str
+    notes: Optional[str] = None
+
+
+def _ser_customer(c) -> dict:
+    return {
+        "id": str(c.id),
+        "agency": str(c.agency_id),
+        "customer_type": c.customer_type,
+        "full_name": c.full_name,
+        "primary_phone": c.primary_phone,
+        "secondary_phone": c.secondary_phone,
+        "email": c.email,
+        "source": c.source,
+        "assigned_membership": str(c.assigned_membership_id) if c.assigned_membership_id else None,
+        "assigned_agent_name": c.assigned_membership.user.full_name if c.assigned_membership else None,
+        "lead_score": c.lead_score,
+        "readiness_level": c.readiness_level,
+        "tags": c.tags,
+        "is_active": c.is_active,
+        "shares": [
+            {
+                "id": str(s.id),
+                "membership_id": str(s.membership_id),
+                "agent_name": s.membership.user.full_name,
+                "access_level": s.access_level,
+            }
+            for s in c.shares.all()
+        ],
+        "requirements": [
+            {
+                "id": str(r.id),
+                "deal_type": r.deal_type_id,
+                "property_type": r.property_type_id,
+                "target_city": r.target_city,
+                "target_districts": r.target_districts,
+                "min_area_sqm": str(r.min_area_sqm),
+                "max_area_sqm": str(r.max_area_sqm),
+                "min_budget": str(r.min_budget),
+                "max_budget": str(r.max_budget),
+                "min_bedrooms": r.min_bedrooms,
+            }
+            for r in c.requirements.all()
+        ],
+        "created_at": c.created_at.isoformat(),
+    }
+
+
+def _ser_lead(l) -> dict:
+    return {
+        "id": str(l.id),
+        "full_name": l.full_name,
+        "phone_number": l.phone_number,
+        "request_type": l.request_type,
+        "property_id": str(l.property_id) if l.property_id else None,
+        "property_title": l.property.title if l.property else None,
+        "source": l.source,
+        "assigned_agent_name": l.assigned_membership.user.full_name if l.assigned_membership else None,
+        "converted_customer_id": str(l.converted_customer_id) if l.converted_customer_id else None,
+        "status": l.status,
+        "notes": l.notes,
+        "created_at": l.created_at.isoformat(),
+    }
+
+
+@router.get("/customers")
+async def get_customers(
+    q: Optional[str] = None,
+    customer_type: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.customers.services import list_customers
+        from common.pagination import paginate_queryset
+
+        qs = list_customers(user=ctx.user, agency_id=ctx.agency_id, q=q, customer_type=customer_type)
+        return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_customer)
+
+    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    return ok(items, meta=meta)
+
+
+@router.post("/customers", status_code=201)
+async def post_customer(body: CustomerCreateBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import create_customer
+
+        c = create_customer(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
+        return _ser_customer(c)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.patch("/customers/{customer_id}")
+async def patch_customer(
+    customer_id: UUID, body: CustomerPatchBody, ctx: RequestContext = Depends(require_agency_context)
+):
+    def _op():
+        from apps.customers.services import update_customer
+
+        c = update_customer(
+            user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, data=body.model_dump(exclude_none=True)
+        )
+        return _ser_customer(c)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/customers/{customer_id}/share")
+async def post_customer_share(
+    customer_id: UUID, body: CustomerShareBody, ctx: RequestContext = Depends(require_agency_context)
+):
+    def _op():
+        from apps.customers.services import share_customer
+
+        s = share_customer(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            customer_id=customer_id,
+            target_membership_id=body.membership_id,
+            access_level=body.access_level,
+        )
+        return {"shared": True, "id": str(s.id)}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/customers/{customer_id}/requirements", status_code=201)
+async def post_customer_req(
+    customer_id: UUID, body: CustomerRequirementBody, ctx: RequestContext = Depends(require_agency_context)
+):
+    def _op():
+        from apps.customers.services import add_customer_requirement
+
+        r = add_customer_requirement(
+            user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, data=body.model_dump()
+        )
+        return {"id": str(r.id), "target_city": r.target_city}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/leads")
+async def get_leads(
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.customers.services import list_leads
+        from common.pagination import paginate_queryset
+
+        qs = list_leads(user=ctx.user, agency_id=ctx.agency_id, status_filter=status, q=q)
+        return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_lead)
+
+    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    return ok(items, meta=meta)
+
+
+@router.post("/leads", status_code=201)
+async def post_lead(body: LeadCreateBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import create_lead
+
+        return _ser_lead(create_lead(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()))
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.patch("/leads/{lead_id}")
+async def patch_lead(lead_id: UUID, body: LeadPatchBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import update_lead_status
+
+        return _ser_lead(
+            update_lead_status(
+                user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id, status_value=body.status, notes=body.notes
+            )
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/leads/{lead_id}/convert")
+async def convert_lead(lead_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import convert_lead_to_customer
+
+        lead, cust = convert_lead_to_customer(user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id)
+        return {"lead": _ser_lead(lead), "customer_id": str(cust.id)}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))

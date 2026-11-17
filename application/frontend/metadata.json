@@ -1,0 +1,6 @@
+{
+  "name": "بنیان ملک",
+  "description": "پلتفرم جامع چندآژانسی مدیریت املاک، CRM، بازدید، قراردادها، کمیسیون، حسابداری دوطرفه و حقوق و دستمزد",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
