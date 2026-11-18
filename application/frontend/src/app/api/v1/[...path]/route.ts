@@ -23,20 +23,38 @@ async function proxyToFastAPI(
   const hasBody = !["GET", "HEAD"].includes(request.method);
   const bodyText = hasBody ? await request.text() : undefined;
 
-  const upstream = await fetch(targetUrl, {
-    method: request.method,
-    headers: forwardHeaders,
-    body: bodyText,
-    redirect: "manual",
-  });
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: request.method,
+      headers: forwardHeaders,
+      body: bodyText,
+      redirect: "manual",
+    });
 
-  const respBody = await upstream.text();
-  return new NextResponse(respBody, {
-    status: upstream.status,
-    headers: {
-      "content-type": upstream.headers.get("content-type") || "application/json",
-    },
-  });
+    const respBody = await upstream.text();
+    return new NextResponse(respBody, {
+      status: upstream.status,
+      headers: {
+        "content-type": upstream.headers.get("content-type") || "application/json",
+      },
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        data: null,
+        meta: {},
+        errors: [
+          {
+            code: "UPSTREAM_UNAVAILABLE",
+            detail: "سرویس FastAPI موقتاً در دسترس نیست. لطفاً چند لحظه دیگر تلاش کنید.",
+          },
+        ],
+        detail: "سرویس FastAPI موقتاً در دسترس نیست. لطفاً چند لحظه دیگر تلاش کنید.",
+      },
+      { status: 503 }
+    );
+  }
 }
 
 export const GET = proxyToFastAPI;

@@ -21,9 +21,9 @@ def init_django() -> None:
 
     if not os.environ.get("DJANGO_SETTINGS_MODULE"):
         os.environ["DJANGO_SETTINGS_MODULE"] = (
-            "config.settings.development"
-            if os.environ.get("USE_LOCAL_SANDBOX_DB") == "1"
-            else "config.settings.production"
+            "config.settings.production"
+            if os.environ.get("DJANGO_ENV") == "production"
+            else "config.settings.development"
         )
     django.setup()
     _DJANGO_INITIALIZED = True

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Share2, Target } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
@@ -161,15 +162,24 @@ export default function CustomersPage() {
         rowKey={(c) => c.id}
         isLoading={custQ.isLoading}
         error={custQ.error instanceof Error ? custQ.error.message : null}
+        exportFileName="bonyan-customers"
         searchPlaceholder="جستجو در نام یا موبایل مشتری..."
         columns={[
           {
             key: "name",
             header: "نام مشتری",
+            exportValue: (c) => c.full_name,
             render: (c) => (
               <div>
-                <div className="font-semibold text-slate-900">{c.full_name}</div>
-                <div className="font-mono text-xs text-slate-500">{c.primary_phone}</div>
+                <Link
+                  href={`/dashboard/customers/${c.id}`}
+                  className="font-semibold text-slate-900 hover:text-teal-700 dark:text-slate-100 dark:hover:text-teal-400"
+                >
+                  {c.full_name}
+                </Link>
+                <div className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                  {c.primary_phone}
+                </div>
               </div>
             ),
           },
@@ -182,7 +192,7 @@ export default function CustomersPage() {
               c.requirements.length > 0 ? (
                 <div className="text-xs">
                   <span>{c.requirements[0].target_city}</span>{" "}
-                  <span className="text-slate-500">
+                  <span className="text-slate-500 dark:text-slate-400">
                     (تا <MoneyDisplay amount={c.requirements[0].max_budget} />)
                   </span>
                 </div>
@@ -206,15 +216,15 @@ export default function CustomersPage() {
                 <button
                   type="button"
                   onClick={() => setReqTarget(c)}
-                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
-                  <Target className="h-3.5 w-3.5 text-teal-700" />
+                  <Target className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
                   ثبت نیاز ملکی
                 </button>
                 <button
                   type="button"
                   onClick={() => setShareTarget(c)}
-                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <Share2 className="h-3.5 w-3.5 text-amber-700" />
                   اشتراک با همکار
@@ -238,7 +248,7 @@ export default function CustomersPage() {
             placeholder="نام و نام خانوادگی"
             value={form.full_name}
             onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             required
@@ -246,12 +256,12 @@ export default function CustomersPage() {
             placeholder="0912..."
             value={form.primary_phone}
             onChange={(e) => setForm({ ...form, primary_phone: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-left font-mono text-sm"
           />
           <select
             value={form.customer_type}
             onChange={(e) => setForm({ ...form, customer_type: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="BUYER">خریدار</option>
             <option value="TENANT">مستأجر</option>
@@ -285,7 +295,7 @@ export default function CustomersPage() {
             required
             value={shareForm.membership_id}
             onChange={(e) => setShareForm({ ...shareForm, membership_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مشاور همکار...</option>
             {(membersQ.data || []).map((m) => (
@@ -297,7 +307,7 @@ export default function CustomersPage() {
           <select
             value={shareForm.access_level}
             onChange={(e) => setShareForm({ ...shareForm, access_level: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="VIEW">فقط مشاهده (VIEW)</option>
             <option value="COLLABORATE">همکاری و ویرایش (COLLABORATE)</option>
@@ -328,7 +338,7 @@ export default function CustomersPage() {
             <select
               value={reqForm.deal_type_id}
               onChange={(e) => setReqForm({ ...reqForm, deal_type_id: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
             >
               <option value="SALE">خرید</option>
               <option value="MORTGAGE_RENT">رهن و اجاره</option>
@@ -336,7 +346,7 @@ export default function CustomersPage() {
             <select
               value={reqForm.property_type_id}
               onChange={(e) => setReqForm({ ...reqForm, property_type_id: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
             >
               <option value="APARTMENT">آپارتمان</option>
               <option value="VILLA">ویلا</option>
@@ -347,13 +357,13 @@ export default function CustomersPage() {
             placeholder="شهر هدف"
             value={reqForm.target_city}
             onChange={(e) => setReqForm({ ...reqForm, target_city: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             placeholder="مناطق (با کاما جدا کنید)"
             value={reqForm.districts_csv}
             onChange={(e) => setReqForm({ ...reqForm, districts_csv: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <div className="grid grid-cols-2 gap-3">
             <input
@@ -361,14 +371,14 @@ export default function CustomersPage() {
               placeholder="حداقل بودجه"
               value={reqForm.min_budget}
               onChange={(e) => setReqForm({ ...reqForm, min_budget: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
             />
             <input
               type="number"
               placeholder="حداکثر بودجه"
               value={reqForm.max_budget}
               onChange={(e) => setReqForm({ ...reqForm, max_budget: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
             />
           </div>
           <button

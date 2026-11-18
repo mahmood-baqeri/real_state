@@ -142,12 +142,12 @@ export default function SubscriptionsPage() {
         subtitle="انتخاب پلن سازمانی آژانس، پرداخت از طریق آداپتر درگاه پرداخت و مشاهده تاریخچه تراکنش‌ها"
         breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "اشتراک و پرداخت" }]}
         actions={
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+          <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
             <button
               type="button"
               onClick={() => setBillingCycle("MONTHLY")}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-                billingCycle === "MONTHLY" ? "bg-teal-700 text-white" : "text-slate-600"
+                billingCycle === "MONTHLY" ? "bg-teal-700 text-white" : "text-slate-600 dark:text-slate-400"
               }`}
             >
               ماهانه
@@ -156,7 +156,7 @@ export default function SubscriptionsPage() {
               type="button"
               onClick={() => setBillingCycle("ANNUAL")}
               className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-                billingCycle === "ANNUAL" ? "bg-teal-700 text-white" : "text-slate-600"
+                billingCycle === "ANNUAL" ? "bg-teal-700 text-white" : "text-slate-600 dark:text-slate-400"
               }`}
             >
               سالانه
@@ -196,29 +196,29 @@ export default function SubscriptionsPage() {
           {(plansQ.data || []).map((p) => {
             const price = billingCycle === "ANNUAL" ? p.annual_price : p.monthly_price;
             return (
-              <div key={p.id} className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5">
+              <div key={p.id} className="flex flex-col justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base font-bold text-slate-900">{p.name_fa}</h3>
-                    <span className="font-mono text-xs text-slate-500">{p.code}</span>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{p.name_fa}</h3>
+                    <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{p.code}</span>
                   </div>
-                  <div className="text-xl font-bold text-teal-800">
+                  <div className="text-xl font-bold text-teal-800 dark:text-teal-300">
                     <MoneyDisplay amount={price} sourceCurrency={p.currency} />
-                    <span className="mr-1 text-xs font-normal text-slate-500">
+                    <span className="mr-1 text-xs font-normal text-slate-500 dark:text-slate-400">
                       / {billingCycle === "ANNUAL" ? "سالانه" : "ماهانه"}
                     </span>
                   </div>
-                  <ul className="space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-700">
+                  <ul className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs text-slate-700 dark:text-slate-300">
                     <li className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-700" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
                       حداکثر مشاوران فعال: {formatNumberFa(p.max_agents)} نفر
                     </li>
                     <li className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-700" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
                       حداکثر فایل ملکی فعال: {formatNumberFa(p.max_properties)} ملک
                     </li>
                     <li className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-700" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
                       سقف شعب آژانس: {formatNumberFa(p.max_branches)} شعبه
                     </li>
                   </ul>
@@ -241,17 +241,17 @@ export default function SubscriptionsPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <h3 className="text-sm font-bold text-slate-900">اشتراک‌های فعلی</h3>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">اشتراک‌های فعلی</h3>
         {(currentQ.data || []).length === 0 ? (
-          <p className="text-xs text-slate-500">اشتراک فعالی ثبت نشده است.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">اشتراک فعالی ثبت نشده است.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {currentQ.data?.map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3.5 text-xs">
+              <div key={s.id} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3.5 text-xs">
                 <div>
-                  <div className="font-bold text-slate-900">{s.agency_name} — {s.plan_name_fa}</div>
-                  <div className="mt-1 text-slate-500">
+                  <div className="font-bold text-slate-900 dark:text-slate-100">{s.agency_name} — {s.plan_name_fa}</div>
+                  <div className="mt-1 text-slate-500 dark:text-slate-400">
                     شروع: <DateDisplay value={s.starts_at} /> | انقضا: <DateDisplay value={s.expires_at} />
                   </div>
                 </div>

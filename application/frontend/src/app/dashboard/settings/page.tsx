@@ -142,39 +142,39 @@ export default function SettingsPage() {
         <LoadingState />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-              <Globe2 className="h-5 w-5 text-teal-700" />
-              <h2 className="text-sm font-bold text-slate-900">کشورها و تنظیمات منطقه‌ای</h2>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <Globe2 className="h-5 w-5 text-teal-700 dark:text-teal-400" />
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">کشورها و تنظیمات منطقه‌ای</h2>
             </div>
             <div className="space-y-2.5">
               {(locQ.data?.countries || []).map((c) => (
-                <div key={c.code} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+                <div key={c.code} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3 text-xs">
                   <div>
-                    <div className="font-bold text-slate-900">{c.name_fa} ({c.code})</div>
-                    <div className="text-slate-500">منطقه زمانی: {c.timezone} | واحد مساحت: {c.area_unit}</div>
+                    <div className="font-bold text-slate-900 dark:text-slate-100">{c.name_fa} ({c.code})</div>
+                    <div className="text-slate-500 dark:text-slate-400">منطقه زمانی: {c.timezone} | واحد مساحت: {c.area_unit}</div>
                   </div>
-                  <div className="text-left font-mono text-slate-700">
+                  <div className="text-left font-mono text-slate-700 dark:text-slate-300">
                     <div>{c.default_currency}</div>
-                    <div className="text-[11px] text-slate-500">{c.default_calendar}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{c.default_calendar}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-            <h2 className="border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
+            <h2 className="border-b border-slate-200 dark:border-slate-800 pb-3 text-sm font-bold text-slate-900 dark:text-slate-100">
               ارزهای پشتیبانی‌شده و نرخ تبدیل (Decimal)
             </h2>
             <div className="space-y-2.5">
               {(locQ.data?.currencies || []).map((cur) => (
-                <div key={cur.code} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
+                <div key={cur.code} className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3 text-xs">
                   <div>
-                    <div className="font-bold text-slate-900">{cur.name_fa} ({cur.code})</div>
-                    <div className="text-slate-500">نماد: {cur.symbol}</div>
+                    <div className="font-bold text-slate-900 dark:text-slate-100">{cur.name_fa} ({cur.code})</div>
+                    <div className="text-slate-500 dark:text-slate-400">نماد: {cur.symbol}</div>
                   </div>
-                  <div className="font-mono text-slate-800">نرخ مبنا: {cur.exchange_rate_to_base}</div>
+                  <div className="font-mono text-slate-800 dark:text-slate-200">نرخ مبنا: {cur.exchange_rate_to_base}</div>
                 </div>
               ))}
             </div>
@@ -182,25 +182,25 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-          <Plug className="h-5 w-5 text-teal-700" />
-          <h2 className="text-sm font-bold text-slate-900">آداپترهای فعال پرداخت، پیامک و نقشه</h2>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+          <Plug className="h-5 w-5 text-teal-700 dark:text-teal-400" />
+          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">آداپترهای فعال پرداخت، پیامک و نقشه</h2>
         </div>
         {provQ.isLoading ? (
           <LoadingState />
         ) : (provQ.data || []).length === 0 ? (
-          <p className="text-xs text-slate-500">هنوز آداپتر اختصاصی ثبت نشده و سیستم از حالت پیش‌فرض Sandbox استفاده می‌کند.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">هنوز آداپتر اختصاصی ثبت نشده و سیستم از حالت پیش‌فرض Sandbox استفاده می‌کند.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {provQ.data?.map((p) => (
-              <div key={p.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs space-y-2">
+              <div key={p.id} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4 text-xs space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900">{p.display_name}</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{p.display_name}</span>
                   <StatusText status={p.is_active ? "ACTIVE" : "SUSPENDED"} />
                 </div>
-                <div className="font-mono text-slate-600">{p.category} — {p.provider_key}</div>
-                <div className="text-slate-500">
+                <div className="font-mono text-slate-600 dark:text-slate-400">{p.category} — {p.provider_key}</div>
+                <div className="text-slate-500 dark:text-slate-400">
                   محیط: {p.is_sandbox ? "آزمایشی (Sandbox)" : "عملیاتی"} | کلید رمزنگاری‌شده:{" "}
                   {p.has_credentials ? "ثبت‌شده" : "ندارد"}
                 </div>
@@ -221,7 +221,7 @@ export default function SettingsPage() {
           <select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="PAYMENT">درگاه پرداخت (Payment)</option>
             <option value="SMS">سرویس پیامک (SMS)</option>
@@ -232,23 +232,23 @@ export default function SettingsPage() {
             placeholder="کلید آداپتر (مثال: sandbox, zarinpal_ready, kavenegar_ready, osm_tile)"
             value={form.provider_key}
             onChange={(e) => setForm({ ...form, provider_key: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
           <input
             required
             placeholder="نام نمایشی"
             value={form.display_name}
             onChange={(e) => setForm({ ...form, display_name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             type="password"
             placeholder="کلید API / Merchant ID (به‌صورت رمزنگاری‌شده ذخیره می‌شود)"
             value={form.api_key}
             onChange={(e) => setForm({ ...form, api_key: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
-          <div className="flex items-center gap-4 text-xs text-slate-700">
+          <div className="flex items-center gap-4 text-xs text-slate-700 dark:text-slate-300">
             <label className="flex items-center gap-1.5">
               <input
                 type="checkbox"

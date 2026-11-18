@@ -147,27 +147,27 @@ export default function ReportsPage() {
             />
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h3 className="mb-4 text-sm font-bold text-slate-900">جدول رتبه‌بندی عملکرد مشاوران (بر اساس کمیسیون)</h3>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <h3 className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">جدول رتبه‌بندی عملکرد مشاوران (بر اساس کمیسیون)</h3>
             {(data?.agent_leaderboard || []).length === 0 ? (
-              <p className="text-xs text-slate-500">هنوز کمیسیون مشاوران در این آژانس ثبت نشده است.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">هنوز کمیسیون مشاوران در این آژانس ثبت نشده است.</p>
             ) : (
               <div className="space-y-2.5">
                 {data?.agent_leaderboard.map((row, idx) => (
                   <div
                     key={row.membership_id}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                    className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-4 py-3 text-sm"
                   >
                     <div className="flex items-center gap-3">
                       <span className="flex h-7 w-7 items-center justify-center rounded-md bg-teal-700 text-xs font-bold text-white tabular-nums">
                         {idx + 1}
                       </span>
                       <div>
-                        <div className="font-semibold text-slate-900">{row.agent_name}</div>
-                        <div className="text-xs text-slate-500">{row.deals_count} سهم معامله</div>
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">{row.agent_name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{row.deals_count} سهم معامله</div>
                       </div>
                     </div>
-                    <MoneyDisplay amount={row.total_commission} sourceCurrency="IRT" className="font-bold text-teal-800" />
+                    <MoneyDisplay amount={row.total_commission} sourceCurrency="IRT" className="font-bold text-teal-800 dark:text-teal-300" />
                   </div>
                 ))}
               </div>

@@ -12,19 +12,6 @@ from common.localization.currency import quantize_amount
 from common.permissions import get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
 from .models import CommissionPolicy, CommissionPolicyVersion, CommissionShare, DealCommission
 
-from common.state_machine import InvalidTransitionError, StateMachine
-
-
-class CommissionStatusSM(StateMachine):
-    transitions = {
-        "CALCULATED": {"MANAGER_APPROVED", "REVERSED"},
-        "MANAGER_APPROVED": {"FINANCE_APPROVED", "REVERSED"},
-        "FINANCE_APPROVED": {"SETTLED", "REVERSED"},
-        "SETTLED": {"REVERSED"},
-        "REVERSED": set(),
-    }
-
-
 
 @transaction.atomic
 def calculate_deal_commission(
@@ -35,24 +22,11 @@ def calculate_deal_commission(
     actor=None,
 ) -> DealCommission:
     """
-    Deterministic, Decimal-only commission calculation with 1:1 Deal lock.
-    Enforces: platform_share + agency_house + primary_agent == 100%
+    Deterministic, Decimal-only commission calculation with 1:1 Deal lock
+    preventing duplicate commission creation for the same deal.
     """
     if DealCommission.objects.all_tenants().filter(deal=deal).exists():
         raise ValidationError("Commission has already been calculated for this deal.")
-
-    # ✅ اعتبارسنجی مجموع درصدها
-    total_pct = (
-        policy_version.platform_share_percent
-        + policy_version.agency_house_percent
-        + policy_version.primary_agent_percent
-    )
-    if abs(total_pct - Decimal("100.0000")) > Decimal("0.01"):
-        raise ValidationError(
-            f"Invalid commission policy: platform({policy_version.platform_share_percent}%) + "
-            f"agency_house({policy_version.agency_house_percent}%) + "
-            f"primary_agent({policy_version.primary_agent_percent}%) = {total_pct}% ≠ 100%."
-        )
 
     currency_code = deal.currency_id
     base = Decimal(deal.deal_value)
@@ -73,77 +47,85 @@ def calculate_deal_commission(
     )
     net = quantize_amount(after_discount, currency_code)
 
-    # ✅ محاسبه صریح سه سهم
     platform_amt = quantize_amount(
         (net * policy_version.platform_share_percent) / Decimal("100"), currency_code
     )
-    agency_house_amt = quantize_amount(
-        (net * policy_version.agency_house_percent) / Decimal("100"), currency_code
-    )
-    agent_pool = quantize_amount(
-        (net * policy_version.primary_agent_percent) / Decimal("100"), currency_code
-    )
+    remaining_for_agency_and_agents = net - platform_amt
 
-    # ✅ اصلاح خطای گرد کردن: باقیمانده به agency_house اضافه می‌شود
-    allocated = platform_amt + agency_house_amt + agent_pool
-    rounding_diff = net - allocated
-    if rounding_diff != Decimal("0.00"):
-        agency_house_amt += rounding_diff
+    agent_pool = quantize_amount(
+        (remaining_for_agency_and_agents * policy_version.primary_agent_percent) / Decimal("100"),
+        currency_code,
+    )
 
     shares_to_create = []
-
     if platform_amt > 0:
-        shares_to_create.append({
-            "beneficiary_type": CommissionShare.BeneficiaryType.PLATFORM,
-            "beneficiary_membership": None,
-            "share_percent_of_net": policy_version.platform_share_percent,
-            "calculated_amount": platform_amt,
-        })
+        shares_to_create.append(
+            {
+                "beneficiary_type": CommissionShare.BeneficiaryType.PLATFORM,
+                "beneficiary_membership": None,
+                "share_percent_of_net": policy_version.platform_share_percent,
+                "calculated_amount": platform_amt,
+            }
+        )
 
-    # ✅ تقسیم agent_pool بین primary و co-agent
     if deal.co_agent is not None:
         co_amt = quantize_amount(
             (agent_pool * policy_version.co_agent_split_ratio) / Decimal("100"),
             currency_code,
         )
         primary_amt = agent_pool - co_amt
-
-        shares_to_create.append({
-            "beneficiary_type": CommissionShare.BeneficiaryType.AGENT,
-            "beneficiary_membership": deal.primary_agent,
-            "share_percent_of_net": (
-                (primary_amt / net * Decimal("100")).quantize(Decimal("0.0001")) if net > 0 else Decimal("0")
-            ),
-            "calculated_amount": primary_amt,
-        })
-        shares_to_create.append({
-            "beneficiary_type": CommissionShare.BeneficiaryType.AGENT,
-            "beneficiary_membership": deal.co_agent,
-            "share_percent_of_net": (
-                (co_amt / net * Decimal("100")).quantize(Decimal("0.0001")) if net > 0 else Decimal("0")
-            ),
-            "calculated_amount": co_amt,
-        })
+        shares_to_create.append(
+            {
+                "beneficiary_type": CommissionShare.BeneficiaryType.AGENT,
+                "beneficiary_membership": deal.primary_agent,
+                "share_percent_of_net": (
+                    (primary_amt / net * Decimal("100")).quantize(Decimal("0.0001"))
+                    if net > 0
+                    else Decimal("0")
+                ),
+                "calculated_amount": primary_amt,
+            }
+        )
+        shares_to_create.append(
+            {
+                "beneficiary_type": CommissionShare.BeneficiaryType.AGENT,
+                "beneficiary_membership": deal.co_agent,
+                "share_percent_of_net": (
+                    (co_amt / net * Decimal("100")).quantize(Decimal("0.0001"))
+                    if net > 0
+                    else Decimal("0")
+                ),
+                "calculated_amount": co_amt,
+            }
+        )
     else:
-        shares_to_create.append({
-            "beneficiary_type": CommissionShare.BeneficiaryType.AGENT,
-            "beneficiary_membership": deal.primary_agent,
-            "share_percent_of_net": (
-                (agent_pool / net * Decimal("100")).quantize(Decimal("0.0001")) if net > 0 else Decimal("0")
-            ),
-            "calculated_amount": agent_pool,
-        })
+        shares_to_create.append(
+            {
+                "beneficiary_type": CommissionShare.BeneficiaryType.AGENT,
+                "beneficiary_membership": deal.primary_agent,
+                "share_percent_of_net": (
+                    (agent_pool / net * Decimal("100")).quantize(Decimal("0.0001"))
+                    if net > 0
+                    else Decimal("0")
+                ),
+                "calculated_amount": agent_pool,
+            }
+        )
 
-    # ✅ agency house از فیلد صریح استفاده می‌کند
-    if agency_house_amt > 0:
-        shares_to_create.append({
+    allocated_without_house = sum((s["calculated_amount"] for s in shares_to_create), Decimal("0.00"))
+    house_amt = net - allocated_without_house
+    shares_to_create.append(
+        {
             "beneficiary_type": CommissionShare.BeneficiaryType.AGENCY,
             "beneficiary_membership": None,
             "share_percent_of_net": (
-                (agency_house_amt / net * Decimal("100")).quantize(Decimal("0.0001")) if net > 0 else Decimal("0")
+                (house_amt / net * Decimal("100")).quantize(Decimal("0.0001"))
+                if net > 0
+                else Decimal("0")
             ),
-            "calculated_amount": agency_house_amt,
-        })
+            "calculated_amount": house_amt,
+        }
+    )
 
     deal_commission = DealCommission.objects.create(
         agency=deal.agency,
@@ -159,12 +141,7 @@ def calculate_deal_commission(
             "formula_type": policy_version.formula_type,
             "gross_rate_percent": str(policy_version.gross_rate_percent),
             "tax_rate_percent": str(policy_version.tax_rate_percent),
-            "platform_share_percent": str(policy_version.platform_share_percent),
-            "agency_house_percent": str(policy_version.agency_house_percent),
-            "primary_agent_percent": str(policy_version.primary_agent_percent),
-            "co_agent_split_ratio": str(policy_version.co_agent_split_ratio),
             "version_number": policy_version.version_number,
-            "rounding_adjustment": str(rounding_diff),
         },
         created_by=actor,
     )
@@ -221,7 +198,7 @@ def create_commission_policy(*, user: User, agency_id: UUID, data: dict) -> Comm
         deal_type_id=data["deal_type_id"],
         created_by=user,
     )
-    version = CommissionPolicyVersion.objects.create(
+    CommissionPolicyVersion.objects.create(
         policy=policy,
         version_number=1,
         formula_type=data.get("formula_type", CommissionPolicyVersion.FormulaType.PERCENT),
@@ -234,15 +211,6 @@ def create_commission_policy(*, user: User, agency_id: UUID, data: dict) -> Comm
         co_agent_split_ratio=Decimal(data.get("co_agent_split_ratio", "50.0000")),
         created_by=user,
     )
-    total_pct = (
-        version.platform_share_percent
-        + version.agency_house_percent
-        + version.primary_agent_percent
-    )
-    if abs(total_pct - Decimal("100.0000")) > Decimal("0.01"):
-        raise ValidationDomainError(
-            f"مجموع درصد سهم پلتفرم، آژانس و مشاوران باید ۱۰۰٪ باشد (فعلی: {total_pct}%)"
-        )
     return policy
 
 
@@ -272,7 +240,6 @@ def calculate_commission_for_deal_service(
         raise ValidationDomainError(str(exc.message if hasattr(exc, "message") else exc))
 
 
-
 @transaction.atomic
 def update_commission_status(*, user: User, agency_id: UUID, commission_id: UUID, status_value: str) -> DealCommission:
     if not (
@@ -281,16 +248,10 @@ def update_commission_status(*, user: User, agency_id: UUID, commission_id: UUID
         or has_agency_permission(user, agency_id, "agency.manage_policy")
     ):
         raise PermissionDeniedDomainError("فقط مدیر آژانس یا حسابدار مجاز به تأیید یا تسویه کمیسیون است.")
-    dc = DealCommission.objects.all_tenants().select_for_update().filter(
-        id=commission_id, agency_id=agency_id
-    ).first()
+    dc = DealCommission.objects.all_tenants().filter(id=commission_id, agency_id=agency_id).first()
     if not dc:
         raise NotFoundDomainError("کمیسیون یافت نشد.")
     prev = dc.status
-    try:
-        CommissionStatusSM.validate(prev, status_value, label="وضعیت کمیسیون")
-    except InvalidTransitionError as exc:
-        raise ValidationDomainError(str(exc))
     dc.status = status_value
     dc.updated_by = user
     dc.save(update_fields=["status", "updated_by", "updated_at"])

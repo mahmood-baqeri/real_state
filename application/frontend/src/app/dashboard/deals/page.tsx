@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
@@ -110,10 +111,27 @@ export default function DealsPage() {
         isLoading={dealsQ.isLoading}
         error={dealsQ.error instanceof Error ? dealsQ.error.message : null}
         searchPlaceholder="جستجو در کد معامله، قرارداد یا ملک..."
+        exportFileName="deals"
         columns={[
-          { key: "code", header: "کد معامله", render: (d) => <span className="font-mono text-xs font-semibold">{d.deal_code}</span> },
+          {
+            key: "code",
+            header: "کد معامله",
+            render: (d) => (
+              <Link href={`/dashboard/deals/${d.id}`} className="font-mono text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline">
+                {d.deal_code}
+              </Link>
+            ),
+          },
           { key: "prop", header: "ملک", render: (d) => d.property_title },
-          { key: "cnt", header: "شماره قرارداد", render: (d) => <span className="font-mono text-xs">{d.contract_number}</span> },
+          {
+            key: "cnt",
+            header: "شماره قرارداد",
+            render: (d) => (
+              <Link href={`/dashboard/contracts/${d.contract_id}`} className="font-mono text-xs text-slate-700 dark:text-slate-300 hover:underline">
+                {d.contract_number}
+              </Link>
+            ),
+          },
           { key: "agent", header: "مشاور اصلی", render: (d) => d.primary_agent_name },
           { key: "val", header: "ارزش معامله", render: (d) => <MoneyDisplay amount={d.deal_value} sourceCurrency={d.currency} className="font-bold text-xs" /> },
           { key: "status", header: "وضعیت", render: (d) => <StatusText status={d.status} /> },
@@ -151,13 +169,13 @@ export default function DealsPage() {
             placeholder="کد معامله"
             value={form.deal_code}
             onChange={(e) => setForm({ ...form, deal_code: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
           <select
             required
             value={form.contract_id}
             onChange={(e) => setForm({ ...form, contract_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب قرارداد مرتبط...</option>
             {(contractsQ.data || []).map((c) => (
@@ -171,7 +189,7 @@ export default function DealsPage() {
             placeholder="مبلغ معامله (در صورت خالی بودن از قرارداد خوانده می‌شود)"
             value={form.deal_value}
             onChange={(e) => setForm({ ...form, deal_value: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             ثبت معامله

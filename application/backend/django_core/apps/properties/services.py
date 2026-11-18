@@ -408,11 +408,3 @@ def delete_property_media(*, user: User, agency_id: UUID, property_id: UUID, med
     deleted, _ = PropertyMedia.objects.filter(id=media_id, property=prop).delete()
     if not deleted:
         raise NotFoundDomainError("فایل رسانه یافت نشد.")
-
-
-@transaction.atomic
-def increment_property_view_count(*, property_id: UUID) -> None:
-    """Atomic F()-increment بدون نیاز به lock."""
-    Property.objects.all_tenants().filter(id=property_id).update(
-        view_count=models.F("view_count") + 1
-    )

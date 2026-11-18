@@ -202,14 +202,14 @@ export default function CrmPipelinePage() {
             <button
               type="button"
               onClick={() => setTaskModal(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200"
             >
               وظیفه جدید
             </button>
             <button
               type="button"
               onClick={() => setIntModal(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200"
             >
               <MessageSquare className="h-4 w-4" />
               ثبت تماس/یادداشت
@@ -221,7 +221,7 @@ export default function CrmPipelinePage() {
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
 
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         {[
           { key: "pipeline", label: "پایپ‌لاین مشتریان" },
           { key: "tasks", label: "وظایف پیگیری و تعاملات" },
@@ -234,7 +234,7 @@ export default function CrmPipelinePage() {
             className={`h-9 rounded-lg border px-4 text-xs font-semibold transition-colors ${
               tab === t.key
                 ? "border-teal-700 bg-teal-700 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             }`}
           >
             {t.label}
@@ -253,11 +253,11 @@ export default function CrmPipelinePage() {
                 return (
                   <div
                     key={st.id}
-                    className="w-72 shrink-0 rounded-xl border border-slate-200 bg-white p-3.5"
+                    className="w-72 shrink-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5"
                   >
-                    <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="text-xs font-bold text-slate-900">{st.name}</span>
-                      <span className="tabular-nums rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                    <div className="mb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{st.name}</span>
+                      <span className="tabular-nums rounded bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                         {cards.length}
                       </span>
                     </div>
@@ -266,16 +266,16 @@ export default function CrmPipelinePage() {
                         <p className="py-4 text-center text-[11px] text-slate-400">خالی</p>
                       ) : (
                         cards.map((card) => (
-                          <div key={card.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-                            <div className="text-xs font-bold text-slate-900">{card.customer_name}</div>
+                          <div key={card.id} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2">
+                            <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{card.customer_name}</div>
                             {card.property_title && (
-                              <div className="text-[11px] text-teal-800">{card.property_title}</div>
+                              <div className="text-[11px] text-teal-800 dark:text-teal-300">{card.property_title}</div>
                             )}
-                            {card.notes && <div className="text-[11px] text-slate-600">{card.notes}</div>}
+                            {card.notes && <div className="text-[11px] text-slate-600 dark:text-slate-400">{card.notes}</div>}
                             <select
                               value={card.stage}
                               onChange={(e) => moveStageMut.mutate({ itemId: card.id, stageId: e.target.value })}
-                              className="h-8 w-full rounded border border-slate-300 bg-white px-2 text-[11px]"
+                              className="h-8 w-full rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-[11px]"
                             >
                               {(stagesQ.data || []).map((opt) => (
                                 <option key={opt.id} value={opt.id}>
@@ -297,14 +297,14 @@ export default function CrmPipelinePage() {
 
       {tab === "tasks" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h3 className="mb-4 text-sm font-bold text-slate-900">وظایف پیگیری مشتریان</h3>
-            <div className="divide-y divide-slate-100">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <h3 className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">وظایف پیگیری مشتریان</h3>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {(tasksQ.data || []).map((tk) => (
                 <div key={tk.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
-                    <div className="text-xs font-bold text-slate-900">{tk.title}</div>
-                    <div className="mt-0.5 text-[11px] text-slate-500">
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{tk.title}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                       مشتری: {tk.customer_name} — سررسید: <DateDisplay value={tk.due_at} />
                     </div>
                   </div>
@@ -326,18 +326,18 @@ export default function CrmPipelinePage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <h3 className="mb-4 text-sm font-bold text-slate-900">تاریخچه تماس‌ها و یادداشت‌ها</h3>
-            <div className="divide-y divide-slate-100">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+            <h3 className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">تاریخچه تماس‌ها و یادداشت‌ها</h3>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {(interactionsQ.data || []).map((it) => (
                 <div key={it.id} className="py-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-900">{it.customer_name}</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100">{it.customer_name}</span>
                     <span className="text-[11px] text-slate-400">
                       <DateDisplay value={it.created_at} withTime />
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">{it.summary}</p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{it.summary}</p>
                 </div>
               ))}
             </div>
@@ -347,49 +347,49 @@ export default function CrmPipelinePage() {
 
       {tab === "matching" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:grid-cols-4">
             <input
               value={matchForm.target_city}
               onChange={(e) => setMatchForm({ ...matchForm, target_city: e.target.value })}
               placeholder="شهر"
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
             <input
               value={matchForm.districts}
               onChange={(e) => setMatchForm({ ...matchForm, districts: e.target.value })}
               placeholder="مناطق (با کاما)"
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
             <input
               type="number"
               value={matchForm.min_budget}
               onChange={(e) => setMatchForm({ ...matchForm, min_budget: e.target.value })}
               placeholder="حداقل بودجه"
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
             />
             <input
               type="number"
               value={matchForm.max_budget}
               onChange={(e) => setMatchForm({ ...matchForm, max_budget: e.target.value })}
               placeholder="حداکثر بودجه"
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {(matchingQ.data || []).map((m) => (
-              <div key={m.id} className="rounded-xl border border-slate-200 bg-white p-4">
+              <div key={m.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-slate-500">{m.property_code}</span>
-                  <span className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-800 border border-teal-200 tabular-nums">
+                  <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{m.property_code}</span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-xs font-bold text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800/70 tabular-nums">
                     <Sparkles className="h-3.5 w-3.5" />
                     امتیاز تطبیق: {m.match_score}٪
                   </span>
                 </div>
-                <h4 className="mt-2 text-sm font-bold text-slate-900">{m.title}</h4>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
+                <h4 className="mt-2 text-sm font-bold text-slate-900 dark:text-slate-100">{m.title}</h4>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
                   <span>{m.district}</span>
-                  <MoneyDisplay amount={m.total_price} className="font-bold text-slate-900" />
+                  <MoneyDisplay amount={m.total_price} className="font-bold text-slate-900 dark:text-slate-100" />
                 </div>
               </div>
             ))}
@@ -409,7 +409,7 @@ export default function CrmPipelinePage() {
             required
             value={pipeForm.customer_id}
             onChange={(e) => setPipeForm({ ...pipeForm, customer_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مشتری...</option>
             {(customersQ.data || []).map((c) => (
@@ -422,7 +422,7 @@ export default function CrmPipelinePage() {
             required
             value={pipeForm.stage_id}
             onChange={(e) => setPipeForm({ ...pipeForm, stage_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مرحله...</option>
             {(stagesQ.data || []).map((s) => (
@@ -436,7 +436,7 @@ export default function CrmPipelinePage() {
             placeholder="یادداشت"
             value={pipeForm.notes}
             onChange={(e) => setPipeForm({ ...pipeForm, notes: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-sm"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             ثبت در پایپ‌لاین
@@ -456,7 +456,7 @@ export default function CrmPipelinePage() {
             required
             value={taskForm.customer_id}
             onChange={(e) => setTaskForm({ ...taskForm, customer_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مشتری...</option>
             {(customersQ.data || []).map((c) => (
@@ -470,13 +470,13 @@ export default function CrmPipelinePage() {
             placeholder="عنوان پیگیری"
             value={taskForm.title}
             onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             type="datetime-local"
             value={taskForm.due_at}
             onChange={(e) => setTaskForm({ ...taskForm, due_at: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             ذخیره وظیفه
@@ -496,7 +496,7 @@ export default function CrmPipelinePage() {
             required
             value={intForm.customer_id}
             onChange={(e) => setIntForm({ ...intForm, customer_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مشتری...</option>
             {(customersQ.data || []).map((c) => (
@@ -511,7 +511,7 @@ export default function CrmPipelinePage() {
             placeholder="خلاصه تماس یا جلسه..."
             value={intForm.summary}
             onChange={(e) => setIntForm({ ...intForm, summary: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-sm"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             ثبت تعامل

@@ -58,9 +58,9 @@ export default function AgentsDirectoryPage() {
         actions={
           <Link
             href="/dashboard/team"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
-            <Award className="h-4 w-4 text-teal-700" />
+            <Award className="h-4 w-4 text-teal-700 dark:text-teal-400" />
             مدیریت تیم و نقش‌ها
           </Link>
         }

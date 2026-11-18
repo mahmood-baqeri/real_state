@@ -120,7 +120,7 @@ export default function EmployeesHrPage() {
         searchPlaceholder="جستجو در کد پرسنلی یا نام..."
         columns={[
           { key: "code", header: "کد پرسنلی", render: (e) => <span className="font-mono text-xs">{e.employee_code}</span> },
-          { key: "name", header: "نام و سمت", render: (e) => <div><div className="font-semibold">{e.full_name}</div><div className="text-xs text-slate-500">{e.job_title}</div></div> },
+          { key: "name", header: "نام و سمت", render: (e) => <div><div className="font-semibold">{e.full_name}</div><div className="text-xs text-slate-500 dark:text-slate-400">{e.job_title}</div></div> },
           { key: "hire", header: "تاریخ استخدام", render: (e) => <DateDisplay value={e.hire_date} /> },
           {
             key: "salary",
@@ -146,7 +146,7 @@ export default function EmployeesHrPage() {
               <button
                 type="button"
                 onClick={() => setPlanTarget(e)}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <Sliders className="h-3.5 w-3.5" />
                 تغییر طرح حقوق
@@ -168,7 +168,7 @@ export default function EmployeesHrPage() {
             required
             value={empForm.membership_id}
             onChange={(e) => setEmpForm({ ...empForm, membership_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب عضو آژانس...</option>
             {(membersQ.data || []).map((m) => (
@@ -182,14 +182,14 @@ export default function EmployeesHrPage() {
             placeholder="کد پرسنلی (مثال: EMP-105)"
             value={empForm.employee_code}
             onChange={(e) => setEmpForm({ ...empForm, employee_code: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
           <input
             required
             placeholder="عنوان شغلی"
             value={empForm.job_title}
             onChange={(e) => setEmpForm({ ...empForm, job_title: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <div className="grid grid-cols-2 gap-3">
             <input
@@ -197,7 +197,7 @@ export default function EmployeesHrPage() {
               placeholder="حقوق پایه (تومان)"
               value={empForm.base_salary}
               onChange={(e) => setEmpForm({ ...empForm, base_salary: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
             />
             <input
               type="number"
@@ -205,7 +205,7 @@ export default function EmployeesHrPage() {
               placeholder="ضریب پورسانت"
               value={empForm.commission_multiplier}
               onChange={(e) => setEmpForm({ ...empForm, commission_multiplier: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
             />
           </div>
           <button
@@ -233,7 +233,7 @@ export default function EmployeesHrPage() {
           <select
             value={planForm.model_type}
             onChange={(e) => setPlanForm({ ...planForm, model_type: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="FIXED_SALARY">حقوق ثابت</option>
             <option value="COMMISSION_ONLY">فقط پورسانتی</option>
@@ -244,7 +244,7 @@ export default function EmployeesHrPage() {
             placeholder="حقوق پایه جدید (تومان)"
             value={planForm.base_salary}
             onChange={(e) => setPlanForm({ ...planForm, base_salary: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
           />
           <input
             type="number"
@@ -252,7 +252,7 @@ export default function EmployeesHrPage() {
             placeholder="ضریب پورسانت"
             value={planForm.commission_multiplier}
             onChange={(e) => setPlanForm({ ...planForm, commission_multiplier: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
           />
           <button
             type="submit"

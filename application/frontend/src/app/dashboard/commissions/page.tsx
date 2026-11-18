@@ -143,7 +143,7 @@ export default function CommissionsPage() {
               <button
                 type="button"
                 onClick={() => setPolicyModal(true)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200"
               >
                 <Plus className="h-4 w-4" />
                 تعرفه جدید
@@ -163,9 +163,9 @@ export default function CommissionsPage() {
         error={commQ.error instanceof Error ? commQ.error.message : null}
         searchPlaceholder="جستجو در کد معامله یا ملک..."
         columns={[
-          { key: "deal", header: "معامله", render: (c) => <div><div className="font-mono text-xs font-semibold">{c.deal_code}</div><div className="text-xs text-slate-500">{c.property_title}</div></div> },
+          { key: "deal", header: "معامله", render: (c) => <div><div className="font-mono text-xs font-semibold">{c.deal_code}</div><div className="text-xs text-slate-500 dark:text-slate-400">{c.property_title}</div></div> },
           { key: "gross", header: "کمیسیون ناخالص", render: (c) => <MoneyDisplay amount={c.gross_commission} sourceCurrency={c.currency} /> },
-          { key: "net", header: "خالص قابل تقسیم", render: (c) => <MoneyDisplay amount={c.net_distributable} sourceCurrency={c.currency} className="font-bold text-teal-800" /> },
+          { key: "net", header: "خالص قابل تقسیم", render: (c) => <MoneyDisplay amount={c.net_distributable} sourceCurrency={c.currency} className="font-bold text-teal-800 dark:text-teal-300" /> },
           {
             key: "shares",
             header: "سهم ذی‌نفعان",
@@ -173,7 +173,7 @@ export default function CommissionsPage() {
               <div className="space-y-1 text-xs">
                 {c.shares.map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-3">
-                    <span className="text-slate-600">{s.beneficiary_name}:</span>
+                    <span className="text-slate-600 dark:text-slate-400">{s.beneficiary_name}:</span>
                     <MoneyDisplay amount={s.calculated_amount} sourceCurrency={c.currency} className="font-semibold" />
                   </div>
                 ))}
@@ -213,15 +213,15 @@ export default function CommissionsPage() {
         ]}
       />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h3 className="mb-3 text-sm font-bold text-slate-900">تعرفه‌های فعال کمیسیون آژانس</h3>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <h3 className="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100">تعرفه‌های فعال کمیسیون آژانس</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {(policiesQ.data || []).map((pol) => (
-            <div key={pol.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 text-xs space-y-1">
-              <div className="font-bold text-slate-900">{pol.name}</div>
-              <div className="text-slate-500">نوع معامله: {pol.deal_type_name}</div>
+            <div key={pol.id} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3.5 text-xs space-y-1">
+              <div className="font-bold text-slate-900 dark:text-slate-100">{pol.name}</div>
+              <div className="text-slate-500 dark:text-slate-400">نوع معامله: {pol.deal_type_name}</div>
               {pol.versions[0] && (
-                <div className="pt-1 text-slate-700 tabular-nums">
+                <div className="pt-1 text-slate-700 dark:text-slate-300 tabular-nums">
                   نرخ کل: {pol.versions[0].gross_rate_percent}% | سهم مشاور: {pol.versions[0].primary_agent_percent}%
                 </div>
               )}
@@ -243,12 +243,12 @@ export default function CommissionsPage() {
             placeholder="نام تعرفه (مثال: تعرفه فروش ۱٪)"
             value={polForm.name}
             onChange={(e) => setPolForm({ ...polForm, name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <select
             value={polForm.deal_type_id}
             onChange={(e) => setPolForm({ ...polForm, deal_type_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="SALE">فروش</option>
             <option value="MORTGAGE_RENT">رهن و اجاره</option>
@@ -260,21 +260,21 @@ export default function CommissionsPage() {
               value={polForm.gross_rate_percent}
               onChange={(e) => setPolForm({ ...polForm, gross_rate_percent: e.target.value })}
               placeholder="نرخ کل %"
-              className="h-10 rounded-lg border border-slate-300 px-2 text-xs tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-2 text-xs tabular-nums"
             />
             <input
               type="number"
               value={polForm.agency_house_percent}
               onChange={(e) => setPolForm({ ...polForm, agency_house_percent: e.target.value })}
               placeholder="سهم آژانس %"
-              className="h-10 rounded-lg border border-slate-300 px-2 text-xs tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-2 text-xs tabular-nums"
             />
             <input
               type="number"
               value={polForm.primary_agent_percent}
               onChange={(e) => setPolForm({ ...polForm, primary_agent_percent: e.target.value })}
               placeholder="سهم مشاور %"
-              className="h-10 rounded-lg border border-slate-300 px-2 text-xs tabular-nums"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-2 text-xs tabular-nums"
             />
           </div>
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
@@ -295,7 +295,7 @@ export default function CommissionsPage() {
             required
             value={calcForm.deal_id}
             onChange={(e) => setCalcForm({ ...calcForm, deal_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب معامله...</option>
             {(dealsQ.data || []).map((d) => (
@@ -309,7 +309,7 @@ export default function CommissionsPage() {
             placeholder="تخفیف کمیسیون (اختیاری)"
             value={calcForm.discount_amount}
             onChange={(e) => setCalcForm({ ...calcForm, discount_amount: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             محاسبه و ثبت تقسیم سهم

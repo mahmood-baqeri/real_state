@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/lib/auth-context";
-import { ThemeProvider } from "@/lib/theme-provider";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ThemeProvider } from "@/lib/theme-context";
+import { ToastProvider } from "@/components/ui/ToastProvider";
+import { OfflineIndicator } from "@/components/pwa/PWAInstallButton";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -14,18 +15,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 15_000,
             retry: 1,
-            refetchOnWindowFocus: false,
           },
         },
       })
   );
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            {children}
+            <OfflineIndicator />
+          </AuthProvider>
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

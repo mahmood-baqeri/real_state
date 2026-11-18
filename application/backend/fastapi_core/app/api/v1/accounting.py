@@ -93,7 +93,9 @@ async def list_coa_endpoint(ctx: RequestContext = Depends(require_agency_context
 
 
 @router.post("/coa", status_code=201)
-async def create_coa_endpoint(body: CoaCreateBody, ctx: RequestContext = Depends(require_agency_context)):
+async def create_coa_endpoint(
+    body: CoaCreateBody, ctx: RequestContext = Depends(require_agency_context)
+):
     def _op():
         from apps.accounting.services import create_coa_account
 
@@ -114,7 +116,9 @@ async def list_journal_entries_endpoint(
         from common.pagination import paginate_queryset
 
         qs = list_journal_entries(user=ctx.user, agency_id=ctx.agency_id)
-        return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_journal_entry)
+        return paginate_queryset(
+            qs, page=page, page_size=page_size, serializer_fn=_ser_journal_entry
+        )
 
     items, meta = await run_django(_op, agency_id=ctx.agency_id)
     return ok(items, meta=meta)
@@ -127,7 +131,9 @@ async def post_journal_entry_endpoint(
     def _op():
         from apps.accounting.services import post_journal_entry_service
 
-        je = post_journal_entry_service(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
+        je = post_journal_entry_service(
+            user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()
+        )
         return _ser_journal_entry(je)
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
@@ -140,7 +146,9 @@ async def reverse_journal_entry_endpoint(
     def _op():
         from apps.accounting.services import reverse_journal_entry_service
 
-        rev = reverse_journal_entry_service(user=ctx.user, agency_id=ctx.agency_id, entry_id=entry_id)
+        rev = reverse_journal_entry_service(
+            user=ctx.user, agency_id=ctx.agency_id, entry_id=entry_id
+        )
         return _ser_journal_entry(rev)
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
@@ -210,7 +218,9 @@ async def list_treasury_endpoint(ctx: RequestContext = Depends(require_agency_co
 
 
 @router.post("/cheques", status_code=201)
-async def create_cheque_endpoint(body: ChequeCreateBody, ctx: RequestContext = Depends(require_agency_context)):
+async def create_cheque_endpoint(
+    body: ChequeCreateBody, ctx: RequestContext = Depends(require_agency_context)
+):
     def _op():
         from apps.accounting.services import create_cheque
 
@@ -231,5 +241,75 @@ async def patch_cheque_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, cheque_id=cheque_id, status_value=body.status
         )
         return {"id": str(ch.id), "status": ch.status}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/reports/trial-balance")
+async def trial_balance_endpoint(
+    fiscal_period_id: Optional[UUID] = None,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.accounting.services import get_trial_balance
+
+        return get_trial_balance(
+            user=ctx.user, agency_id=ctx.agency_id, fiscal_period_id=fiscal_period_id
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/reports/financial-statements")
+async def financial_statements_endpoint(ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.accounting.services import get_financial_statements
+
+        return get_financial_statements(user=ctx.user, agency_id=ctx.agency_id)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/reports/general-ledger/{account_id}")
+async def general_ledger_endpoint(
+    account_id: UUID, ctx: RequestContext = Depends(require_agency_context)
+):
+    def _op():
+        from apps.accounting.services import get_general_ledger
+
+        return get_general_ledger(user=ctx.user, agency_id=ctx.agency_id, account_id=account_id)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/fiscal-periods")
+async def list_fiscal_periods_endpoint(ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.accounting.services import list_fiscal_periods
+
+        return [
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "fiscal_year_title": p.fiscal_year.title,
+                "start_date": p.start_date.isoformat(),
+                "end_date": p.end_date.isoformat(),
+                "is_closed": p.is_closed,
+            }
+            for p in list_fiscal_periods(user=ctx.user, agency_id=ctx.agency_id)
+        ]
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/fiscal-periods/{period_id}/close")
+async def close_fiscal_period_endpoint(
+    period_id: UUID, ctx: RequestContext = Depends(require_agency_context)
+):
+    def _op():
+        from apps.accounting.services import close_fiscal_period
+
+        p = close_fiscal_period(user=ctx.user, agency_id=ctx.agency_id, period_id=period_id)
+        return {"id": str(p.id), "name": p.name, "is_closed": p.is_closed}
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))

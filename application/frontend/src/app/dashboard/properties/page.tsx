@@ -85,6 +85,26 @@ export default function DashboardPropertiesPage() {
         isLoading={propsQ.isLoading}
         error={propsQ.error instanceof Error ? propsQ.error.message : null}
         onRetry={() => propsQ.refetch()}
+        exportFileName="bonyan-properties"
+        selectable
+        bulkActions={(selectedRows, clearSelection) =>
+          canPublish ? (
+            <button
+              type="button"
+              onClick={async () => {
+                for (const row of selectedRows) {
+                  if (row.status !== "PUBLISHED") {
+                    await actionMut.mutateAsync({ id: row.id, action: "publish" });
+                  }
+                }
+                clearSelection();
+              }}
+              className="rounded-lg bg-teal-700 px-3 py-1.5 font-semibold text-white hover:bg-teal-800"
+            >
+              انتشار گروهی فایل‌های انتخابی
+            </button>
+          ) : null
+        }
         searchPlaceholder="جستجو در کد ملک، عنوان یا منطقه..."
         activeFilter={statusFilter}
         onFilterChange={setStatusFilter}
@@ -118,8 +138,13 @@ export default function DashboardPropertiesPage() {
             sortValue: (p) => p.title,
             render: (p) => (
               <div>
-                <div className="font-semibold text-slate-900">{p.title}</div>
-                <div className="text-xs text-slate-500">
+                <Link
+                  href={`/dashboard/properties/${p.id}`}
+                  className="font-semibold text-slate-900 hover:text-teal-700 dark:text-slate-100 dark:hover:text-teal-400"
+                >
+                  {p.title}
+                </Link>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   {p.location?.city || "—"} {p.location?.district ? `— ${p.location.district}` : ""}
                 </div>
               </div>
@@ -131,7 +156,7 @@ export default function DashboardPropertiesPage() {
             render: (p) => (
               <div className="text-xs">
                 <div className="font-medium">{p.property_type.name_fa}</div>
-                <div className="text-slate-500">{p.deal_type.name_fa}</div>
+                <div className="text-slate-500 dark:text-slate-400">{p.deal_type.name_fa}</div>
               </div>
             ),
           },
@@ -149,7 +174,7 @@ export default function DashboardPropertiesPage() {
               p.deal_type.is_rental ? (
                 <div className="text-xs">
                   <MoneyDisplay amount={p.deposit_amount} sourceCurrency={p.currency} />
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     اجاره: <MoneyDisplay amount={p.rent_amount} sourceCurrency={p.currency} />
                   </div>
                 </div>
@@ -169,7 +194,7 @@ export default function DashboardPropertiesPage() {
               <div className="flex flex-wrap items-center gap-1.5">
                 <Link
                   href={`/dashboard/properties/${p.id}/edit`}
-                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <Edit3 className="h-3 w-3" />
                   ویرایش
@@ -194,7 +219,7 @@ export default function DashboardPropertiesPage() {
                 )}
                 <Link
                   href={`/properties/${p.id}`}
-                  className="inline-flex h-7 items-center justify-center rounded border border-slate-200 bg-slate-50 px-2 text-slate-600 hover:text-teal-700"
+                  className="inline-flex h-7 items-center justify-center rounded border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-2 text-slate-600 dark:text-slate-400 hover:text-teal-700"
                   title="نمای عمومی"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />

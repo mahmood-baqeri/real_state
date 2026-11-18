@@ -8,21 +8,31 @@ router = APIRouter(tags=["Reports & Audit Logs"])
 
 
 @router.get("/reports/dashboard")
-async def dashboard_summary_endpoint(ctx: RequestContext = Depends(get_current_context)):
+async def dashboard_summary_endpoint(
+    period_days: int = Query(default=30, ge=1, le=365),
+    ctx: RequestContext = Depends(get_current_context),
+):
     def _op():
         from apps.reports.services import get_dashboard_summary
 
-        return get_dashboard_summary(user=ctx.user, agency_id=ctx.agency_id)
+        return get_dashboard_summary(
+            user=ctx.user, agency_id=ctx.agency_id, period_days=period_days
+        )
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
 
 @router.get("/reports/analytics")
-async def analytics_endpoint(ctx: RequestContext = Depends(get_current_context)):
+async def analytics_endpoint(
+    period_days: int = Query(default=30, ge=1, le=365),
+    ctx: RequestContext = Depends(get_current_context),
+):
     def _op():
         from apps.reports.services import get_agency_analytics
 
-        return get_agency_analytics(user=ctx.user, agency_id=ctx.agency_id)
+        return get_agency_analytics(
+            user=ctx.user, agency_id=ctx.agency_id, period_days=period_days
+        )
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 

@@ -145,6 +145,13 @@ export const STATUS_LABELS_FA: Record<string, string> = {
   DONE: "انجام‌شده",
   HELD: "نزد صندوق",
   CLEARED: "وصول‌شده",
+  IN_PROGRESS: "در حال بررسی",
+  WAITING_USER: "در انتظار پاسخ کاربر",
+  RESOLVED: "حل‌شده",
+  CLOSED: "بسته‌شده",
+  ESCALATED: "ارجاع به سطح بالاتر",
+  REVIEW: "در صف بازبینی",
+  SCHEDULED: "زمان‌بندی‌شده",
 };
 
 export function translateStatus(status: string): string {

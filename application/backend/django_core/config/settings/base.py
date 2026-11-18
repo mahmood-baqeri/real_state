@@ -1,9 +1,7 @@
-# application/backend/config/settings/base.py
-
 from datetime import timedelta
 import os
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -48,6 +46,11 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.reports",
     "apps.search",
+    "apps.support",
+    "apps.complaints",
+    "apps.surveys",
+    "apps.ai_assistant",
+    "apps.cms",
 ]
 
 MIDDLEWARE = [
@@ -86,15 +89,20 @@ ASGI_APPLICATION = "config.asgi.application"
 def parse_database_url(url: str) -> dict:
     parsed = urlparse(url)
     if parsed.scheme in ("postgres", "postgresql"):
-        return {
+        query_params = {k: v[-1] for k, v in parse_qs(parsed.query).items() if v}
+        db_config = {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": parsed.path.lstrip("/"),
-            "USER": parsed.username or "",
-            "PASSWORD": parsed.password or "",
+            "NAME": unquote(parsed.path.lstrip("/")),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
             "HOST": parsed.hostname or "127.0.0.1",
             "PORT": str(parsed.port or 5432),
             "CONN_MAX_AGE": 60,
+            "CONN_HEALTH_CHECKS": True,
         }
+        if query_params:
+            db_config["OPTIONS"] = query_params
+        return db_config
     if parsed.scheme == "sqlite":
         return {
             "ENGINE": "django.db.backends.sqlite3",

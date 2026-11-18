@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, get_current_context, require_agency_context
 from app.schemas.common import ok
-from app.core import rate_limit
 
 router = APIRouter(prefix="/appointments", tags=["Viewing Appointments"])
 
@@ -69,7 +68,6 @@ async def get_appointments(
 
 
 @router.post("/request-public", status_code=201)
-# @rate_limit(scope="public_viewing_request", limit=5, window_seconds=3600)
 async def request_public(body: PublicAppointmentBody, ctx: RequestContext = Depends(get_current_context)):
     def _op():
         from apps.appointments.services import request_public_viewing

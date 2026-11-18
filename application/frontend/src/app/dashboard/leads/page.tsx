@@ -115,7 +115,7 @@ export default function LeadsPage() {
           { key: "phone", header: "شماره تماس", render: (l) => <span className="font-mono text-xs">{l.phone_number}</span> },
           { key: "req", header: "نوع تقاضا", render: (l) => l.request_type },
           { key: "src", header: "منبع", render: (l) => l.source },
-          { key: "notes", header: "یادداشت", render: (l) => <span className="text-xs text-slate-600">{l.notes || "—"}</span> },
+          { key: "notes", header: "یادداشت", render: (l) => <span className="text-xs text-slate-600 dark:text-slate-400">{l.notes || "—"}</span> },
           { key: "status", header: "وضعیت", render: (l) => <StatusText status={l.status} /> },
           { key: "dt", header: "تاریخ", render: (l) => <DateDisplay value={l.created_at} /> },
           {
@@ -151,7 +151,7 @@ export default function LeadsPage() {
             placeholder="نام کامل"
             value={form.full_name}
             onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             required
@@ -159,13 +159,13 @@ export default function LeadsPage() {
             placeholder="0912..."
             value={form.phone_number}
             onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-left font-mono text-sm"
           />
           <div className="grid grid-cols-2 gap-3">
             <select
               value={form.request_type}
               onChange={(e) => setForm({ ...form, request_type: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
             >
               <option value="BUY">خرید</option>
               <option value="RENT">اجاره</option>
@@ -174,7 +174,7 @@ export default function LeadsPage() {
             <select
               value={form.source}
               onChange={(e) => setForm({ ...form, source: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
             >
               <option value="PORTAL">پورتال</option>
               <option value="INSTAGRAM">اینستاگرام</option>
@@ -187,7 +187,7 @@ export default function LeadsPage() {
             placeholder="توضیحات تقاضا..."
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-2.5 text-sm"
           />
           <button
             type="submit"

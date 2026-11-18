@@ -5,6 +5,7 @@ export type PlatformRole = "SUPER_ADMIN" | "AGENCY_USER" | "CUSTOMER";
 export type EffectiveRole =
   | "SUPER_ADMIN"
   | "AGENCY_MANAGER"
+  | "BRANCH_MANAGER"
   | "AGENCY_ACCOUNTANT"
   | "AGENT"
   | "CUSTOMER";

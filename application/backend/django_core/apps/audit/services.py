@@ -5,8 +5,6 @@ from common.exceptions import PermissionDeniedDomainError
 from common.permissions import has_agency_permission, is_super_admin
 from .models import AuditLog
 
-from django.db import transaction
-
 
 def record_audit_event(
     *,
@@ -20,29 +18,19 @@ def record_audit_event(
     before_state: Optional[dict[str, Any]] = None,
     after_state: Optional[dict[str, Any]] = None,
     metadata: Optional[dict[str, Any]] = None,
-) -> AuditLog | None:
-    """
-    ثبت audit log فقط پس از commit موفق تراکنش اصلی.
-    اگر در محیط transaction نباشیم، مستقیم ثبت می‌شود.
-    """
-    def _create():
-        return AuditLog.objects.create(
-            action=action,
-            resource_type=resource_type,
-            resource_id=str(resource_id or ""),
-            actor=actor if (actor and getattr(actor, "is_authenticated", False)) else None,
-            agency_id=agency_id,
-            ip_address=ip_address,
-            user_agent=(user_agent or "")[:255],
-            before_state=before_state,
-            after_state=after_state,
-            metadata=metadata or {},
-        )
-
-    if transaction.get_connection().in_atomic_block:
-        transaction.on_commit(_create)
-        return None
-    return _create()
+) -> AuditLog:
+    return AuditLog.objects.create(
+        action=action,
+        resource_type=resource_type,
+        resource_id=str(resource_id or ""),
+        actor=actor if (actor and getattr(actor, "is_authenticated", False)) else None,
+        agency_id=agency_id,
+        ip_address=ip_address,
+        user_agent=(user_agent or "")[:255],
+        before_state=before_state,
+        after_state=after_state,
+        metadata=metadata or {},
+    )
 
 
 def list_audit_logs(

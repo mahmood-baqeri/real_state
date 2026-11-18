@@ -153,7 +153,7 @@ export default function NegotiationsPage() {
               return last ? (
                 <div>
                   <MoneyDisplay amount={last.proposed_price} sourceCurrency={last.currency} className="font-bold text-xs" />
-                  <div className="text-[11px] text-slate-500">نسخه {last.version_number} ({last.offered_by})</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">نسخه {last.version_number} ({last.offered_by})</div>
                 </div>
               ) : (
                 "—"
@@ -169,7 +169,7 @@ export default function NegotiationsPage() {
                 <button
                   type="button"
                   onClick={() => setOffersTarget(n)}
-                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700"
+                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium text-slate-700 dark:text-slate-300"
                 >
                   <History className="h-3.5 w-3.5" />
                   پیشنهادها ({n.offers.length})
@@ -210,7 +210,7 @@ export default function NegotiationsPage() {
             required
             value={form.property_id}
             onChange={(e) => setForm({ ...form, property_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب ملک...</option>
             {(propsQ.data || []).map((p) => (
@@ -223,7 +223,7 @@ export default function NegotiationsPage() {
             required
             value={form.customer_id}
             onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مشتری...</option>
             {(custQ.data || []).map((c) => (
@@ -237,7 +237,7 @@ export default function NegotiationsPage() {
             placeholder="قیمت پیشنهادی اولیه"
             value={form.initial_price}
             onChange={(e) => setForm({ ...form, initial_price: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             ثبت مذاکره
@@ -251,19 +251,19 @@ export default function NegotiationsPage() {
         title={`تاریخچه پیشنهادها — ${offersTarget?.property_title || ""}`}
       >
         <div className="space-y-4">
-          <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+          <div className="divide-y divide-slate-200 dark:divide-slate-800 rounded-lg border border-slate-200 dark:border-slate-800">
             {(offersTarget?.offers || []).map((o) => (
               <div key={o.id} className="flex items-center justify-between p-3 text-xs">
                 <div>
-                  <div className="font-bold text-slate-900">
+                  <div className="font-bold text-slate-900 dark:text-slate-100">
                     نسخه {o.version_number} — طرف پیشنهاد: {o.offered_by}
                   </div>
-                  <div className="text-slate-500">
+                  <div className="text-slate-500 dark:text-slate-400">
                     <DateDisplay value={o.created_at} withTime />
                   </div>
                 </div>
                 <div className="text-left">
-                  <MoneyDisplay amount={o.proposed_price} sourceCurrency={o.currency} className="font-bold text-slate-900" />
+                  <MoneyDisplay amount={o.proposed_price} sourceCurrency={o.currency} className="font-bold text-slate-900 dark:text-slate-100" />
                   <div className="mt-1">
                     <StatusText status={o.status} />
                   </div>
@@ -277,14 +277,14 @@ export default function NegotiationsPage() {
               e.preventDefault();
               addOfferMut.mutate();
             }}
-            className="space-y-3 border-t border-slate-200 pt-4"
+            className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4"
           >
-            <div className="text-xs font-bold text-slate-900">ثبت پیشنهاد متقابل جدید</div>
+            <div className="text-xs font-bold text-slate-900 dark:text-slate-100">ثبت پیشنهاد متقابل جدید</div>
             <div className="grid grid-cols-2 gap-3">
               <select
                 value={offerForm.offered_by}
                 onChange={(e) => setOfferForm({ ...offerForm, offered_by: e.target.value })}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
               >
                 <option value="BUYER">خریدار</option>
                 <option value="SELLER">مالک / فروشنده</option>
@@ -294,7 +294,7 @@ export default function NegotiationsPage() {
                 value={offerForm.proposed_price}
                 onChange={(e) => setOfferForm({ ...offerForm, proposed_price: e.target.value })}
                 placeholder="مبلغ پیشنهادی"
-                className="h-10 rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+                className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
               />
             </div>
             <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">

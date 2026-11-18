@@ -54,7 +54,7 @@ def list_contracts(*, user: User, agency_id: UUID):
         return Contract.objects.none()
     policy = get_agency_policy(agency_id)
     if policy.contract_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE:
-        if membership.role.code in ("AGENCY_MANAGER", "AGENCY_ACCOUNTANT"):
+        if membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"):
             return qs.order_by("-created_at")
     return qs.filter(
         models.Q(created_by=user) | models.Q(property__agent_assignments__membership=membership)
@@ -219,3 +219,28 @@ def close_deal_won(*, user: User, agency_id: UUID, deal_id: UUID, auto_calculate
             if ver:
                 calculate_deal_commission(deal=deal, policy_version=ver, actor=user)
     return deal
+
+
+def get_contract(*, user: User, agency_id: UUID, contract_id: UUID) -> Contract:
+    contract = (
+        list_contracts(user=user, agency_id=agency_id)
+        .prefetch_related("status_history__changed_by")
+        .filter(id=contract_id)
+        .first()
+    )
+    if not contract:
+        raise NotFoundDomainError("قرارداد یافت نشد.")
+    return contract
+
+
+def get_deal(*, user: User, agency_id: UUID, deal_id: UUID) -> Deal:
+    deal = (
+        list_deals(user=user, agency_id=agency_id)
+        .select_related("negotiation", "contract__deal_type")
+        .filter(id=deal_id)
+        .first()
+    )
+    if not deal:
+        raise NotFoundDomainError("معامله یافت نشد.")
+    return deal
+

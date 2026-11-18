@@ -452,24 +452,3 @@ async def remove_media(
         return {"deleted": True}
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
-
-
-
-@router.get("/{property_id}")
-async def get_property(property_id: UUID, ctx: RequestContext = Depends(get_optional_context)):
-    def _op():
-        from apps.properties.services import (
-            get_property_for_context,
-            increment_property_view_count,
-        )
-        prop, is_internal = get_property_for_context(
-            user=ctx.user, agency_id=ctx.agency_id, property_id=property_id
-        )
-        # ✅ افزایش شمارنده فقط برای بازدیدهای عمومی
-        if not is_internal:
-            increment_property_view_count(property_id=prop.id)
-        if is_internal:
-            return _ser_agency_property(prop, ctx.user)
-        return _ser_public_property(prop)
-
-    return ok(await run_django(_op, agency_id=ctx.agency_id))

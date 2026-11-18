@@ -7,7 +7,6 @@ from app.core.django_bridge import run_django
 from app.core.security import build_token_pair, decode_jwt_token, new_jti
 from app.dependencies.auth import RequestContext, get_current_context
 from app.schemas.common import ok
-from app.core.rate_limit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Profile"])
 
@@ -43,11 +42,6 @@ class PasswordResetConfirmBody(BaseModel):
     new_password: str = Field(min_length=8)
 
 
-class AcceptInvitationBody(BaseModel):
-    token: str
-    password: str = Field(min_length=8)
-    
-    
 class ProfilePatchBody(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -110,7 +104,6 @@ async def register(body: RegisterBody):
 
 
 @router.post("/login")
-@rate_limit(scope="auth_login", limit=10, window_seconds=60)
 async def login(body: LoginBody, request: Request):
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent", "")
@@ -176,7 +169,6 @@ async def logout(ctx: RequestContext = Depends(get_current_context)):
 
 
 @router.post("/password-reset/request")
-@rate_limit(scope="auth_pwd_reset", limit=5, window_seconds=300)
 async def password_reset_request(body: PasswordResetRequestBody):
     def _op():
         from apps.accounts.services import request_password_reset_otp
@@ -246,22 +238,5 @@ async def delete_session(session_id: UUID, ctx: RequestContext = Depends(get_cur
         if not ok_flag:
             raise HTTPException(status_code=404, detail="نشست مورد نظر یافت نشد.")
         return {"revoked": True}
-
-    return ok(await run_django(_op))
-
-
-
-@router.post("/accept-invitation")
-async def accept_invitation_endpoint(body: AcceptInvitationBody):
-    def _op():
-        from apps.accounts.services import accept_invitation, authenticate_user_credentials
-        from app.core.security import build_token_pair
-
-        user, membership = accept_invitation(token=body.token, password=body.password)
-        _, session, _ = authenticate_user_credentials(
-            phone_number=user.phone_number, password=body.password
-        )
-        tokens = build_token_pair(user=user, session=session, membership=membership)
-        return {**tokens, "user": _serialize_user(user)}
 
     return ok(await run_django(_op))

@@ -72,7 +72,7 @@ def can_view_owner_pii(user: User, agency_id, is_assigned_agent: bool) -> bool:
     membership = get_active_membership(user, agency_id)
     if membership is None:
         return False
-    if membership.role.code == "AGENCY_MANAGER":
+    if membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER"):
         return True
     policy = get_agency_policy(agency_id)
     if policy.owner_pii_visibility == AgencyAccessPolicy.OwnerPIIVisibility.MANAGERS_ONLY:
@@ -92,6 +92,8 @@ def can_edit_property(user: User, prop) -> bool:
         user, prop.agency_id, "property.edit_all_agency"
     ):
         return True
+    if membership.role.code == "BRANCH_MANAGER":
+        return membership.branch_id is None or prop.branch_id == membership.branch_id
     policy = get_agency_policy(prop.agency_id)
     is_assigned = prop.agent_assignments.filter(membership=membership).exists() or prop.created_by_id == user.id
     if policy.property_edit_scope == AgencyAccessPolicy.PropertyEditScope.ASSIGNED_ONLY:
@@ -111,6 +113,10 @@ def can_edit_customer(user: User, customer) -> bool:
         user, customer.agency_id, "customer.edit_all_agency"
     ):
         return True
+    if membership.role.code == "BRANCH_MANAGER":
+        if membership.branch_id is None or customer.assigned_membership is None:
+            return True
+        return customer.assigned_membership.branch_id == membership.branch_id
     policy = get_agency_policy(customer.agency_id)
     is_assigned = customer.assigned_membership_id == membership.id
     if policy.customer_edit_scope == AgencyAccessPolicy.CustomerEditScope.ASSIGNED_ONLY:

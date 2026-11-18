@@ -110,7 +110,7 @@ export default function AdminPlatformPage() {
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
 
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         {[
           { key: "agencies", label: "آژانس‌های املاک" },
           { key: "users", label: "کاربران پلتفرم" },
@@ -123,7 +123,7 @@ export default function AdminPlatformPage() {
             className={`h-9 rounded-lg border px-4 text-xs font-semibold transition-colors ${
               tab === item.key
                 ? "border-teal-700 bg-teal-700 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             }`}
           >
             {item.label}
@@ -200,7 +200,7 @@ export default function AdminPlatformPage() {
                       status: r.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
                     })
                   }
-                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   {r.status === "ACTIVE" ? "تعلیق کاربر" : "فعال‌سازی"}
                 </button>

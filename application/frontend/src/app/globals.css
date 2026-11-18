@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg-canvas: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --border-hairline: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --accent-primary: #0f766e;
+  --accent-secondary: #b45309;
+  color-scheme: light;
+}
+
+.dark {
+  --bg-canvas: #0b1120;
+  --bg-surface: #111827;
+  --bg-subtle: #1e293b;
+  --border-hairline: #263449;
+  --text-primary: #f1f5f9;
+  --text-muted: #94a3b8;
+  --accent-primary: #14b8a6;
+  --accent-secondary: #f59e0b;
+  color-scheme: dark;
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-feature-settings: "ss01";
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

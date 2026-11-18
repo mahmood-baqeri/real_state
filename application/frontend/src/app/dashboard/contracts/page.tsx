@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
@@ -134,12 +135,12 @@ export default function ContractsPage() {
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
 
-      <div className="flex gap-2 border-b border-slate-200 pb-3">
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         <button
           type="button"
           onClick={() => setTab("contracts")}
           className={`h-9 rounded-lg border px-4 text-xs font-semibold ${
-            tab === "contracts" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white text-slate-700"
+            tab === "contracts" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
           }`}
         >
           فهرست قراردادها
@@ -148,7 +149,7 @@ export default function ContractsPage() {
           type="button"
           onClick={() => setTab("templates")}
           className={`h-9 rounded-lg border px-4 text-xs font-semibold ${
-            tab === "templates" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white text-slate-700"
+            tab === "templates" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
           }`}
         >
           قالب‌های حقوقی آماده
@@ -162,8 +163,17 @@ export default function ContractsPage() {
           isLoading={contractsQ.isLoading}
           error={contractsQ.error instanceof Error ? contractsQ.error.message : null}
           searchPlaceholder="جستجو در شماره قرارداد یا ملک..."
+          exportFileName="contracts"
           columns={[
-            { key: "num", header: "شماره قرارداد", render: (c) => <span className="font-mono text-xs font-semibold">{c.contract_number}</span> },
+            {
+              key: "num",
+              header: "شماره قرارداد",
+              render: (c) => (
+                <Link href={`/dashboard/contracts/${c.id}`} className="font-mono text-xs font-semibold text-teal-700 dark:text-teal-400 hover:underline">
+                  {c.contract_number}
+                </Link>
+              ),
+            },
             { key: "prop", header: "ملک", render: (c) => c.property_title },
             { key: "parties", header: "طرفین", render: (c) => c.parties.map((p) => p.full_name).join(" / ") || "—" },
             { key: "amt", header: "مبلغ کل", render: (c) => <MoneyDisplay amount={c.amount} sourceCurrency={c.currency} className="font-semibold text-xs" /> },
@@ -199,12 +209,12 @@ export default function ContractsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {(templatesQ.data || []).map((t) => (
-            <div key={t.id} className="rounded-xl border border-slate-200 bg-white p-5 space-y-2">
+            <div key={t.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900">{t.title}</h3>
-                <span className="text-xs font-mono text-slate-500">{t.contract_type}</span>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{t.title}</h3>
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{t.contract_type}</span>
               </div>
-              <p className="text-xs text-slate-600 line-clamp-3">{t.body_template}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3">{t.body_template}</p>
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-900">
                 {t.legal_disclaimer}
               </div>
@@ -226,13 +236,13 @@ export default function ContractsPage() {
             placeholder="شماره قرارداد"
             value={form.contract_number}
             onChange={(e) => setForm({ ...form, contract_number: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
           <select
             required
             value={form.property_id}
             onChange={(e) => setForm({ ...form, property_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب ملک...</option>
             {(propsQ.data || []).map((p) => (
@@ -246,13 +256,13 @@ export default function ContractsPage() {
               placeholder="نام فروشنده / موجر"
               value={form.seller_name}
               onChange={(e) => setForm({ ...form, seller_name: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
             <input
               placeholder="نام خریدار / مستأجر"
               value={form.buyer_name}
               onChange={(e) => setForm({ ...form, buyer_name: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
           </div>
           <input
@@ -260,7 +270,7 @@ export default function ContractsPage() {
             placeholder="مبلغ قرارداد (تومان)"
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm tabular-nums"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
           />
           <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
             ثبت قرارداد

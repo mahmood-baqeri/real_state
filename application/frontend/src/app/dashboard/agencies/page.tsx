@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, GitMerge, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
@@ -127,7 +128,7 @@ export default function AgenciesBranchesPage() {
                 <button
                   type="button"
                   onClick={() => setCoopModal(true)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <GitMerge className="h-4 w-4" />
                   همکاری بین‌آژانسی
@@ -137,7 +138,7 @@ export default function AgenciesBranchesPage() {
             <button
               type="button"
               onClick={() => setAgencyModal(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <Building2 className="h-4 w-4" />
               ثبت آژانس جدید
@@ -151,7 +152,7 @@ export default function AgenciesBranchesPage() {
 
       {activeAgencyId && (
         <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-900">شعب آژانس فعال</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">شعب آژانس فعال</h2>
           <DataTable
             rows={branchesQ.data || []}
             rowKey={(b) => b.id}
@@ -170,7 +171,7 @@ export default function AgenciesBranchesPage() {
 
       {activeAgencyId && (
         <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-900">همکاری‌های بین‌آژانسی (Co-op)</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">همکاری‌های بین‌آژانسی (Co-op)</h2>
           <DataTable
             rows={coopsQ.data || []}
             rowKey={(c) => c.id}
@@ -212,14 +213,23 @@ export default function AgenciesBranchesPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-sm font-bold text-slate-900">فهرست آژانس‌های قابل مشاهده</h2>
+        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">فهرست آژانس‌های قابل مشاهده</h2>
         <DataTable
           rows={agenciesQ.data || []}
           rowKey={(a) => a.id}
           isLoading={agenciesQ.isLoading}
           searchPlaceholder="جستجو در نام آژانس..."
+          exportFileName="agencies"
           columns={[
-            { key: "name", header: "نام آژانس", render: (a) => <span className="font-semibold">{a.name}</span> },
+            {
+              key: "name",
+              header: "نام آژانس",
+              render: (a) => (
+                <Link href={`/dashboard/agencies/${a.id}`} className="font-semibold text-teal-700 dark:text-teal-400 hover:underline">
+                  {a.name}
+                </Link>
+              ),
+            },
             { key: "slug", header: "شناسه یکتا", render: (a) => <span className="font-mono text-xs">{a.slug}</span> },
             { key: "owner", header: "مدیر مسئول", render: (a) => a.owner_name },
             { key: "currency", header: "ارز پیش‌فرض", render: (a) => a.default_currency },
@@ -241,26 +251,26 @@ export default function AgenciesBranchesPage() {
             placeholder="نام شعبه"
             value={branchForm.name}
             onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             required
             placeholder="کد شعبه (مثال: TEH-W2)"
             value={branchForm.code}
             onChange={(e) => setBranchForm({ ...branchForm, code: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
           <input
             placeholder="شهر"
             value={branchForm.city}
             onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             placeholder="نشانی"
             value={branchForm.address}
             onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <button
             type="submit"
@@ -285,20 +295,20 @@ export default function AgenciesBranchesPage() {
             placeholder="نام رسمی آژانس"
             value={agencyForm.name}
             onChange={(e) => setAgencyForm({ ...agencyForm, name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <input
             required
             placeholder="نامک انگلیسی (slug)"
             value={agencyForm.slug}
             onChange={(e) => setAgencyForm({ ...agencyForm, slug: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
           />
           <input
             placeholder="شماره تماس"
             value={agencyForm.phone}
             onChange={(e) => setAgencyForm({ ...agencyForm, phone: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <button
             type="submit"
@@ -322,7 +332,7 @@ export default function AgenciesBranchesPage() {
             required
             value={coopForm.provider_agency_id}
             onChange={(e) => setCoopForm({ ...coopForm, provider_agency_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب آژانس مقصد...</option>
             {(agenciesQ.data || [])
@@ -339,7 +349,7 @@ export default function AgenciesBranchesPage() {
             value={coopForm.default_split_percent}
             onChange={(e) => setCoopForm({ ...coopForm, default_split_percent: e.target.value })}
             placeholder="درصد تقسیم پورسانت (مثال 50)"
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <button
             type="submit"

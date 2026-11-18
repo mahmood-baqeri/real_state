@@ -60,17 +60,21 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <PublicHeader />
       <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-12">
-        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-xs">
+        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-300">
               <KeyRound className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">بازیابی رمز عبور</h1>
-              <p className="text-xs text-slate-500">ارسال کد تایید پیامکی (SMS Adapter)</p>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                بازیابی رمز عبور
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                ارسال کد تایید پیامکی (SMS Adapter)
+              </p>
             </div>
           </div>
 
@@ -84,7 +88,7 @@ export default function ForgotPasswordPage() {
               <SuccessBanner message={doneMsg} />
               <Link
                 href="/login"
-                className="flex h-10 w-full items-center justify-center rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800"
+                className="flex h-10 w-full items-center justify-center rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 dark:bg-teal-600"
               >
                 بازگشت به صفحه ورود
               </Link>
@@ -94,20 +98,22 @@ export default function ForgotPasswordPage() {
           {!doneMsg && step === 1 && (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700">شماره موبایل</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  شماره موبایل
+                </label>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
                   dir="ltr"
                   placeholder="09121111111"
-                  className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-left font-mono text-sm text-slate-900 focus:border-teal-600 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+                className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50 dark:bg-teal-600 dark:hover:bg-teal-500"
               >
                 {loading ? "در حال ارسال..." : "ارسال کد تایید"}
               </button>
@@ -117,23 +123,27 @@ export default function ForgotPasswordPage() {
           {!doneMsg && step === 2 && (
             <form onSubmit={handleConfirmReset} className="space-y-4">
               {devOtpHint && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-200">
                   کد ارسال‌شده توسط آداپتر توسعه پیامک:{" "}
                   <span className="font-mono font-bold">{devOtpHint}</span>
                 </div>
               )}
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700">کد تایید پیامکی</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  کد تایید پیامکی
+                </label>
                 <input
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
                   required
                   dir="ltr"
-                  className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-left font-mono text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700">رمز عبور جدید</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  رمز عبور جدید
+                </label>
                 <input
                   type="password"
                   value={newPassword}
@@ -141,21 +151,24 @@ export default function ForgotPasswordPage() {
                   required
                   minLength={8}
                   dir="ltr"
-                  className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+                  className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-left font-mono text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+                className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50 dark:bg-teal-600 dark:hover:bg-teal-500"
               >
                 {loading ? "در حال ثبت..." : "تایید و تغییر رمز عبور"}
               </button>
             </form>
           )}
 
-          <div className="mt-5 border-t border-slate-200 pt-4 text-center text-xs">
-            <Link href="/login" className="font-medium text-slate-600 hover:text-teal-700">
+          <div className="mt-5 border-t border-slate-200 pt-4 text-center text-xs dark:border-slate-800">
+            <Link
+              href="/login"
+              className="font-medium text-slate-600 hover:text-teal-700 dark:text-slate-400 dark:hover:text-teal-400"
+            >
               بازگشت به صفحه ورود
             </Link>
           </div>

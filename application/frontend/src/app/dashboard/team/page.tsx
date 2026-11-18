@@ -171,7 +171,7 @@ export default function TeamMembersPage() {
               <select
                 value={m.role_code}
                 onChange={(e) => patchMemberMut.mutate({ id: m.id, role_code: e.target.value })}
-                className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium"
+                className="h-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium"
               >
                 {(rolesQ.data?.roles || []).map((r) => (
                   <option key={r.code} value={r.code}>
@@ -191,7 +191,7 @@ export default function TeamMembersPage() {
                 <button
                   type="button"
                   onClick={() => openOverrides(m)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <ShieldAlert className="h-3.5 w-3.5 text-amber-700" />
                   استثنای دسترسی ({m.overrides?.length || 0})
@@ -204,7 +204,7 @@ export default function TeamMembersPage() {
                       status: m.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
                     })
                   }
-                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   {m.status === "ACTIVE" ? "تعلیق" : "فعال"}
                 </button>
@@ -228,14 +228,14 @@ export default function TeamMembersPage() {
               placeholder="نام"
               value={form.first_name}
               onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
             <input
               required
               placeholder="نام خانوادگی"
               value={form.last_name}
               onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
           </div>
           <input
@@ -244,7 +244,7 @@ export default function TeamMembersPage() {
             placeholder="0912..."
             value={form.phone_number}
             onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-left font-mono text-sm"
           />
           <input
             type="password"
@@ -252,12 +252,12 @@ export default function TeamMembersPage() {
             placeholder="رمز عبور اولیه (اختیاری)"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-left font-mono text-sm"
           />
           <select
             value={form.role_code}
             onChange={(e) => setForm({ ...form, role_code: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             {(rolesQ.data?.roles || []).map((r) => (
               <option key={r.code} value={r.code}>
@@ -268,7 +268,7 @@ export default function TeamMembersPage() {
           <select
             value={form.branch_id}
             onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">بدون شعبه خاص</option>
             {(branchesQ.data || []).map((b) => (
@@ -299,10 +299,10 @@ export default function TeamMembersPage() {
             return (
               <div
                 key={p.code}
-                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2"
               >
                 <div>
-                  <div className="text-xs font-semibold text-slate-900">{p.description}</div>
+                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100">{p.description}</div>
                   <div className="font-mono text-[11px] text-slate-400">{p.code}</div>
                 </div>
                 <select
@@ -313,7 +313,7 @@ export default function TeamMembersPage() {
                       [p.code]: e.target.value as "ALLOW" | "DENY" | "INHERIT",
                     })
                   }
-                  className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs"
+                  className="h-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs"
                 >
                   <option value="INHERIT">پیروی از نقش</option>
                   <option value="ALLOW">مجاز (ALLOW)</option>

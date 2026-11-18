@@ -24,7 +24,7 @@ def list_negotiations(*, user: User, agency_id: UUID):
         return Negotiation.objects.none()
     policy = get_agency_policy(agency_id)
     if policy.negotiation_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE:
-        if membership.role.code in ("AGENCY_MANAGER", "AGENCY_ACCOUNTANT"):
+        if membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"):
             return qs.order_by("-created_at")
     return qs.filter(agent_membership=membership).order_by("-created_at")
 

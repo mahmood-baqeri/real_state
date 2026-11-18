@@ -232,6 +232,66 @@ async def create_deal_endpoint(body: DealCreateBody, ctx: RequestContext = Depen
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
 
+@router.get("/contracts/{contract_id}")
+async def get_contract_endpoint(contract_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.contracts.services import get_contract
+
+        c = get_contract(user=ctx.user, agency_id=ctx.agency_id, contract_id=contract_id)
+        data = _ser_contract(c)
+        data["payment_method"] = c.payment_method
+        data["terms_snapshot"] = c.terms_snapshot
+        data["template_title"] = c.template.title if c.template else None
+        data["history"] = [
+            {
+                "id": str(h.id),
+                "from_status": h.from_status,
+                "to_status": h.to_status,
+                "reason": h.reason,
+                "changed_by_name": h.changed_by.full_name if h.changed_by else "سیستم",
+                "created_at": h.created_at.isoformat(),
+            }
+            for h in c.status_history.order_by("-created_at")
+        ]
+        return data
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/deals/{deal_id}")
+async def get_deal_endpoint(deal_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.contracts.services import get_deal
+
+        d = get_deal(user=ctx.user, agency_id=ctx.agency_id, deal_id=deal_id)
+        data = _ser_deal(d)
+        ledger = getattr(d, "financial_ledger", None)
+        comm = getattr(d, "commission", None)
+        data["ledger"] = (
+            {
+                "deal_amount": str(ledger.deal_amount),
+                "total_received": str(ledger.total_received),
+                "total_paid": str(ledger.total_paid),
+                "receivable_balance": str(ledger.receivable_balance),
+            }
+            if ledger
+            else None
+        )
+        data["commission"] = (
+            {
+                "id": str(comm.id),
+                "gross_commission": str(comm.gross_commission),
+                "net_distributable": str(comm.net_distributable),
+                "status": comm.status,
+            }
+            if comm
+            else None
+        )
+        return data
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
 @router.post("/deals/{deal_id}/close")
 async def close_deal_endpoint(
     deal_id: UUID,
@@ -250,3 +310,4 @@ async def close_deal_endpoint(
         return _ser_deal(d)
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
+

@@ -206,7 +206,7 @@ export default function RolesAndPolicyPage() {
               <button
                 type="button"
                 onClick={() => setRoleModal(true)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <Plus className="h-4 w-4" />
                 تعریف نقش سفارشی
@@ -224,26 +224,26 @@ export default function RolesAndPolicyPage() {
       ) : policyQ.error instanceof Error ? (
         <ErrorState message={policyQ.error.message} onRetry={() => policyQ.refetch()} />
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-            <Shield className="h-5 w-5 text-teal-700" />
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <div className="mb-4 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <Shield className="h-5 w-5 text-teal-700 dark:text-teal-400" />
             <div>
-              <h2 className="text-sm font-bold text-slate-900">ماتریس سیاست‌های ۱۰گانه آژانس (AgencyAccessPolicy)</h2>
-              <p className="text-xs text-slate-500">این تنظیمات مستقیماً بر تمام استعلام‌ها و لایه FastAPI/Django اعمال می‌شوند.</p>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">ماتریس سیاست‌های ۱۰گانه آژانس (AgencyAccessPolicy)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">این تنظیمات مستقیماً بر تمام استعلام‌ها و لایه FastAPI/Django اعمال می‌شوند.</p>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {POLICY_FIELDS.map((field) => (
-              <div key={field.key} className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+              <div key={field.key} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4 space-y-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-900">{field.label}</label>
-                  <p className="mt-0.5 text-[11px] text-slate-500">{field.description}</p>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-100">{field.label}</label>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{field.description}</p>
                 </div>
                 <select
                   disabled={!canManage}
                   value={(policyState[field.key] as string) || ""}
                   onChange={(e) => setPolicyState({ ...policyState, [field.key]: e.target.value })}
-                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-800"
+                  className="h-9 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-medium text-slate-800 dark:text-slate-200"
                 >
                   {field.options.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -257,16 +257,16 @@ export default function RolesAndPolicyPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-        <h2 className="text-sm font-bold text-slate-900">نقش‌های تعریف‌شده در آژانس</h2>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">نقش‌های تعریف‌شده در آژانس</h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {(rolesQ.data?.roles || []).map((r) => (
-            <div key={r.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+            <div key={r.id} className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-slate-900">{r.name}</span>
-                <span className="font-mono text-xs text-slate-500">{r.code}</span>
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{r.name}</span>
+                <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{r.code}</span>
               </div>
-              <div className="text-xs text-slate-600">
+              <div className="text-xs text-slate-600 dark:text-slate-400">
                 تعداد مجوزها: <span className="font-semibold tabular-nums">{r.permissions.length}</span> مجوز
                 {r.is_system_role ? " (نقش سیستمی)" : " (نقش سفارشی)"}
               </div>
@@ -289,24 +289,24 @@ export default function RolesAndPolicyPage() {
               placeholder="کد انگلیسی نقش (مثال: SENIOR_AGENT)"
               value={roleForm.code}
               onChange={(e) => setRoleForm({ ...roleForm, code: e.target.value.toUpperCase() })}
-              className="h-10 rounded-lg border border-slate-300 px-3 font-mono text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
             />
             <input
               required
               placeholder="نام فارسی نقش (مثال: مشاور ارشد)"
               value={roleForm.name}
               onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-              className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700">انتخاب مجوزهای نقش</label>
-            <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 p-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">انتخاب مجوزهای نقش</label>
+            <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800 p-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(rolesQ.data?.permissions || []).map((p) => {
                 const checked = roleForm.permission_codes.includes(p.code);
                 return (
-                  <label key={p.code} className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+                  <label key={p.code} className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -320,7 +320,7 @@ export default function RolesAndPolicyPage() {
                     />
                     <span>
                       <span className="font-mono text-[11px] font-semibold">{p.code}</span>
-                      <span className="block text-[11px] text-slate-500">{p.description}</span>
+                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">{p.description}</span>
                     </span>
                   </label>
                 );

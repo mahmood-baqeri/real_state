@@ -35,3 +35,37 @@ class NotificationMessage(BaseModel):
     class Meta:
         db_table = "notifications_message"
         ordering = ["-created_at"]
+
+
+class PushSubscription(BaseModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions"
+    )
+    agency = models.ForeignKey(
+        "agencies.Agency", null=True, blank=True, on_delete=models.CASCADE
+    )
+    endpoint = models.CharField(max_length=500, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    device_label = models.CharField(max_length=120, blank=True, default="Web Browser")
+    is_active = models.BooleanField(default=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "notifications_push_subscription"
+        ordering = ["-created_at"]
+
+
+class NotificationPreference(BaseModel):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_preference"
+    )
+    in_app_enabled = models.BooleanField(default=True)
+    push_enabled = models.BooleanField(default=True)
+    sms_enabled = models.BooleanField(default=True)
+    email_enabled = models.BooleanField(default=True)
+    quiet_hours_start = models.CharField(max_length=5, blank=True, default="")
+    quiet_hours_end = models.CharField(max_length=5, blank=True, default="")
+
+    class Meta:
+        db_table = "notifications_preference"

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, FileSpreadsheet, Plus, Wallet } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, Plus, Printer, Wallet } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { PayrollCycleItem } from "@/lib/types";
@@ -114,8 +114,8 @@ export default function PayrollPage() {
             header: "عنوان دوره",
             render: (c) => (
               <div>
-                <div className="font-semibold text-slate-900">{c.title}</div>
-                <div className="mt-0.5 text-xs text-slate-500">
+                <div className="font-semibold text-slate-900 dark:text-slate-100">{c.title}</div>
+                <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   <DateDisplay value={c.period_start} /> تا <DateDisplay value={c.period_end} />
                 </div>
               </div>
@@ -131,7 +131,7 @@ export default function PayrollPage() {
             header: "جمع خالص پرداختی",
             render: (c) => {
               const sum = c.payslips.reduce((acc, p) => acc + (Number(p.net_payable) || 0), 0);
-              return <MoneyDisplay amount={sum} sourceCurrency="IRT" className="font-bold text-teal-800" />;
+              return <MoneyDisplay amount={sum} sourceCurrency="IRT" className="font-bold text-teal-800 dark:text-teal-300" />;
             },
           },
           { key: "status", header: "وضعیت", render: (c) => <StatusText status={c.status} /> },
@@ -143,7 +143,7 @@ export default function PayrollPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCycle(c)}
-                  className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <FileSpreadsheet className="h-3.5 w-3.5" />
                   مشاهده فیش‌ها
@@ -183,33 +183,33 @@ export default function PayrollPage() {
           className="space-y-3"
         >
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">عنوان دوره</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">عنوان دوره</label>
             <input
               required
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">تاریخ شروع بازه (میلادی)</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">تاریخ شروع بازه (میلادی)</label>
               <input
                 required
                 type="date"
                 value={form.period_start}
                 onChange={(e) => setForm({ ...form, period_start: e.target.value })}
-                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">تاریخ پایان بازه (میلادی)</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">تاریخ پایان بازه (میلادی)</label>
               <input
                 required
                 type="date"
                 value={form.period_end}
                 onChange={(e) => setForm({ ...form, period_end: e.target.value })}
-                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
               />
             </div>
           </div>
@@ -231,41 +231,51 @@ export default function PayrollPage() {
       >
         {selectedCycle && (
           <div className="space-y-4">
+            <div className="flex items-center justify-end print:hidden">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                چاپ فیش‌های حقوقی
+              </button>
+            </div>
             {selectedCycle.payslips.length === 0 ? (
-              <p className="text-sm text-slate-500">هیچ فیش حقوقی در این دوره ایجاد نشده است.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">هیچ فیش حقوقی در این دوره ایجاد نشده است.</p>
             ) : (
               selectedCycle.payslips.map((ps) => (
-                <div key={ps.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                <div key={ps.id} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
                     <div>
-                      <div className="font-bold text-slate-900">{ps.employee_name}</div>
-                      <div className="font-mono text-xs text-slate-500">کد پرسنلی: {ps.employee_code}</div>
+                      <div className="font-bold text-slate-900 dark:text-slate-100">{ps.employee_name}</div>
+                      <div className="font-mono text-xs text-slate-500 dark:text-slate-400">کد پرسنلی: {ps.employee_code}</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <MoneyDisplay amount={ps.net_payable} sourceCurrency="IRT" className="text-base font-bold text-teal-800" />
+                      <MoneyDisplay amount={ps.net_payable} sourceCurrency="IRT" className="text-base font-bold text-teal-800 dark:text-teal-300" />
                       <StatusText status={ps.status} />
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div className="rounded bg-white p-2 border border-slate-200">
-                      <div className="text-slate-500">حقوق ثابت</div>
+                    <div className="rounded bg-white dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800">
+                      <div className="text-slate-500 dark:text-slate-400">حقوق ثابت</div>
                       <MoneyDisplay amount={ps.base_salary_amount} sourceCurrency="IRT" className="font-semibold" />
                     </div>
-                    <div className="rounded bg-white p-2 border border-slate-200">
-                      <div className="text-slate-500">کمیسیون تسویه‌نشده</div>
+                    <div className="rounded bg-white dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800">
+                      <div className="text-slate-500 dark:text-slate-400">کمیسیون تسویه‌نشده</div>
                       <MoneyDisplay amount={ps.commission_amount} sourceCurrency="IRT" className="font-semibold text-emerald-800" />
                     </div>
-                    <div className="rounded bg-white p-2 border border-slate-200">
-                      <div className="text-slate-500">کسورات و مالیات</div>
+                    <div className="rounded bg-white dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800">
+                      <div className="text-slate-500 dark:text-slate-400">کسورات و مالیات</div>
                       <MoneyDisplay amount={ps.tax_amount} sourceCurrency="IRT" className="font-semibold text-rose-800" />
                     </div>
                   </div>
                   {ps.items.length > 0 && (
                     <div className="space-y-1 pt-1 text-xs">
                       {ps.items.map((it) => (
-                        <div key={it.id} className="flex items-center justify-between text-slate-600">
+                        <div key={it.id} className="flex items-center justify-between text-slate-600 dark:text-slate-400">
                           <span>{it.description} ({it.item_type})</span>
-                          <MoneyDisplay amount={it.amount} sourceCurrency="IRT" className="font-medium text-slate-900" />
+                          <MoneyDisplay amount={it.amount} sourceCurrency="IRT" className="font-medium text-slate-900 dark:text-slate-100" />
                         </div>
                       ))}
                     </div>

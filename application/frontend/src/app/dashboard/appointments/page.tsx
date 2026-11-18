@@ -181,7 +181,7 @@ export default function AppointmentsPage() {
             required
             value={form.property_id}
             onChange={(e) => setForm({ ...form, property_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب ملک...</option>
             {(propsQ.data || []).map((p) => (
@@ -194,7 +194,7 @@ export default function AppointmentsPage() {
             required
             value={form.customer_id}
             onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="">انتخاب مشتری...</option>
             {(custQ.data || []).map((c) => (
@@ -205,21 +205,21 @@ export default function AppointmentsPage() {
           </select>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">شروع</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">شروع</label>
               <input
                 type="datetime-local"
                 value={form.scheduled_start}
                 onChange={(e) => setForm({ ...form, scheduled_start: e.target.value })}
-                className="h-10 w-full rounded-lg border border-slate-300 px-2 text-xs"
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-2 text-xs"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">پایان</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">پایان</label>
               <input
                 type="datetime-local"
                 value={form.scheduled_end}
                 onChange={(e) => setForm({ ...form, scheduled_end: e.target.value })}
-                className="h-10 w-full rounded-lg border border-slate-300 px-2 text-xs"
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-2 text-xs"
               />
             </div>
           </div>

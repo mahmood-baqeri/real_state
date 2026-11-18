@@ -1,0 +1,2 @@
+-r django_core/requirements.txt
+-r fastapi/requirements.txt

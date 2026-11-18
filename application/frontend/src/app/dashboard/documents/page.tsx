@@ -118,7 +118,7 @@ export default function DocumentsVaultPage() {
             header: "عنوان سند",
             render: (d) => (
               <div className="flex items-center gap-2 font-semibold">
-                <FileText className="h-4 w-4 text-teal-700" />
+                <FileText className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                 {d.title}
               </div>
             ),
@@ -139,7 +139,7 @@ export default function DocumentsVaultPage() {
               <button
                 type="button"
                 onClick={() => downloadMut.mutate(d.id)}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <Download className="h-3.5 w-3.5" />
                 دریافت فایل
@@ -162,12 +162,12 @@ export default function DocumentsVaultPage() {
             placeholder="عنوان سند (مثال: تصویر سند تک‌برگ پنت‌هاوس زعفرانیه)"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
           />
           <select
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="DEED">سند مالکیت</option>
             <option value="CONTRACT">قرارداد</option>
@@ -177,7 +177,7 @@ export default function DocumentsVaultPage() {
           <select
             value={form.access_level}
             onChange={(e) => setForm({ ...form, access_level: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
           >
             <option value="AGENCY_INTERNAL">داخلی آژانس</option>
             <option value="CONFIDENTIAL">محرمانه (فقط مدیر و حسابدار)</option>
@@ -187,7 +187,7 @@ export default function DocumentsVaultPage() {
             dir="ltr"
             value={form.file_key}
             onChange={(e) => setForm({ ...form, file_key: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-left font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-left font-mono text-sm"
           />
           <button
             type="submit"
