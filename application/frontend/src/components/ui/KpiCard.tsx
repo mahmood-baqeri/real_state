@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/KpiCard.tsx
-
 import React from "react";
 
 interface KpiCardProps {

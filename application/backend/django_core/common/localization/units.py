@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/localization/units.py
-
 from decimal import Decimal, ROUND_HALF_UP
 
 AREA_UNIT_TO_SQM = {

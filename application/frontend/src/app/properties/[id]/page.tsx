@@ -1,5 +1,3 @@
-// Path: frontend/src/app/properties/[id]/page.tsx
-
 "use client";
 
 import React, { useState } from "react";
@@ -12,6 +10,7 @@ import {
   Building2,
   Calendar,
   Check,
+  History,
   MapPin,
   Maximize2,
   Shield,
@@ -19,9 +18,14 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { formatArea, formatMoney, formatNumberFa } from "@/lib/formatters";
-import type { PropertyItem } from "@/lib/types";
+import type { PropertyItem, PropertyTimelineEvent } from "@/lib/types";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PropertyCard } from "@/components/properties/PropertyCard";
+import { PropertyGalleryLightbox } from "@/components/ui/PropertyGalleryLightbox";
+import { InteractiveMap } from "@/components/ui/InteractiveMap";
+import { TrendLineChart } from "@/components/ui/AnalyticsCharts";
+import { DateDisplay } from "@/components/ui/DateDisplay";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildResidenceJsonLd } from "@/lib/seo";
@@ -50,6 +54,18 @@ export default function PropertyDetailPage() {
       });
       return env.data;
     },
+  });
+
+  const timelineQ = useQuery({
+    queryKey: ["property-timeline", params.id, accessToken],
+    enabled: !!property,
+    queryFn: async () =>
+      (
+        await apiFetch<PropertyTimelineEvent[]>(`/api/v1/properties/${params.id}/timeline`, {
+          token: accessToken,
+          agencyId: activeAgencyId,
+        })
+      ).data,
   });
 
   const handleBookViewing = async (e: React.FormEvent) => {
@@ -109,13 +125,10 @@ export default function PropertyDetailPage() {
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             {/* Main Details */}
             <div className="space-y-6 lg:col-span-8">
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                <img
-                  src={property.media_items?.[0]?.url || "/images/prop-zafaranieh.jpg"}
-                  alt={property.title}
-                  className="aspect-[16/9] w-full object-cover"
-                />
-              </div>
+              <PropertyGalleryLightbox
+                title={property.title}
+                mediaItems={property.media_items || []}
+              />
 
               <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
@@ -187,24 +200,144 @@ export default function PropertyDetailPage() {
                 )}
 
                 {property.amenities && property.amenities.length > 0 && (
-                  <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
-                    <h2 className="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100">
-                      امکانات و تجهیزات
+                  <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800 space-y-3">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      امکانات و تجهیزات دسته‌بندی‌شده
                     </h2>
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                      {property.amenities.map((am) => (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {Array.from(
+                        property.amenities.reduce((acc, am) => {
+                          const cat = am.category_name_fa || "سایر امکانات";
+                          const list = acc.get(cat) || [];
+                          list.push(am);
+                          acc.set(cat, list);
+                          return acc;
+                        }, new Map<string, typeof property.amenities>())
+                      ).map(([catName, list]) => (
                         <div
-                          key={am.code}
-                          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                          key={catName}
+                          className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-800/40"
                         >
-                          <Check className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
-                          {am.name_fa}
+                          <div className="mb-2 text-xs font-bold text-teal-700 dark:text-teal-400">
+                            {catName}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {list.map((am) => {
+                              const extraVal = am.value_number
+                                ? `${formatNumberFa(am.value_number)} ${am.unit_label || ""}`.trim()
+                                : am.value_text;
+                              return (
+                                <div
+                                  key={am.code}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                >
+                                  <Check className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
+                                  <span>{am.name_fa}</span>
+                                  {extraVal && (
+                                    <span className="font-mono text-[11px] font-bold text-teal-700 dark:text-teal-300">
+                                      ({extraVal})
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
+
+              {property.location?.latitude && property.location?.longitude && (
+                <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <MapPin className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                      موقعیت مکانی روی نقشه
+                    </h2>
+                    {property.location.hide_exact_address && (
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        نمایش محدوده تقریبی جهت حفظ حریم خصوصی
+                      </span>
+                    )}
+                  </div>
+                  <InteractiveMap
+                    center={[Number(property.location.latitude), Number(property.location.longitude)]}
+                    zoom={14}
+                    heightClass="h-[280px]"
+                    markers={[
+                      {
+                        id: property.id,
+                        title: property.title,
+                        subtitle: `${property.location.city}${
+                          property.location.district ? `، ${property.location.district}` : ""
+                        }`,
+                        coverUrl: property.media_items?.[0]?.url || null,
+                        priceText: property.deal_type.is_rental
+                          ? `رهن ${formatMoney(property.deposit_amount, property.currency, currencyMode)}`
+                          : formatMoney(property.total_price, property.currency, currencyMode),
+                        lat: Number(property.location.latitude),
+                        lng: Number(property.location.longitude),
+                        hideExactAddress: property.location.hide_exact_address,
+                      },
+                    ]}
+                  />
+                </div>
+              )}
+
+              {property.price_history && property.price_history.length > 0 && (
+                <TrendLineChart
+                  title="تاریخچه تغییرات قیمت ملک"
+                  subtitle="روند به‌روزرسانی قیمت ثبت‌شده در سیستم"
+                  primaryLabel="قیمت ثبت‌شده"
+                  valueFormatter={(v) => formatMoney(v, property.currency, currencyMode)}
+                  points={property.price_history.map((ph, idx) => ({
+                    label: `#${formatNumberFa(idx + 1)}`,
+                    primary: Number(ph.new_price) || 0,
+                  }))}
+                />
+              )}
+
+              {timelineQ.data && timelineQ.data.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                  <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                    <History className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                    خط زمانی وضعیت و رویدادهای ملک
+                  </h2>
+                  <div className="space-y-3 border-r-2 border-slate-200 pr-4 dark:border-slate-800">
+                    {timelineQ.data.map((ev) => (
+                      <div key={ev.id} className="space-y-0.5 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            {ev.title}
+                          </span>
+                          <DateDisplay
+                            value={ev.occurred_at}
+                            className="text-[11px] text-slate-500 dark:text-slate-400"
+                          />
+                        </div>
+                        {ev.detail && (
+                          <p className="text-slate-600 dark:text-slate-400">{ev.detail}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {property.related_properties && property.related_properties.length > 0 && (
+                <div className="space-y-4">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    فایل‌های مشابه پیشنهادی
+                  </h2>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {property.related_properties.map((rp, idx) => (
+                      <PropertyCard key={rp.id} property={rp} index={idx} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Sidebar Pricing & Viewing Booking */}

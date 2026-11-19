@@ -1,10 +1,11 @@
-# Path: backend/django_core/apps/settings/seeding.py
-
+import os
 import uuid
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any, Callable, Optional
 from django.apps import apps as dj_apps
+from django.conf import settings
+from django.core.management.base import CommandError
 from django.db import transaction
 from django.utils import timezone
 
@@ -67,7 +68,7 @@ from apps.customers.models import Customer, CustomerRequirement, CustomerShare
 from apps.documents.models import Document, DocumentDownloadLog, DocumentVersion
 from apps.employees.models import CompensationPlan, EmployeeProfile
 from apps.leads.models import Lead
-from apps.negotiations.models import Negotiation, NegotiationOfferVersion
+from apps.negotiations.models import Negotiation, NegotiationActivity, NegotiationOfferVersion
 from apps.notifications.models import (
     NotificationMessage,
     NotificationPreference,
@@ -77,9 +78,11 @@ from apps.payments.models import PaymentGatewayTransaction
 from apps.payroll.models import PayrollCycle, Payslip, PayslipLineItem
 from apps.properties.models import (
     Amenity,
+    AmenityCategory,
     DealType,
     Property,
     PropertyAgentAssignment,
+    PropertyAmenityValue,
     PropertyLocation,
     PropertyOwner,
     PropertyPriceHistory,
@@ -87,8 +90,18 @@ from apps.properties.models import (
     PropertyType,
 )
 from apps.property_media.models import PropertyMedia
-from apps.search.models import SavedSearch
-from apps.settings.models import Country, Currency, PlatformSetting, ProviderConfiguration
+from apps.reports.models import DashboardLayout, ImportJob, OnboardingProgress
+from apps.search.models import SavedSearch, SavedView
+from apps.settings.models import (
+    City,
+    Country,
+    Currency,
+    District,
+    Neighborhood,
+    PlatformSetting,
+    ProviderConfiguration,
+    Province,
+)
 from apps.subscriptions.models import AgencySubscription, SubscriptionPlan
 from apps.support.models import (
     CannedReply,
@@ -99,6 +112,28 @@ from apps.support.models import (
 )
 from apps.surveys.models import Survey, SurveyAnswer, SurveyQuestion, SurveyResponse
 from apps.transactions.models import Deal
+
+
+DEMO_PHONES = [
+    "09120000001",
+    "09121111111",
+    "09123333333",
+    "09125555555",
+    "09122222222",
+    "09126666666",
+    "09124444444",
+    "09127777777",
+    "09128888888",
+]
+
+DEMO_AGENCY_SLUGS = ["pars-negin", "arya-home"]
+
+
+def assert_non_production_environment() -> None:
+    env_name = os.environ.get("DJANGO_ENV", os.environ.get("ENV", "")).strip().lower()
+    settings_mod = os.environ.get("DJANGO_SETTINGS_MODULE", "").strip().lower()
+    if env_name == "production" or settings_mod.endswith("production"):
+        raise CommandError("اجرای دستورات داده آزمایشی در محیط Production مجاز نیست.")
 
 
 def _ensure_user(
@@ -153,6 +188,7 @@ def seed_all_platform_data(
     log_fn: Optional[Callable[[str], None]] = None,
     verify_all: bool = True,
 ) -> dict[str, Any]:
+    assert_non_production_environment()
     now = timezone.now()
 
     def _log(msg: str) -> None:
@@ -222,7 +258,118 @@ def seed_all_platform_data(
             key=key, defaults={"value_json": val, "description": desc}
         )
 
-    # 2. Catalog Types & Amenities
+    # 1.5 Hierarchical Geography (Province -> City -> District -> Neighborhood)
+    prov_tehran, _ = Province.objects.get_or_create(
+        country_id="IR",
+        name_fa="تهران",
+        defaults={"code": "TEH", "name_en": "Tehran", "slug": "prov-tehran", "center_lat": Decimal("35.689200"), "center_lng": Decimal("51.389000"), "sort_order": 1},
+    )
+    prov_alborz, _ = Province.objects.get_or_create(
+        country_id="IR",
+        name_fa="البرز",
+        defaults={"code": "ALB", "name_en": "Alborz", "slug": "prov-alborz", "center_lat": Decimal("35.832700"), "center_lng": Decimal("50.991500"), "sort_order": 2},
+    )
+    prov_isfahan, _ = Province.objects.get_or_create(
+        country_id="IR",
+        name_fa="اصفهان",
+        defaults={"code": "ISF", "name_en": "Isfahan", "slug": "prov-isfahan", "center_lat": Decimal("32.653900"), "center_lng": Decimal("51.666000"), "sort_order": 3},
+    )
+    prov_fars, _ = Province.objects.get_or_create(
+        country_id="IR",
+        name_fa="فارس",
+        defaults={"code": "FRS", "name_en": "Fars", "slug": "prov-fars", "center_lat": Decimal("29.591800"), "center_lng": Decimal("52.583700"), "sort_order": 4},
+    )
+    prov_khorasan, _ = Province.objects.get_or_create(
+        country_id="IR",
+        name_fa="خراسان رضوی",
+        defaults={"code": "KHR", "name_en": "Razavi Khorasan", "slug": "prov-khorasan", "center_lat": Decimal("36.297200"), "center_lng": Decimal("59.606700"), "sort_order": 5},
+    )
+    prov_mazandaran, _ = Province.objects.get_or_create(
+        country_id="IR",
+        name_fa="مازندران",
+        defaults={"code": "MZN", "name_en": "Mazandaran", "slug": "prov-mazandaran", "center_lat": Decimal("36.565900"), "center_lng": Decimal("53.058600"), "sort_order": 6},
+    )
+
+    city_tehran, _ = City.objects.get_or_create(
+        province=prov_tehran,
+        name_fa="تهران",
+        defaults={"name_en": "Tehran", "slug": "city-tehran", "center_lat": Decimal("35.757500"), "center_lng": Decimal("51.410000"), "sort_order": 1},
+    )
+    city_lavasan, _ = City.objects.get_or_create(
+        province=prov_tehran,
+        name_fa="لواسان",
+        defaults={"name_en": "Lavasan", "slug": "city-lavasan", "center_lat": Decimal("35.821100"), "center_lng": Decimal("51.630500"), "sort_order": 2},
+    )
+    city_karaj, _ = City.objects.get_or_create(
+        province=prov_alborz,
+        name_fa="کرج",
+        defaults={"name_en": "Karaj", "slug": "city-karaj", "center_lat": Decimal("35.832700"), "center_lng": Decimal("50.991500"), "sort_order": 1},
+    )
+    city_isfahan, _ = City.objects.get_or_create(
+        province=prov_isfahan,
+        name_fa="اصفهان",
+        defaults={"name_en": "Isfahan", "slug": "city-isfahan", "center_lat": Decimal("32.653900"), "center_lng": Decimal("51.666000"), "sort_order": 1},
+    )
+    city_shiraz, _ = City.objects.get_or_create(
+        province=prov_fars,
+        name_fa="شیراز",
+        defaults={"name_en": "Shiraz", "slug": "city-shiraz", "center_lat": Decimal("29.591800"), "center_lng": Decimal("52.583700"), "sort_order": 1},
+    )
+    city_mashhad, _ = City.objects.get_or_create(
+        province=prov_khorasan,
+        name_fa="مشهد",
+        defaults={"name_en": "Mashhad", "slug": "city-mashhad", "center_lat": Decimal("36.297200"), "center_lng": Decimal("59.606700"), "sort_order": 1},
+    )
+    city_sari, _ = City.objects.get_or_create(
+        province=prov_mazandaran,
+        name_fa="نوشهر",
+        defaults={"name_en": "Nowshahr", "slug": "city-nowshahr", "center_lat": Decimal("36.649000"), "center_lng": Decimal("51.496200"), "sort_order": 1},
+    )
+
+    district_defs = [
+        (city_tehran, "زعفرانیه", "Zafaranieh", Decimal("35.804120"), Decimal("51.416530"), 1, [("آصف", "Asef"), ("مقدس اردبیلی", "Moghaddas Ardabili"), ("ماکویی‌پور", "Makouipour")]),
+        (city_tehran, "فرشته", "Fereshteh", Decimal("35.792400"), Decimal("51.423900"), 2, [("بوسنی هرزگوین", "Bosnia"), ("مریم غربی", "Maryam Gharbi"), ("چناران", "Chenaran")]),
+        (city_tehran, "نیاوران", "Niavaran", Decimal("35.816500"), Decimal("51.459200"), 3, [("جماران", "Jamaran"), ("کاشانک", "Kashanak"), ("صاحبقرانیه", "Sahebgharanieh")]),
+        (city_tehran, "سعادت‌آباد", "Saadat Abad", Decimal("35.781200"), Decimal("51.375400"), 4, [("کاج", "Kaj"), ("صرافها", "Sarrafha"), ("علامه", "Allameh")]),
+        (city_tehran, "الهیه", "Elahieh", Decimal("35.790100"), Decimal("51.428500"), 5, [("مریم شرقی", "Maryam Sharghi"), ("تختی", "Takhti")]),
+        (city_tehran, "ولنجک", "Velenjak", Decimal("35.807200"), Decimal("51.400500"), 6, [("بلوار دانشجو", "Daneshjoo"), ("ساسان", "Sasan")]),
+        (city_tehran, "شهرک غرب", "Shahrak Gharb", Decimal("35.758000"), Decimal("51.372000"), 7, [("فاز یک", "Phase 1"), ("دادمان", "Dadman")]),
+        (city_tehran, "لواسان", "Lavasan", Decimal("35.821100"), Decimal("51.630500"), 8, [("سبو بزرگ", "Saboo"), ("گلندوک", "Golandook")]),
+        (city_karaj, "مهرشهر", "Mehrshahr", Decimal("35.802000"), Decimal("50.913000"), 1, [("بلوار ارم", "Eram"), ("فاز دو", "Phase 2")]),
+        (city_isfahan, "مرداویج", "Mardavij", Decimal("32.628500"), Decimal("51.662000"), 1, [("شیخ کلینی", "Sheikh Koleini")]),
+        (city_shiraz, "معالی‌آباد", "Maali Abad", Decimal("29.669000"), Decimal("52.473000"), 1, [("دوستاران", "Doostaran")]),
+        (city_mashhad, "وکیل‌آباد", "Vakil Abad", Decimal("36.322000"), Decimal("59.495000"), 1, [("هاشمیه", "Hashemieh")]),
+    ]
+    geo_districts: dict[str, District] = {}
+    geo_neighborhoods: dict[str, Neighborhood] = {}
+    for city_obj, d_fa, d_en, d_lat, d_lng, d_ord, nbrs in district_defs:
+        dist_obj, _ = District.objects.get_or_create(
+            city=city_obj,
+            name_fa=d_fa,
+            defaults={
+                "name_en": d_en,
+                "slug": f"dist-{d_en.lower().replace(' ', '-')}",
+                "center_lat": d_lat,
+                "center_lng": d_lng,
+                "sort_order": d_ord,
+            },
+        )
+        geo_districts[d_fa] = dist_obj
+        for n_idx, (n_fa, n_en) in enumerate(nbrs, start=1):
+            nbr_obj, _ = Neighborhood.objects.get_or_create(
+                district=dist_obj,
+                name_fa=n_fa,
+                defaults={
+                    "name_en": n_en,
+                    "slug": f"nbr-{n_en.lower().replace(' ', '-')}",
+                    "center_lat": d_lat,
+                    "center_lng": d_lng,
+                    "sort_order": n_idx,
+                },
+            )
+            geo_neighborhoods[f"{d_fa}:{n_fa}"] = nbr_obj
+
+    # 2. Catalog Types & Categorized Extensible Amenities
     apt_type, _ = PropertyType.objects.get_or_create(
         code="APARTMENT", defaults={"name_fa": "آپارتمان", "name_en": "Apartment"}
     )
@@ -245,25 +392,75 @@ def seed_all_platform_data(
         defaults={"name_fa": "رهن و اجاره", "name_en": "Mortgage & Rent", "is_rental": True},
     )
 
+    cat_defs = [
+        ("GENERAL_BUILDING", "امکانات عمومی ساختمان", "Building Essentials", "building", 1),
+        ("INTERIOR_LUXURY", "امکانات داخلی واحد", "Interior & Finishes", "sparkles", 2),
+        ("WELFARE_RECREATION", "امکانات رفاهی و مشاعات", "Welfare & Recreation", "waves", 3),
+        ("SECURITY_SAFETY", "امکانات امنیتی و ایمنی", "Security & Safety", "shield", 4),
+        ("ACCESS_PARKING", "پارکینگ و دسترسی", "Parking & Access", "car", 5),
+        ("SMART_TECH", "تجهیزات هوشمند و فنی", "Smart & Technical", "cpu", 6),
+        ("SPECIAL_FEATURES", "ویژگی‌های شاخص ملک", "Special Features", "star", 7),
+    ]
+    amenity_cats = {}
+    for code, nfa, nen, icon, ord_no in cat_defs:
+        cat_obj, _ = AmenityCategory.objects.update_or_create(
+            code=code,
+            defaults={"name_fa": nfa, "name_en": nen, "icon_name": icon, "sort_order": ord_no, "is_active": True},
+        )
+        amenity_cats[code] = cat_obj
+
     amenities_data = [
-        ("PARKING", "پارکینگ", "Parking"),
-        ("ELEVATOR", "آسانسور", "Elevator"),
-        ("STORAGE", "انباری", "Storage"),
-        ("BALCONY", "بالکن", "Balcony"),
-        ("POOL", "استخر", "Pool"),
-        ("SMART_HOME", "هوشمندسازی", "Smart Home"),
+        ("ELEVATOR", "GENERAL_BUILDING", "آسانسور", "Elevator", Amenity.ValueType.INTEGER, "لاین", [], 1),
+        ("STORAGE", "GENERAL_BUILDING", "انباری سندی", "Storage", Amenity.ValueType.BOOLEAN, "", [], 2),
+        ("BALCONY", "GENERAL_BUILDING", "تراس / بالکن قابل چیدمان", "Balcony", Amenity.ValueType.INTEGER, "عدد", [], 3),
+        ("LOBBY", "GENERAL_BUILDING", "لابی مجلل", "Lobby", Amenity.ValueType.BOOLEAN, "", [], 4),
+        ("LOBBY_CONCIERGE", "GENERAL_BUILDING", "لابی‌من ۲۴ ساعته", "24/7 Concierge", Amenity.ValueType.BOOLEAN, "", [], 5),
+        ("MEETING_HALL", "GENERAL_BUILDING", "سالن اجتماعات", "Meeting Hall", Amenity.ValueType.BOOLEAN, "", [], 6),
+        ("HEATING_SYSTEM", "INTERIOR_LUXURY", "سیستم گرمایش", "Heating System", Amenity.ValueType.CHOICE, "", ["داکت اسپلیت", "چیلر مرکزی", "شوفاژ پکیج", "گرمایش از کف"], 10),
+        ("COOLING_SYSTEM", "INTERIOR_LUXURY", "سیستم سرمایش", "Cooling System", Amenity.ValueType.CHOICE, "", ["چیلر مرکزی", "داکت اسپلیت", "اسپلیت", "کولر آبی"], 11),
+        ("KITCHEN_CABINETS", "INTERIOR_LUXURY", "کابینت آشپزخانه", "Cabinets", Amenity.ValueType.CHOICE, "", ["ممبران کلاسیک", "های‌گلاس", "انزو", "چوب طبیعی"], 12),
+        ("MASTER_BEDROOM", "INTERIOR_LUXURY", "اتاق خواب مستر", "Master Suite", Amenity.ValueType.INTEGER, "خواب", [], 13),
+        ("LAUNDRY_ROOM", "INTERIOR_LUXURY", "لاندری روم", "Laundry Room", Amenity.ValueType.BOOLEAN, "", [], 14),
+        ("FIREPLACE", "INTERIOR_LUXURY", "شومینه", "Fireplace", Amenity.ValueType.BOOLEAN, "", [], 15),
+        ("POOL", "WELFARE_RECREATION", "استخر، سونا و جکوزی", "Pool & Spa", Amenity.ValueType.BOOLEAN, "", [], 20),
+        ("GYM", "WELFARE_RECREATION", "باشگاه بدنسازی اختصاصی", "Gym", Amenity.ValueType.BOOLEAN, "", [], 21),
+        ("ROOF_GARDEN", "WELFARE_RECREATION", "روف‌گاردن چهارفصل", "Roof Garden", Amenity.ValueType.BOOLEAN, "", [], 22),
+        ("GAME_ROOM", "WELFARE_RECREATION", "سالن بازی و بیلیارد", "Game Room", Amenity.ValueType.BOOLEAN, "", [], 23),
+        ("CCTV", "SECURITY_SAFETY", "دوربین مداربسته", "CCTV", Amenity.ValueType.BOOLEAN, "", [], 30),
+        ("SECURITY_GUARD", "SECURITY_SAFETY", "نگهبانی ۲۴ ساعته", "24/7 Guard", Amenity.ValueType.BOOLEAN, "", [], 31),
+        ("ARMORED_DOOR", "SECURITY_SAFETY", "درب ضد سرقت", "Armored Door", Amenity.ValueType.BOOLEAN, "", [], 32),
+        ("FIRE_ALARM", "SECURITY_SAFETY", "سیستم اعلام و اطفای حریق", "Fire Suppression", Amenity.ValueType.BOOLEAN, "", [], 33),
+        ("PARKING", "ACCESS_PARKING", "پارکینگ سندی مسقف", "Covered Parking", Amenity.ValueType.INTEGER, "واحد", [], 40),
+        ("EV_CHARGER", "ACCESS_PARKING", "شارژر خودروی برقی", "EV Charger", Amenity.ValueType.BOOLEAN, "", [], 41),
+        ("HIGHWAY_ACCESS", "ACCESS_PARKING", "دسترسی سریع به اتوبان", "Highway Access", Amenity.ValueType.BOOLEAN, "", [], 42),
+        ("SMART_HOME", "SMART_TECH", "سیستم خانه هوشمند (BMS)", "Smart Home BMS", Amenity.ValueType.BOOLEAN, "", [], 50),
+        ("CENTRAL_VACUUM", "SMART_TECH", "جاروبرقی مرکزی", "Central Vacuum", Amenity.ValueType.BOOLEAN, "", [], 51),
+        ("POWER_GENERATOR", "SMART_TECH", "ژنراتور برق اضطراری", "Backup Generator", Amenity.ValueType.BOOLEAN, "", [], 52),
+        ("PANORAMIC_VIEW", "SPECIAL_FEATURES", "ویو ابدی شهر / کوهستان", "Panoramic View", Amenity.ValueType.BOOLEAN, "", [], 60),
+        ("CORNER_TWO_SIDED", "SPECIAL_FEATURES", "نورگیری دوطرفه (نبش)", "Two-Sided Light", Amenity.ValueType.BOOLEAN, "", [], 61),
     ]
     amenities = {}
-    for code, nfa, nen in amenities_data:
-        obj, _ = Amenity.objects.get_or_create(
-            code=code, defaults={"name_fa": nfa, "name_en": nen}
+    for code, cat_code, nfa, nen, vtype, unit_lbl, opts, sort_ord in amenities_data:
+        obj, _ = Amenity.objects.update_or_create(
+            code=code,
+            defaults={
+                "category": amenity_cats[cat_code],
+                "name_fa": nfa,
+                "name_en": nen,
+                "value_type": vtype,
+                "unit_label": unit_lbl,
+                "options_json": opts,
+                "sort_order": sort_ord,
+                "is_active": True,
+            },
         )
         amenities[code] = obj
 
-    # 3. Permissions & System Roles (Including BRANCH_MANAGER)
+    # 3. Permissions & System Roles (All 7 Agency/Platform Staff & Customer Roles)
     perm_codes = [
         ("agency.manage_policy", "agencies", "مدیریت سیاست‌های دسترسی آژانس"),
         ("agency.manage_branches", "agencies", "مدیریت شعب آژانس"),
+        ("property.create", "properties", "ثبت فایل ملک جدید"),
         ("property.view_all_agency", "properties", "مشاهده تمام املاک آژانس"),
         ("property.edit_all_agency", "properties", "ویرایش تمام املاک آژانس"),
         ("property.publish", "properties", "تأیید و انتشار عمومی ملک"),
@@ -293,6 +490,11 @@ def seed_all_platform_data(
         agency=None,
         defaults={"name": "مدیر شعبه", "scope": Role.Scope.AGENCY, "is_system_role": True},
     )
+    sales_mgr_role, _ = Role.objects.get_or_create(
+        code="SALES_MANAGER",
+        agency=None,
+        defaults={"name": "مدیر فروش", "scope": Role.Scope.AGENCY, "is_system_role": True},
+    )
     agent_role, _ = Role.objects.get_or_create(
         code="REAL_ESTATE_AGENT",
         agency=None,
@@ -303,6 +505,11 @@ def seed_all_platform_data(
         agency=None,
         defaults={"name": "حسابدار آژانس", "scope": Role.Scope.AGENCY, "is_system_role": True},
     )
+    support_role, _ = Role.objects.get_or_create(
+        code="SUPPORT_AGENT",
+        agency=None,
+        defaults={"name": "پشتیبان", "scope": Role.Scope.AGENCY, "is_system_role": True},
+    )
 
     for p in Permission.objects.all():
         RolePermission.objects.get_or_create(role=mgr_role, permission=p)
@@ -310,6 +517,7 @@ def seed_all_platform_data(
     for p in Permission.objects.filter(
         code__in=[
             "agency.manage_branches",
+            "property.create",
             "property.view_all_agency",
             "property.publish",
             "customer.view_all_agency",
@@ -324,6 +532,25 @@ def seed_all_platform_data(
 
     for p in Permission.objects.filter(
         code__in=[
+            "property.create",
+            "property.view_all_agency",
+            "property.edit_all_agency",
+            "property.publish",
+            "customer.view_all_agency",
+            "customer.edit_all_agency",
+            "customer.share",
+            "appointment.view_all_agency",
+            "deal.view_all_agency",
+            "commission.view_all_agency",
+        ]
+    ):
+        RolePermission.objects.get_or_create(role=sales_mgr_role, permission=p)
+
+    for p in Permission.objects.filter(code__in=["property.create"]):
+        RolePermission.objects.get_or_create(role=agent_role, permission=p)
+
+    for p in Permission.objects.filter(
+        code__in=[
             "accounting.view",
             "accounting.post",
             "commission.view_all_agency",
@@ -332,7 +559,12 @@ def seed_all_platform_data(
     ):
         RolePermission.objects.get_or_create(role=acct_role, permission=p)
 
-    # 4. All 7 Platform & Agency Demo Accounts
+    for p in Permission.objects.filter(
+        code__in=["customer.view_all_agency", "appointment.view_all_agency"]
+    ):
+        RolePermission.objects.get_or_create(role=support_role, permission=p)
+
+    # 4. All 9 Platform, Agency & Customer Demo Accounts
     super_admin = _ensure_user(
         phone_number="09120000001",
         password="Admin@12345",
@@ -367,6 +599,14 @@ def seed_all_platform_data(
         email="branch@parsnegin.ir",
         platform_role=User.PlatformRole.AGENCY_USER,
     )
+    sales_mgr = _ensure_user(
+        phone_number="09127777777",
+        password="Sales@12345",
+        first_name="مهدی",
+        last_name="اکبری",
+        email="sales@parsnegin.ir",
+        platform_role=User.PlatformRole.AGENCY_USER,
+    )
     agent_a1 = _ensure_user(
         phone_number="09122222222",
         password="Agent@12345",
@@ -383,6 +623,14 @@ def seed_all_platform_data(
         email="finance@parsnegin.ir",
         platform_role=User.PlatformRole.AGENCY_USER,
     )
+    support_user = _ensure_user(
+        phone_number="09128888888",
+        password="Support@12345",
+        first_name="زهرا",
+        last_name="محمدی",
+        email="support@parsnegin.ir",
+        platform_role=User.PlatformRole.AGENCY_USER,
+    )
     customer_user = _ensure_user(
         phone_number="09124444444",
         password="Customer@12345",
@@ -397,7 +645,9 @@ def seed_all_platform_data(
         (super_admin, "Admin Console — Chrome"),
         (mgr_a, "Manager MacBook — Safari"),
         (branch_mgr, "Branch Terminal — Edge"),
+        (sales_mgr, "Sales Cockpit — Chrome"),
         (accountant_user, "Finance Workstation — Chrome"),
+        (support_user, "Support Desk — Firefox"),
         (agent_a1, "iPhone 15 — Mobile PWA"),
         (customer_user, "Public Portal — Web Browser"),
     ]:
@@ -495,24 +745,30 @@ def seed_all_platform_data(
         },
     )
 
-    ProviderConfiguration.objects.get_or_create(
-        agency=None,
-        category=ProviderConfiguration.Category.PAYMENT,
-        provider_key="sandbox",
-        defaults={"display_name": "درگاه آزمایشی (Sandbox)", "is_active": True, "is_sandbox": True},
-    )
-    ProviderConfiguration.objects.get_or_create(
-        agency=None,
-        category=ProviderConfiguration.Category.SMS,
-        provider_key="console",
-        defaults={"display_name": "سرویس پیامک توسعه", "is_active": True, "is_sandbox": True},
-    )
-    ProviderConfiguration.objects.get_or_create(
-        agency=None,
-        category=ProviderConfiguration.Category.MAP,
-        provider_key="osm",
-        defaults={"display_name": "OpenStreetMap", "is_active": True, "is_sandbox": True},
-    )
+    for cat, pkey, dname, desc, prio, active, sbx, cfg_json in [
+        (ProviderConfiguration.Category.PAYMENT, "sandbox", "درگاه آزمایشی داخلی (Sandbox)", "شبیه‌سازی امن پرداخت اشتراک و تست جریان تسویه", 1, True, True, {}),
+        (ProviderConfiguration.Category.PAYMENT, "zarinpal", "درگاه زرین‌پال (Zarinpal v4)", "درگاه پرداخت رسمی ایران با پشتیبانی سندباکس", 2, True, True, {"currency": "IRR"}),
+        (ProviderConfiguration.Category.PAYMENT, "zibal", "درگاه زیبال (Zibal v1)", "درگاه پرداخت مستقیم با تسویه سریع", 3, True, True, {"currency": "IRR"}),
+        (ProviderConfiguration.Category.PAYMENT, "idpay", "درگاه آیدی‌پی (IDPay v1.1)", "درگاه پرداخت REST با پشتیبانی سندباکس", 4, False, True, {"currency": "IRR"}),
+        (ProviderConfiguration.Category.SMS, "console", "سرویس پیامک توسعه", "ثبت پیامک در لاگ داخلی در محیط توسعه", 1, True, True, {}),
+        (ProviderConfiguration.Category.MAP, "osm", "OpenStreetMap استاندارد", "لایه نقشه آزاد بین‌المللی با پشتیبانی تم روشن و تیره", 1, True, False, {}),
+        (ProviderConfiguration.Category.MAP, "carto", "CartoDB Architectural", "لایه مینیمال معماری با کنتراست بالا", 2, False, False, {}),
+        (ProviderConfiguration.Category.MAP, "neshan", "نقشه بومی نشان (Neshan)", "نقشه فارسی ویژه ایران (نیازمند API Key)", 3, False, True, {}),
+        (ProviderConfiguration.Category.AI, "gapgpt", "هوش مصنوعی GapGPT", "دروازه واحد مدل‌های GPT-4o، Claude Sonnet و Gemini", 1, True, False, {"base_url": "https://api.gapgpt.app/v1", "default_model": "gpt-4o"}),
+    ]:
+        ProviderConfiguration.objects.get_or_create(
+            agency=None,
+            category=cat,
+            provider_key=pkey,
+            defaults={
+                "display_name": dname,
+                "description": desc,
+                "priority": prio,
+                "is_active": active,
+                "is_sandbox": sbx,
+                "config_json": cfg_json,
+            },
+        )
 
     # 6. Agencies, Branches & Memberships (All 7 Roles Wired)
     agency_a, _ = Agency.objects.get_or_create(
@@ -568,6 +824,9 @@ def seed_all_platform_data(
         agency=agency_a,
         defaults={"role": branch_mgr_role, "branch": branch_a2},
     )
+    mem_sales_mgr, _ = AgencyMembership.objects.get_or_create(
+        user=sales_mgr, agency=agency_a, defaults={"role": sales_mgr_role, "branch": branch_a}
+    )
     mem_agent_a1, _ = AgencyMembership.objects.get_or_create(
         user=agent_a1, agency=agency_a, defaults={"role": agent_role, "branch": branch_a}
     )
@@ -575,6 +834,9 @@ def seed_all_platform_data(
         user=accountant_user,
         agency=agency_a,
         defaults={"role": acct_role, "branch": branch_a},
+    )
+    mem_support, _ = AgencyMembership.objects.get_or_create(
+        user=support_user, agency=agency_a, defaults={"role": support_role, "branch": branch_a}
     )
 
     perm_pub = Permission.objects.get(code="property.publish")
@@ -862,14 +1124,30 @@ def seed_all_platform_data(
                 "created_by": agent_a1,
             },
         )
+        d_obj = geo_districts.get(item["district"])
+        n_obj = geo_neighborhoods.get(f"{item['district']}:{item['neighborhood']}")
+        c_obj = city_lavasan if item["district"] == "لواسان" else city_tehran
         if is_new:
             prop.recalculate_price_per_sqm()
             prop.save()
             prop.amenities.set(
-                [amenities["PARKING"], amenities["ELEVATOR"], amenities["STORAGE"]]
+                [
+                    amenities["PARKING"],
+                    amenities["ELEVATOR"],
+                    amenities["STORAGE"],
+                    amenities["BALCONY"],
+                    amenities["LOBBY"],
+                    amenities["CCTV"],
+                    amenities["HEATING_SYSTEM"],
+                    amenities["SMART_HOME"],
+                ]
             )
             PropertyLocation.objects.create(
                 property=prop,
+                province_ref=prov_tehran,
+                city_ref=c_obj,
+                district_ref=d_obj,
+                neighborhood_ref=n_obj,
                 province="تهران",
                 city=item["city"],
                 district=item["district"],
@@ -896,16 +1174,64 @@ def seed_all_platform_data(
             PropertyMedia.objects.filter(
                 property=prop, url__startswith="/images/prop-", url__endswith=".svg"
             ).update(url=item["img"])
+            loc_obj = getattr(prop, "location", None)
+            if loc_obj and not loc_obj.province_ref_id:
+                loc_obj.province_ref = prov_tehran
+                loc_obj.city_ref = c_obj
+                loc_obj.district_ref = d_obj
+                loc_obj.neighborhood_ref = n_obj
+                loc_obj.save()
+
+        # Ensure rich amenity attribute values exist
+        for am_code, val_txt, val_num in [
+            ("PARKING", "۲ پارکینگ سندی باکس", Decimal("2")),
+            ("ELEVATOR", "۲ لاین آسانسور KONE", Decimal("2")),
+            ("BALCONY", "تراس بزرگ قابل چیدمان", Decimal("1")),
+            ("HEATING_SYSTEM", "چیلر مرکزی", None),
+        ]:
+            PropertyAmenityValue.objects.get_or_create(
+                property=prop,
+                amenity=amenities[am_code],
+                defaults={"value_text": val_txt, "value_number": val_num},
+            )
+            prop.amenities.add(amenities[am_code])
         created_props.append(prop)
 
-    if not PropertyPriceHistory.objects.filter(property=created_props[0]).exists():
-        PropertyPriceHistory.objects.create(
-            property=created_props[0],
-            previous_price=Decimal("39500000000"),
-            new_price=created_props[0].total_price,
-            currency_code="IRT",
-            changed_by=mgr_a,
-        )
+    # Ensure rich multi-photo gallery for visual detail & lightbox experience
+    gallery_extras = [
+        "/images/prop-penthouse.jpg",
+        "/images/prop-fereshteh.jpg",
+        "/images/modern-villa-facade.jpg",
+    ]
+    for prop_obj in created_props[:3]:
+        if prop_obj.media_items.count() < 3:
+            for idx, extra_url in enumerate(gallery_extras, start=1):
+                if not prop_obj.media_items.filter(url=extra_url).exists():
+                    PropertyMedia.objects.create(
+                        property=prop_obj,
+                        url=extra_url,
+                        title=f"نمای تکمیلی {idx} — {prop_obj.property_code}",
+                        is_cover=False,
+                        is_public=True,
+                        sort_order=idx + 1,
+                    )
+
+    if PropertyPriceHistory.objects.filter(property=created_props[0]).count() < 2:
+        PropertyPriceHistory.objects.filter(property=created_props[0]).delete()
+        for prev_p, new_p, days_ago in [
+            (Decimal("41000000000"), Decimal("40200000000"), 45),
+            (Decimal("40200000000"), Decimal("39500000000"), 22),
+            (Decimal("39500000000"), created_props[0].total_price, 6),
+        ]:
+            ph = PropertyPriceHistory.objects.create(
+                property=created_props[0],
+                previous_price=prev_p,
+                new_price=new_p,
+                currency_code="IRT",
+                changed_by=mgr_a,
+            )
+            PropertyPriceHistory.objects.filter(id=ph.id).update(changed_at=now - timedelta(days=days_ago))
+
     if not PropertyStatusHistory.objects.filter(property=created_props[0]).exists():
         PropertyStatusHistory.objects.create(
             property=created_props[0],
@@ -1207,9 +1533,16 @@ def seed_all_platform_data(
         property=created_props[0],
         customer=buyer_cust,
         defaults={
+            "owner_customer": owner_cust,
             "agent_membership": mem_agent_a1,
             "deal_type": sale_deal,
-            "status": Negotiation.Status.COUNTER_OFFERED,
+            "status": Negotiation.Status.BARGAINING,
+            "asking_price": created_props[0].total_price,
+            "initial_proposed_price": Decimal("36500000000"),
+            "latest_proposed_price": Decimal("37900000000"),
+            "next_action": "جلسه جمع‌بندی قیمت نهایی با حضور مالک و خریدار",
+            "next_followup_at": now + timedelta(days=1),
+            "last_activity_at": now - timedelta(hours=3),
             "notes": "مذاکره قیمت و شرایط پرداخت دو مرحله‌ای",
         },
     )
@@ -1218,15 +1551,52 @@ def seed_all_platform_data(
             negotiation=neg,
             version_number=1,
             offered_by=NegotiationOfferVersion.OfferedBy.BUYER,
+            recipient_role="SELLER",
             proposed_price=Decimal("36500000000"),
+            notes="پیشنهاد اولیه خریدار با پرداخت ۶۰٪ نقد هنگام مبایعه‌نامه",
             status=NegotiationOfferVersion.Status.SUPERSEDED,
         )
         NegotiationOfferVersion.objects.create(
             negotiation=neg,
             version_number=2,
             offered_by=NegotiationOfferVersion.OfferedBy.SELLER,
+            recipient_role="BUYER",
             proposed_price=Decimal("37900000000"),
+            notes="پاسخ متقابل مالک در صورت تسویه ۴۵ روزه",
             status=NegotiationOfferVersion.Status.PENDING,
+        )
+    else:
+        if not neg.owner_customer_id:
+            neg.owner_customer = owner_cust
+            neg.asking_price = created_props[0].total_price
+            neg.initial_proposed_price = Decimal("36500000000")
+            neg.latest_proposed_price = Decimal("37900000000")
+            neg.status = Negotiation.Status.BARGAINING
+            neg.next_action = "جلسه جمع‌بندی قیمت نهایی با حضور مالک و خریدار"
+            neg.next_followup_at = now + timedelta(days=1)
+            neg.last_activity_at = now - timedelta(hours=3)
+            neg.save()
+
+    if not NegotiationActivity.objects.filter(negotiation=neg).exists():
+        NegotiationActivity.objects.create(
+            negotiation=neg,
+            activity_type=NegotiationActivity.ActivityType.CALL,
+            title="تماس تلفنی ارائه پیشنهاد ۳۶.۵ میلیاردی به مالک",
+            description="مالک با اصل فروش موافق است اما روی رقم ۳۷.۹ میلیارد با تسویه کوتاه‌مدت نظر دارد.",
+            outcome="پیشنهاد متقابل ثبت شد",
+            next_action="هماهنگی جلسه حضوری در شعبه زعفرانیه",
+            next_action_due_at=now + timedelta(days=1),
+            assigned_membership=mem_agent_a1,
+            created_by=agent_a1,
+        )
+        NegotiationActivity.objects.create(
+            negotiation=neg,
+            activity_type=NegotiationActivity.ActivityType.MEETING,
+            title="نشست کارشناسی بررسی شرایط چک‌های پرداختی",
+            description="توافق بر سر استعلام سند تک‌برگ پیش از امضای توافق اولیه.",
+            outcome="مثبت و رو به جلو",
+            assigned_membership=mem_agent_a1,
+            created_by=mgr_a,
         )
 
     doc, doc_new = Document.objects.all_tenants().get_or_create(
@@ -1683,9 +2053,172 @@ def seed_all_platform_data(
         },
     )
 
+    # 13. Saved Views, Dashboard Layouts, Onboarding Progress & ImportJob Samples
+    SavedView.objects.get_or_create(
+        user=mgr_a,
+        agency=agency_a,
+        module="properties",
+        title="فایل‌های در انتظار تایید",
+        defaults={
+            "filters_json": {"status": "PENDING_APPROVAL"},
+            "sort_by": "-created_at",
+            "is_default": False,
+        },
+    )
+    DashboardLayout.objects.get_or_create(
+        user=mgr_a,
+        agency=agency_a,
+        role_code="AGENCY_MANAGER",
+        defaults={
+            "widgets_json": [
+                {"id": "kpis", "title": "شاخص‌های کلیدی عملکرد", "visible": True},
+                {"id": "analytics_trend", "title": "روند فروش و درآمد آژانس", "visible": True},
+                {"id": "alerts", "title": "هشدارها و موارد فوری", "visible": True},
+                {"id": "upcoming", "title": "برنامه بازدیدها و پیگیری‌ها", "visible": True},
+                {"id": "leaderboard", "title": "رتبه‌بندی مشاوران", "visible": True},
+            ],
+            "default_period_days": 30,
+        },
+    )
+    OnboardingProgress.objects.get_or_create(
+        user=mgr_a,
+        agency=agency_a,
+        role_code="AGENCY_MANAGER",
+        defaults={"completed_steps_json": ["review_policy"], "dismissed": False},
+    )
+    ImportJob.objects.get_or_create(
+        agency=agency_a,
+        module="properties",
+        file_name="demo-tehran-listings.xlsx",
+        defaults={
+            "total_rows": 5,
+            "imported_rows": 5,
+            "duplicate_rows": 0,
+            "error_rows": 0,
+            "status": ImportJob.Status.COMPLETED,
+            "created_by": mgr_a,
+        },
+    )
+
     counts = collect_domain_model_counts()
     empty_models = [name for name, cnt in counts.items() if cnt == 0]
     _log(f"Seeded {len(counts)} domain models ({len(counts) - len(empty_models)} populated, {len(empty_models)} empty).")
     if verify_all and empty_models:
         raise RuntimeError(f"Empty domain models detected after seed_all: {empty_models}")
     return {"counts": counts, "empty_models": empty_models}
+
+
+@transaction.atomic
+def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) -> dict[str, int]:
+    """Safely removes seeded demo records only, leaving real user/agency data intact."""
+    assert_non_production_environment()
+
+    def _log(msg: str) -> None:
+        if log_fn:
+            log_fn(msg)
+
+    removed: dict[str, int] = {}
+    demo_agencies = list(Agency.objects.filter(slug__in=DEMO_AGENCY_SLUGS))
+    demo_agency_ids = [a.id for a in demo_agencies]
+    demo_users = list(User.objects.filter(phone_number__in=DEMO_PHONES))
+
+    if demo_agency_ids:
+        for model in (
+            ImportJob,
+            DashboardLayout,
+            OnboardingProgress,
+            SavedView,
+            AiInteractionLog,
+            AuditLog,
+            NotificationMessage,
+            AgencyCooperation,
+            PaymentGatewayTransaction,
+            DocumentDownloadLog,
+            Document,
+            Negotiation,
+            Lead,
+            Payslip,
+            PayrollCycle,
+            CompensationPlan,
+            EmployeeProfile,
+            DealFinancialLedger,
+            ChequeInstrument,
+            JournalEntryLine,
+            JournalEntry,
+            BankAccount,
+            CashBox,
+            CostCenter,
+            ChartOfAccount,
+            FiscalPeriod,
+            FiscalYear,
+            Deal,
+            ContractStatusHistory,
+            ContractParty,
+            Contract,
+            ContractTemplate,
+            ViewingAppointment,
+            FollowUpTask,
+            CustomerInteractionLog,
+            CustomerPipelineItem,
+            PipelineStage,
+            CustomerRequirement,
+            CustomerShare,
+            Customer,
+            PropertyPriceHistory,
+            PropertyStatusHistory,
+            PropertyAmenityValue,
+            PropertyMedia,
+            PropertyAgentAssignment,
+            PropertyOwner,
+            PropertyLocation,
+            Property,
+            AgencySubscription,
+            Branch,
+        ):
+            mgr = model.objects
+            qs = mgr.all_tenants() if hasattr(mgr, "all_tenants") else mgr.all()
+            if hasattr(model, "agency_id"):
+                cnt, _ = qs.filter(agency_id__in=demo_agency_ids).delete()
+                if cnt:
+                    removed[model.__name__] = removed.get(model.__name__, 0) + cnt
+            elif hasattr(model, "requester_agency_id"):
+                cnt, _ = qs.filter(requester_agency_id__in=demo_agency_ids).delete()
+                if cnt:
+                    removed[model.__name__] = cnt
+
+        cnt_tkt, _ = Ticket.objects.filter(agency_id__in=demo_agency_ids).delete()
+        if cnt_tkt:
+            removed["Ticket"] = cnt_tkt
+        cnt_cmp, _ = Complaint.objects.filter(agency_id__in=demo_agency_ids).delete()
+        if cnt_cmp:
+            removed["Complaint"] = cnt_cmp
+        cnt_srv, _ = Survey.objects.filter(agency_id__in=demo_agency_ids).delete()
+        if cnt_srv:
+            removed["Survey"] = cnt_srv
+
+        cnt_ag, _ = Agency.objects.filter(id__in=demo_agency_ids).delete()
+        removed["Agency"] = cnt_ag
+
+    cnt_art, _ = Article.objects.filter(
+        slug__in=[
+            "tehran-luxury-market-report-1405",
+            "real-estate-contract-checklist",
+            "double-entry-accounting-for-agencies",
+        ]
+    ).delete()
+    if cnt_art:
+        removed["Article"] = cnt_art
+
+    cnt_req, _ = ContactInquiry.objects.filter(tracking_code="REQ-1405-1001").delete()
+    if cnt_req:
+        removed["ContactInquiry"] = cnt_req
+    cnt_coop, _ = AgencyCooperationRequest.objects.filter(tracking_code="COOP-1405-1001").delete()
+    if cnt_coop:
+        removed["AgencyCooperationRequest"] = cnt_coop
+
+    if demo_users:
+        cnt_usr, _ = User.objects.filter(id__in=[u.id for u in demo_users]).delete()
+        removed["User"] = cnt_usr
+
+    _log(f"Cleared demo records across {len(removed)} entity groups.")
+    return removed

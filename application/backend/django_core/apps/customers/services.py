@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/customers/services.py
-
 from typing import Optional
 from uuid import UUID
 from django.db import models, transaction

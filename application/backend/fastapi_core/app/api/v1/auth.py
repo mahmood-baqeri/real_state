@@ -1,15 +1,10 @@
-# Path: backend/fastapi_core/app/api/v1/auth.py
-
 from typing import Optional
 from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 import jwt
 from pydantic import BaseModel, Field
-
 from app.core.django_bridge import run_django
-from app.core.rate_limit import rate_limit
-from app.core.security import build_token_pair, decode_jwt_token, new_jti
+from app.core.security import build_token_pair, decode_jwt_token, extract_client_ip, new_jti
 from app.dependencies.auth import RequestContext, get_current_context
 from app.schemas.common import ok
 
@@ -31,6 +26,11 @@ class LoginBody(BaseModel):
     phone_number: str
     password: str
     device_name: str = "Web Browser"
+    mfa_code: Optional[str] = None
+
+
+class MfaCodeBody(BaseModel):
+    code: str = Field(min_length=6, max_length=8)
 
 
 class RefreshBody(BaseModel):
@@ -55,11 +55,6 @@ class ProfilePatchBody(BaseModel):
     preferred_calendar: Optional[str] = None
     preferred_currency: Optional[str] = None
     timezone: Optional[str] = None
-
-
-class AcceptInvitationBody(BaseModel):
-    token: str
-    password: str = Field(min_length=8)
 
 
 def _serialize_user(user) -> dict:
@@ -103,8 +98,7 @@ def _serialize_user(user) -> dict:
 
 
 @router.post("/register", status_code=201)
-@rate_limit(scope="auth_register", limit=5, window_seconds=3600)
-async def register(body: RegisterBody, request: Request):
+async def register(body: RegisterBody):
     def _op():
         from apps.accounts.services import register_user
 
@@ -115,9 +109,8 @@ async def register(body: RegisterBody, request: Request):
 
 
 @router.post("/login")
-@rate_limit(scope="auth_login", limit=10, window_seconds=60)
 async def login(body: LoginBody, request: Request):
-    ip = request.client.host if request.client else None
+    ip = extract_client_ip(request.client.host if request.client else None)
     ua = request.headers.get("user-agent", "")
 
     def _op():
@@ -129,6 +122,7 @@ async def login(body: LoginBody, request: Request):
             ip_address=ip,
             user_agent=ua,
             device_name=body.device_name,
+            mfa_code=body.mfa_code,
         )
         tokens = build_token_pair(user=user, session=session, membership=membership)
         return {**tokens, "user": _serialize_user(user)}
@@ -137,8 +131,7 @@ async def login(body: LoginBody, request: Request):
 
 
 @router.post("/refresh")
-@rate_limit(scope="auth_refresh", limit=30, window_seconds=60)
-async def refresh_token(body: RefreshBody, request: Request):
+async def refresh_token(body: RefreshBody):
     try:
         payload = decode_jwt_token(body.refresh, expected_type="refresh")
     except jwt.PyJWTError as exc:
@@ -166,40 +159,63 @@ async def refresh_token(body: RefreshBody, request: Request):
     return ok(await run_django(_op))
 
 
-@router.post("/accept-invitation")
-@rate_limit(scope="auth_accept_invitation", limit=10, window_seconds=300)
-async def accept_invitation_endpoint(body: AcceptInvitationBody, request: Request):
-    def _op():
-        from apps.accounts.services import accept_invitation, authenticate_user_credentials
-
-        user, membership = accept_invitation(token=body.token, password=body.password)
-        _, session, _ = authenticate_user_credentials(
-            phone_number=user.phone_number, password=body.password
-        )
-        tokens = build_token_pair(user=user, session=session, membership=membership)
-        return {**tokens, "user": _serialize_user(user)}
-
-    return ok(await run_django(_op))
-
-
 @router.post("/logout")
 async def logout(ctx: RequestContext = Depends(get_current_context)):
     def _op():
         from django.utils import timezone
         from apps.accounts.models import UserSession
+        from apps.audit.services import record_audit_event
 
         if ctx.session_jti:
             UserSession.objects.filter(
                 user=ctx.user, jti=ctx.session_jti, revoked_at__isnull=True
             ).update(revoked_at=timezone.now())
+        record_audit_event(
+            action="USER_LOGOUT",
+            resource_type="User",
+            resource_id=str(ctx.user.id),
+            actor=ctx.user,
+            agency_id=ctx.agency_id,
+        )
         return {"logged_out": True}
 
     return ok(await run_django(_op))
 
 
+@router.post("/mfa/setup")
+async def mfa_setup(ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.accounts.services import setup_mfa_for_user
+
+        return setup_mfa_for_user(ctx.user)
+
+    return ok(await run_django(_op))
+
+
+@router.post("/mfa/enable")
+async def mfa_enable(body: MfaCodeBody, ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.accounts.services import enable_mfa_for_user
+
+        user = enable_mfa_for_user(ctx.user, body.code)
+        return {"is_mfa_enabled": user.is_mfa_enabled}
+
+    return ok(await run_django(_op))
+
+
+@router.post("/mfa/disable")
+async def mfa_disable(body: MfaCodeBody, ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.accounts.services import disable_mfa_for_user
+
+        user = disable_mfa_for_user(ctx.user, body.code)
+        return {"is_mfa_enabled": user.is_mfa_enabled}
+
+    return ok(await run_django(_op))
+
+
 @router.post("/password-reset/request")
-@rate_limit(scope="auth_pwd_reset", limit=5, window_seconds=300)
-async def password_reset_request(body: PasswordResetRequestBody, request: Request):
+async def password_reset_request(body: PasswordResetRequestBody):
     def _op():
         from apps.accounts.services import request_password_reset_otp
 
@@ -209,8 +225,7 @@ async def password_reset_request(body: PasswordResetRequestBody, request: Reques
 
 
 @router.post("/password-reset/confirm")
-@rate_limit(scope="auth_pwd_confirm", limit=10, window_seconds=300)
-async def password_reset_confirm(body: PasswordResetConfirmBody, request: Request):
+async def password_reset_confirm(body: PasswordResetConfirmBody):
     def _op():
         from apps.accounts.services import confirm_password_reset_otp
 

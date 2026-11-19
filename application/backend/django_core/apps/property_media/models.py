@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/property_media/models.py
-
 from django.db import models
 from common.models import BaseModel
 

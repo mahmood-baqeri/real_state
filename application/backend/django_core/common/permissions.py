@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/permissions.py
-
 from typing import Optional
 from apps.accounts.models import AgencyMembership, User
 from apps.agencies.models import AgencyAccessPolicy

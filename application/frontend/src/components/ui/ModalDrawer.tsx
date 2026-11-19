@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/ModalDrawer.tsx
-
 "use client";
 
 import React, { useEffect } from "react";

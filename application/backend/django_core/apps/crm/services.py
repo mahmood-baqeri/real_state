@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/crm/services.py
-
 from datetime import datetime
 from typing import Optional
 from uuid import UUID

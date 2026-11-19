@@ -1,10 +1,20 @@
-# Path: backend/fastapi_core/app/core/security.py
-
 from datetime import datetime, timedelta, timezone as dt_timezone
 from typing import Any, Optional
+import ipaddress
 import uuid
 import jwt
 from .config import settings
+
+
+def extract_client_ip(raw_host: Optional[str]) -> Optional[str]:
+    if not raw_host:
+        return None
+    if raw_host == "testclient":
+        return "127.0.0.1"
+    try:
+        return str(ipaddress.ip_address(raw_host.strip()))
+    except ValueError:
+        return None
 
 
 def build_token_pair(*, user, session, membership=None) -> dict[str, Any]:

@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/ThemeToggle.tsx
-
 "use client";
 
 import React from "react";

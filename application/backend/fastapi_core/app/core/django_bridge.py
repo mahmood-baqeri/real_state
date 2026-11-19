@@ -1,35 +1,30 @@
-# Path: backend/fastapi_core/app/core/django_bridge.py
-
 import os
 import sys
 from pathlib import Path
 from typing import Any, Callable, Optional
 from uuid import UUID
-
 import django
 from django.db import close_old_connections
 from starlette.concurrency import run_in_threadpool
-
 from .config import settings
 
 _DJANGO_INITIALIZED = False
 
 
 def init_django() -> None:
-    """
-    Idempotent Django setup for FastAPI.
-    - django_core/ را به sys.path اضافه می‌کند تا `config`, `apps`, `common` import شوند
-    - DJANGO_SETTINGS_MODULE را قبل از django.setup() ست می‌کند
-    """
     global _DJANGO_INITIALIZED
     if _DJANGO_INITIALIZED:
         return
-
     backend_path = str(Path(settings.BACKEND_DIR).resolve())
     if backend_path not in sys.path:
         sys.path.insert(0, backend_path)
 
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", settings.DJANGO_SETTINGS_MODULE)
+    if not os.environ.get("DJANGO_SETTINGS_MODULE"):
+        os.environ["DJANGO_SETTINGS_MODULE"] = (
+            "config.settings.production"
+            if os.environ.get("DJANGO_ENV") == "production"
+            else "config.settings.development"
+        )
     django.setup()
     _DJANGO_INITIALIZED = True
 
@@ -41,12 +36,10 @@ async def run_django(
     **kwargs: Any,
 ) -> Any:
     """
-    اجرای sync Django code در threadpool امن.
-    - connection lifecycle مدیریت می‌شود
-    - tenant context ست/ریست می‌شود
+    Executes synchronous Django ORM / domain service functions in FastAPI's worker
+    threadpool while guaranteeing clean connection lifecycle and tenant context reset.
     """
     init_django()
-
     from common.tenant.context import set_current_agency_id
 
     def _wrapped():

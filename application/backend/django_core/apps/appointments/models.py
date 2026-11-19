@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/appointments/models.py
-
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from common.models import TenantScopedModel

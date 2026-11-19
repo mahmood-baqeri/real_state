@@ -1,5 +1,3 @@
-// Path: frontend/src/app/features/page.tsx
-
 import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";

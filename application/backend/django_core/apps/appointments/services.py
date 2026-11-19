@@ -1,12 +1,14 @@
-# Path: backend/django_core/apps/appointments/services.py
-
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
+from apps.accounting.models import ChequeInstrument
 from apps.accounts.models import User
 from apps.audit.services import record_audit_event
+from apps.contracts.models import Contract
+from apps.crm.models import FollowUpTask
 from apps.customers.models import Customer
 from apps.properties.models import Property
 from common.exceptions import ConflictDomainError, NotFoundDomainError, ValidationDomainError
@@ -34,6 +36,80 @@ def list_appointments(*, user: User, agency_id: Optional[UUID]):
             .select_related("property", "customer", "agent_membership__user")
             .order_by("-scheduled_start")
         )
+
+
+def get_unified_calendar(*, user: User, agency_id: Optional[UUID], days_ahead: int = 30) -> list[dict]:
+    now = timezone.now()
+    start_win = now - timedelta(days=14)
+    end_win = now + timedelta(days=max(7, min(days_ahead, 120)))
+    events: list[dict] = []
+
+    appts = list_appointments(user=user, agency_id=agency_id).filter(
+        scheduled_start__gte=start_win, scheduled_start__lte=end_win
+    )
+    for a in appts[:50]:
+        events.append({
+            "id": f"appt-{a.id}",
+            "event_type": "VIEWING",
+            "title": f"بازدید: {a.property.title}",
+            "subtitle": f"مشتری: {a.customer.full_name} — مشاور: {a.agent_membership.user.full_name}",
+            "start_at": a.scheduled_start.isoformat(),
+            "end_at": a.scheduled_end.isoformat(),
+            "status": a.status,
+            "href": "/dashboard/appointments",
+        })
+
+    if agency_id:
+        membership = get_active_membership(user, agency_id)
+        task_qs = FollowUpTask.objects.all_tenants().filter(
+            agency_id=agency_id, due_at__gte=start_win, due_at__lte=end_win
+        ).select_related("customer", "assigned_membership__user")
+        if not is_super_admin(user) and not has_agency_permission(user, agency_id, "customer.view_all_agency") and membership:
+            task_qs = task_qs.filter(assigned_membership=membership)
+        for t in task_qs[:40]:
+            events.append({
+                "id": f"task-{t.id}",
+                "event_type": "TASK",
+                "title": f"پیگیری: {t.title}",
+                "subtitle": f"مشتری: {t.customer.full_name}",
+                "start_at": t.due_at.isoformat(),
+                "end_at": None,
+                "status": t.status,
+                "href": "/dashboard/crm",
+            })
+
+        if is_super_admin(user) or has_agency_permission(user, agency_id, "deal.view_all_agency"):
+            for c in Contract.objects.all_tenants().filter(
+                agency_id=agency_id, end_date__isnull=False, end_date__gte=start_win.date(), end_date__lte=end_win.date()
+            ).select_related("property")[:30]:
+                events.append({
+                    "id": f"contract-{c.id}",
+                    "event_type": "CONTRACT",
+                    "title": f"پایان قرارداد: {c.contract_number}",
+                    "subtitle": c.property.title if c.property else "",
+                    "start_at": f"{c.end_date.isoformat()}T09:00:00Z",
+                    "end_at": None,
+                    "status": c.status,
+                    "href": "/dashboard/contracts",
+                })
+
+        if is_super_admin(user) or has_agency_permission(user, agency_id, "accounting.view"):
+            for ch in ChequeInstrument.objects.all_tenants().filter(
+                agency_id=agency_id, due_date__gte=start_win, due_date__lte=end_win
+            )[:30]:
+                events.append({
+                    "id": f"cheque-{ch.id}",
+                    "event_type": "CHEQUE",
+                    "title": f"سررسید چک {ch.cheque_number}",
+                    "subtitle": f"مبلغ: {ch.amount} — {ch.direction}",
+                    "start_at": ch.due_date.isoformat(),
+                    "end_at": None,
+                    "status": ch.status,
+                    "href": "/dashboard/accounting",
+                })
+
+    events.sort(key=lambda e: e["start_at"])
+    return events
 
 
 @transaction.atomic

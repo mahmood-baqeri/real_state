@@ -1,5 +1,3 @@
-// Path: frontend/src/app/login/page.tsx
-
 "use client";
 
 import React, { useState } from "react";
@@ -46,11 +44,11 @@ const DEMO_ACCOUNTS: DemoAccountRow[] = [
     pass: "Manager@12345",
   },
   {
-    roleCode: "AGENCY_MANAGER_B",
-    label: "مدیر آژانس آریا",
-    scope: "تست ایزوله‌سازی کامل داده‌های مستأجر دوم",
-    phone: "09123333333",
-    pass: "Manager@12345",
+    roleCode: "SALES_MANAGER",
+    label: "مدیر فروش آژانس",
+    scope: "مدیریت پایپ‌لاین فروش، مذاکرات، تیم مشاوران و تحلیل",
+    phone: "09127777777",
+    pass: "Sales@12345",
   },
   {
     roleCode: "BRANCH_MANAGER",
@@ -60,6 +58,20 @@ const DEMO_ACCOUNTS: DemoAccountRow[] = [
     pass: "Branch@12345",
   },
   {
+    roleCode: "AGENCY_ACCOUNTANT",
+    label: "حسابدار آژانس",
+    scope: "کدینگ حساب‌ها، سند دوبل، خزانه چک و حقوق",
+    phone: "09126666666",
+    pass: "Accountant@12345",
+  },
+  {
+    roleCode: "SUPPORT_AGENT",
+    label: "کارشناس پشتیبانی",
+    scope: "پاسخگویی تیکت‌های SLA، شکایات و نظرسنجی‌ها",
+    phone: "09128888888",
+    pass: "Support@12345",
+  },
+  {
     roleCode: "AGENT",
     label: "مشاور املاک",
     scope: "فایل‌های شخصی، سرنخ‌ها، بازدیدها و پورسانت",
@@ -67,11 +79,11 @@ const DEMO_ACCOUNTS: DemoAccountRow[] = [
     pass: "Agent@12345",
   },
   {
-    roleCode: "AGENCY_ACCOUNTANT",
-    label: "حسابدار آژانس",
-    scope: "کدینگ حساب‌ها، سند دوبل، خزانه چک و حقوق",
-    phone: "09126666666",
-    pass: "Accountant@12345",
+    roleCode: "AGENCY_MANAGER_B",
+    label: "مدیر آژانس آریا",
+    scope: "تست ایزوله‌سازی کامل داده‌های مستأجر دوم",
+    phone: "09123333333",
+    pass: "Manager@12345",
   },
   {
     roleCode: "CUSTOMER",
@@ -88,6 +100,8 @@ export default function LoginPage() {
   const toast = useToast();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [quickLoadingPhone, setQuickLoadingPhone] = useState<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState("");
 
   const {
     register,
@@ -99,24 +113,30 @@ export default function LoginPage() {
     defaultValues: { phone_number: "", password: "" },
   });
 
-  const performLogin = async (phone: string, password: string) => {
+  const performLogin = async (phone: string, password: string, otp?: string) => {
     setErrorMsg(null);
     try {
-      const profile = await login(phone, password);
+      const profile = await login(phone, password, otp);
       toast.success("ورود موفق", `خوش آمدید، ${profile.full_name}`);
       router.push("/dashboard");
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "خطا در ورود به حساب");
+      const msg = err instanceof Error ? err.message : "خطا در ورود به حساب";
+      if (msg.includes("دوعاملی") || msg.toUpperCase().includes("MFA")) {
+        setMfaRequired(true);
+      }
+      setErrorMsg(msg);
     }
   };
 
   const onSubmit = async (values: LoginValues) => {
-    await performLogin(values.phone_number, values.password);
+    await performLogin(values.phone_number, values.password, mfaCode);
   };
 
   const handleInstantLogin = async (acc: DemoAccountRow) => {
     setValue("phone_number", acc.phone);
     setValue("password", acc.pass);
+    setMfaRequired(false);
+    setMfaCode("");
     setQuickLoadingPhone(acc.phone);
     try {
       await performLogin(acc.phone, acc.pass);
@@ -195,6 +215,24 @@ export default function LoginPage() {
                 )}
               </div>
 
+              {mfaRequired && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    کد تایید دوعاملی (۶ رقمی TOTP)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    dir="ltr"
+                    maxLength={6}
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value)}
+                    placeholder="123456"
+                    className="h-10 w-full rounded-lg border border-amber-400 bg-white px-3 text-left font-mono text-sm text-slate-900 focus:border-teal-600 focus:outline-none dark:border-amber-600 dark:bg-slate-950 dark:text-slate-100"
+                  />
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isSubmitting || quickLoadingPhone !== null}
@@ -217,14 +255,14 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* 7-Role Quick Login & Auto-Fill Matrix */}
+          {/* 9-Role Quick Login & Auto-Fill Matrix */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 lg:col-span-7">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-4 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck className="h-5 w-5 text-teal-700 dark:text-teal-400" />
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    ورود فوری با هر ۷ نقش سازمانی و پورتال
+                    ورود فوری با هر ۹ نقش و حساب سازمانی و پورتال
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     احراز هویت واقعی JWT از طریق سرویس FastAPI و کنترل دسترسی RBAC

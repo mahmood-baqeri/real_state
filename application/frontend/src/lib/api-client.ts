@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/api-client.ts
-
 export interface ApiErrorItem {
   code?: string;
   field?: string | null;
@@ -105,9 +103,10 @@ export async function apiFetch<T>(
   options: RequestInit & { token?: string | null; agencyId?: string | null; skipRefresh?: boolean } = {}
 ): Promise<ApiEnvelope<T>> {
   const { token, agencyId, headers, skipRefresh, ...rest } = options;
+  const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData;
   const buildHeaders = (authToken?: string | null) => {
     const finalHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(headers as Record<string, string> | undefined),
     };
     if (authToken) {
@@ -156,6 +155,33 @@ export async function apiFetch<T>(
     data: json as T,
     errors: null,
   };
+}
+
+export async function apiDownloadBlob(
+  path: string,
+  options: { token?: string | null; agencyId?: string | null; filenameFallback?: string } = {}
+): Promise<void> {
+  const headers: Record<string, string> = {};
+  if (options.token) headers["Authorization"] = `Bearer ${options.token}`;
+  if (options.agencyId) headers["X-Agency-ID"] = options.agencyId;
+
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    throw new ApiRequestError(`خطا در دانلود فایل (${res.status})`, res.status);
+  }
+  const blob = await res.blob();
+  const disp = res.headers.get("content-disposition") || "";
+  const match = disp.match(/filename="?([^"]+)"?/i);
+  const filename = match?.[1] || options.filenameFallback || "export.xlsx";
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export { STORAGE_KEY };

@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/role-navigation.test.ts
-
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getNavigationForUser, getRoleNavigationKeys, resolveEffectiveRole } from "./role-navigation";
@@ -7,8 +5,10 @@ import { getNavigationForUser, getRoleNavigationKeys, resolveEffectiveRole } fro
 test("resolveEffectiveRole maps platform and agency roles accurately", () => {
   assert.equal(resolveEffectiveRole("SUPER_ADMIN", null), "SUPER_ADMIN");
   assert.equal(resolveEffectiveRole("AGENCY_USER", "AGENCY_MANAGER"), "AGENCY_MANAGER");
+  assert.equal(resolveEffectiveRole("AGENCY_USER", "SALES_MANAGER"), "SALES_MANAGER");
   assert.equal(resolveEffectiveRole("AGENCY_USER", "BRANCH_MANAGER"), "BRANCH_MANAGER");
   assert.equal(resolveEffectiveRole("AGENCY_USER", "AGENCY_ACCOUNTANT"), "AGENCY_ACCOUNTANT");
+  assert.equal(resolveEffectiveRole("AGENCY_USER", "SUPPORT_AGENT"), "SUPPORT_AGENT");
   assert.equal(resolveEffectiveRole("AGENCY_USER", "REAL_ESTATE_AGENT"), "AGENT");
   assert.equal(resolveEffectiveRole("CUSTOMER", null), "CUSTOMER");
 });
@@ -19,6 +19,20 @@ test("RBAC navigation hides accounting and admin from agents, customers, and bra
   assert.ok(agentKeys.includes("crm"));
   assert.ok(!agentKeys.includes("accounting"));
   assert.ok(!agentKeys.includes("admin"));
+
+  const salesKeys = getRoleNavigationKeys("AGENCY_USER", "SALES_MANAGER");
+  assert.ok(salesKeys.includes("crm"));
+  assert.ok(salesKeys.includes("negotiations"));
+  assert.ok(salesKeys.includes("reports"));
+  assert.ok(!salesKeys.includes("accounting"));
+  assert.ok(!salesKeys.includes("roles"));
+
+  const supportKeys = getRoleNavigationKeys("AGENCY_USER", "SUPPORT_AGENT");
+  assert.ok(supportKeys.includes("tickets"));
+  assert.ok(supportKeys.includes("complaints"));
+  assert.ok(supportKeys.includes("surveys"));
+  assert.ok(!supportKeys.includes("accounting"));
+  assert.ok(!supportKeys.includes("properties"));
 
   const branchKeys = getRoleNavigationKeys("AGENCY_USER", "BRANCH_MANAGER");
   assert.ok(branchKeys.includes("agencies"));

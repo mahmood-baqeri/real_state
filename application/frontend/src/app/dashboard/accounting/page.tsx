@@ -1,5 +1,3 @@
-// Path: frontend/src/app/dashboard/accounting/page.tsx
-
 "use client";
 
 import React, { useMemo, useState } from "react";

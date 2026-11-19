@@ -1,5 +1,3 @@
-// Path: frontend/src/app/dashboard/notifications/page.tsx
-
 "use client";
 
 import React, { useState } from "react";

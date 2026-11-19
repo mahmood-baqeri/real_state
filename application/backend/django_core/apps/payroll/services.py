@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/payroll/services.py
-
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional

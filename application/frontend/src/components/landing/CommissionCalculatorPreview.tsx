@@ -1,5 +1,3 @@
-// Path: frontend/src/components/landing/CommissionCalculatorPreview.tsx
-
 "use client";
 
 import React, { useMemo, useState } from "react";

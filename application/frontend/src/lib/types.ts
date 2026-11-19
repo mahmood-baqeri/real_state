@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/types.ts
-
 export type CalendarMode = "jalali" | "gregorian";
 export type CurrencyCode = "IRT" | "IRR" | "USD" | "EUR" | "AED";
 export type AreaUnit = "SQM" | "SQFT";
@@ -7,8 +5,10 @@ export type PlatformRole = "SUPER_ADMIN" | "AGENCY_USER" | "CUSTOMER";
 export type EffectiveRole =
   | "SUPER_ADMIN"
   | "AGENCY_MANAGER"
+  | "SALES_MANAGER"
   | "BRANCH_MANAGER"
   | "AGENCY_ACCOUNTANT"
+  | "SUPPORT_AGENT"
   | "AGENT"
   | "CUSTOMER";
 
@@ -47,6 +47,93 @@ export interface PaginationMeta {
   total_pages: number;
 }
 
+export interface ProvinceItem {
+  id: string;
+  country_id?: string;
+  code?: string;
+  name_fa: string;
+  name_en: string;
+  slug: string;
+  center_lat: string | null;
+  center_lng: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface CityItem {
+  id: string;
+  province_id: string;
+  province_name?: string;
+  name_fa: string;
+  name_en: string;
+  slug: string;
+  center_lat: string | null;
+  center_lng: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface DistrictItem {
+  id: string;
+  city_id: string;
+  city_name?: string;
+  name_fa: string;
+  name_en: string;
+  slug: string;
+  center_lat: string | null;
+  center_lng: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface NeighborhoodItem {
+  id: string;
+  district_id: string;
+  district_name?: string;
+  city_id?: string;
+  city_name?: string;
+  name_fa: string;
+  name_en: string;
+  slug: string;
+  center_lat: string | null;
+  center_lng: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export type AmenityValueType = "BOOLEAN" | "INTEGER" | "DECIMAL" | "TEXT" | "CHOICE";
+
+export interface AmenityCategoryItem {
+  code: string;
+  name_fa: string;
+  name_en: string;
+  icon_name?: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface AmenityItem {
+  code: string;
+  category_code?: string | null;
+  category_name_fa?: string;
+  name_fa: string;
+  name_en: string;
+  icon_name?: string;
+  value_type?: AmenityValueType;
+  unit_label?: string;
+  options_json?: string[];
+  value_text?: string;
+  value_number?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface AmenityValueInput {
+  code: string;
+  value_text?: string;
+  value_number?: number | string | null;
+}
+
 export interface PropertyMediaItem {
   id: string;
   media_type: string;
@@ -54,11 +141,16 @@ export interface PropertyMediaItem {
   title: string;
   is_cover: boolean;
   is_public: boolean;
+  sort_order?: number;
 }
 
 export interface PropertyLocation {
   country?: string;
   country_id?: string;
+  province_id?: string | null;
+  city_id?: string | null;
+  district_id?: string | null;
+  neighborhood_id?: string | null;
   province: string;
   city: string;
   district: string;
@@ -69,6 +161,30 @@ export interface PropertyLocation {
   latitude: string | null;
   longitude: string | null;
   hide_exact_address: boolean;
+}
+
+export interface PropertyPriceHistoryItem {
+  id: string;
+  previous_price: string;
+  new_price: string;
+  currency_code: CurrencyCode;
+  changed_at: string;
+}
+
+export interface PropertyStatusHistoryItem {
+  id: string;
+  from_status: string;
+  to_status: string;
+  reason: string;
+  changed_at: string;
+}
+
+export interface PropertyTimelineEvent {
+  id: string;
+  type: string;
+  title: string;
+  detail: string;
+  occurred_at: string;
 }
 
 export interface PropertyItem {
@@ -101,7 +217,7 @@ export interface PropertyItem {
   deposit_amount: string;
   rent_amount: string;
   min_acceptable_price?: string | null;
-  amenities: { code: string; name_fa: string; name_en: string }[];
+  amenities: AmenityItem[];
   location: PropertyLocation | null;
   media_items: PropertyMediaItem[];
   agency_id: string;
@@ -109,8 +225,11 @@ export interface PropertyItem {
   branch_id?: string | null;
   view_count: number;
   inquiry_count?: number;
-  owners?: { id: string; full_name: string; phone_number?: string; ownership_percent: string }[];
+  owners?: { id: string; full_name: string; phone_number?: string; ownership_percent?: string; ownership_share_percent?: string; masked?: boolean; message?: string }[];
   assigned_agents?: { membership_id: string; full_name: string; role: string }[];
+  price_history?: PropertyPriceHistoryItem[];
+  status_history?: PropertyStatusHistoryItem[];
+  related_properties?: PublicSearchProperty[];
   created_at: string;
 }
 
@@ -130,9 +249,17 @@ export interface PublicSearchProperty {
   rent_amount: string;
   currency_id: CurrencyCode;
   is_featured: boolean;
+  province_id?: string | null;
+  city_id?: string | null;
+  district_id?: string | null;
+  neighborhood_id?: string | null;
+  province?: string;
   city: string;
   district: string;
   neighborhood: string;
+  latitude?: string | null;
+  longitude?: string | null;
+  amenities?: { code: string; name_fa: string }[];
   agency_name: string;
   cover_url: string | null;
 }
@@ -140,7 +267,8 @@ export interface PublicSearchProperty {
 export interface PropertyCatalog {
   property_types: { code: string; name_fa: string; name_en: string; category: string }[];
   deal_types: { code: string; name_fa: string; name_en: string; is_rental: boolean }[];
-  amenities: { code: string; name_fa: string; name_en: string }[];
+  amenity_categories?: AmenityCategoryItem[];
+  amenities: AmenityItem[];
 }
 
 export interface AgencyItem {
@@ -360,31 +488,82 @@ export interface AppointmentItem {
   created_at: string;
 }
 
+export interface OfferVersionItem {
+  id: string;
+  version_number: number;
+  offered_by: string;
+  recipient_role?: string;
+  currency: CurrencyCode;
+  proposed_price: string;
+  proposed_deposit: string;
+  proposed_rent: string;
+  discount_amount: string;
+  payment_terms?: Record<string, unknown>;
+  notes?: string;
+  response_note?: string;
+  status: string;
+  valid_until?: string | null;
+  created_at: string;
+}
+
+export interface NegotiationActivityItem {
+  id: string;
+  activity_type: string;
+  title: string;
+  description: string;
+  outcome: string;
+  next_action: string;
+  next_action_due_at: string | null;
+  is_completed: boolean;
+  actor_name: string;
+  created_at: string;
+}
+
 export interface NegotiationItem {
   id: string;
   property_id: string;
   property_code: string;
   property_title: string;
+  property_location?: string;
   customer_id: string;
   customer_name: string;
+  owner_customer_id?: string | null;
+  owner_name?: string;
   agent_name: string;
   deal_type: string;
   deal_type_name: string;
   status: string;
+  asking_price?: string;
+  initial_proposed_price?: string;
+  latest_proposed_price?: string;
+  agreed_price?: string | null;
+  price_delta?: string;
+  price_delta_percent?: number;
+  next_followup_at?: string | null;
+  next_action?: string;
+  is_followup_overdue?: boolean;
+  last_activity_at?: string | null;
+  outcome_reason?: string;
+  converted_contract_id?: string | null;
+  converted_contract_number?: string | null;
   notes: string;
-  offers: {
-    id: string;
-    version_number: number;
-    offered_by: string;
-    currency: CurrencyCode;
-    proposed_price: string;
-    proposed_deposit: string;
-    proposed_rent: string;
-    discount_amount: string;
-    status: string;
-    created_at: string;
-  }[];
+  offers: OfferVersionItem[];
+  activities?: NegotiationActivityItem[];
   created_at: string;
+}
+
+export interface NegotiationAnalytics {
+  total_count: number;
+  active_count: number;
+  won_count: number;
+  lost_count: number;
+  overdue_followups_count: number;
+  win_rate_percent: number;
+  avg_discount_percent: number;
+  avg_duration_days: number;
+  avg_offers_per_negotiation: number;
+  stage_breakdown: { status: string; count: number }[];
+  failure_reasons: { reason: string; count: number }[];
 }
 
 export interface ContractItem {
@@ -543,3 +722,223 @@ export interface AuditLogItem {
   metadata: Record<string, unknown>;
   created_at: string;
 }
+
+export interface GlobalSearchHit {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+}
+
+export interface GlobalSearchResult {
+  properties: GlobalSearchHit[];
+  customers: GlobalSearchHit[];
+  owners: GlobalSearchHit[];
+  agents: GlobalSearchHit[];
+  contracts: GlobalSearchHit[];
+  tickets: GlobalSearchHit[];
+  documents: GlobalSearchHit[];
+  articles: GlobalSearchHit[];
+  total_hits: number;
+}
+
+export interface SavedViewItem {
+  id: string;
+  module: string;
+  title: string;
+  filters_json: Record<string, string>;
+  sort_by: string;
+  columns_json: string[];
+  layout_mode: string;
+  is_default: boolean;
+}
+
+export interface UnifiedCalendarEvent {
+  id: string;
+  event_type: "VIEWING" | "TASK" | "CONTRACT" | "CHEQUE";
+  title: string;
+  subtitle: string;
+  start_at: string;
+  end_at: string | null;
+  status: string;
+  href: string;
+}
+
+export interface DashboardWidgetConfig {
+  id: string;
+  title: string;
+  enabled: boolean;
+}
+
+export interface DashboardLayoutConfig {
+  role_code: string;
+  widgets: DashboardWidgetConfig[];
+  default_period_days: number;
+}
+
+export interface OnboardingStepItem {
+  key: string;
+  title: string;
+  href: string;
+  completed: boolean;
+}
+
+export interface OnboardingProgressData {
+  role_code: string;
+  dismissed: boolean;
+  completed_steps: string[];
+  steps: OnboardingStepItem[];
+}
+
+export interface OperationsCenterData {
+  summary: {
+    overdue_tasks_count: number;
+    pending_tasks_count: number;
+    expiring_contracts_count: number;
+    due_cheques_count: number;
+    urgent_tickets_count: number;
+    pending_properties_count: number;
+  };
+  overdue_tasks: {
+    id: string;
+    title: string;
+    customer_name: string;
+    agent_name: string;
+    due_at: string;
+    is_overdue: boolean;
+    href: string;
+  }[];
+  expiring_contracts: {
+    id: string;
+    contract_number: string;
+    property_title: string;
+    end_date: string | null;
+    status: string;
+    href: string;
+  }[];
+  due_cheques: {
+    id: string;
+    cheque_number: string;
+    direction: string;
+    amount: string;
+    due_date: string;
+    status: string;
+    href: string;
+  }[];
+  urgent_tickets: {
+    id: string;
+    ticket_number: string;
+    subject: string;
+    priority: string;
+    status: string;
+    created_at: string;
+    href: string;
+  }[];
+  pending_properties: {
+    id: string;
+    property_code: string;
+    title: string;
+    total_price: string;
+    created_at: string;
+    href: string;
+  }[];
+}
+
+export interface AnalyticsData {
+  period_days: number;
+  properties_by_status: { status: string; count: number }[];
+  deals_by_status: { status: string; count: number; volume: string }[];
+  leads_by_status: { status: string; count: number }[];
+  sales_funnel?: { stage: string; count: number }[];
+  district_breakdown?: { district: string; count: number; avg_price_per_sqm: string }[];
+  timeline_series?: {
+    label: string;
+    deals_count: number;
+    properties_added: number;
+    deal_volume: string;
+    revenue: string;
+    expense: string;
+  }[];
+  branch_comparison?: {
+    branch_id: string;
+    branch_name: string;
+    properties_count: number;
+    members_count: number;
+  }[];
+  activity_heatmap?: {
+    day: string;
+    slots: { slot: string; count: number }[];
+  }[];
+  period_comparison?: {
+    current_volume: string;
+    previous_volume: string;
+    current_deals_count: number;
+    previous_deals_count: number;
+  };
+  negotiations_count: number;
+  agent_leaderboard: {
+    membership_id: string;
+    agent_name: string;
+    total_commission: string;
+    deals_count: number;
+  }[];
+}
+
+export interface RssTopicsResult {
+  source: string;
+  requires_human_approval: boolean;
+  topics: {
+    title: string;
+    angle: string;
+    reference_url?: string;
+  }[];
+}
+
+export interface PaymentGatewayItem {
+  id: string;
+  provider_key: string;
+  display_name: string;
+  description: string;
+  is_sandbox: boolean;
+  priority: number;
+  required_fields: string[];
+  last_check_status: string;
+}
+
+export interface ManagedGatewayConfig {
+  id: string;
+  agency_id: string | null;
+  provider_key: string;
+  display_name: string;
+  description: string;
+  priority: number;
+  is_active: boolean;
+  is_sandbox: boolean;
+  config_json: Record<string, unknown>;
+  has_credentials: boolean;
+  masked_credentials: Record<string, string>;
+  last_checked_at: string | null;
+  last_check_status: string;
+  last_check_message: string;
+}
+
+export interface AiStatusResponse {
+  provider: string;
+  configured: boolean;
+  status: string;
+  base_url: string;
+  default_model: string;
+  supported_models: (string | { id: string; label: string })[];
+  message: string;
+}
+
+export interface AiChatMessageResult {
+  reply: string;
+  provider: string;
+  model: string;
+  task_mode: string;
+  tokens_used: number;
+  latency_ms: number;
+  fallback_note?: string;
+}
+

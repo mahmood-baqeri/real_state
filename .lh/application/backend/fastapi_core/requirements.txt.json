@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1795057835085,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1795081595351,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,20 +1,13 @@\n-# fastapi_core/requirements.txt\n-fastapi>=0.115.0\n-uvicorn[standard]>=0.32.0\n-pydantic>=2.9.0\n-pydantic-settings>=2.5.0\n-PyJWT>=2.9.0\n-python-multipart>=0.0.12\n-redis>=5.0.0\n-httpx>=0.27.0\n-\n-# Django Core (مشترک با fastapi_core در same venv)\n-Django>=5.1.0\n-djangorestframework>=3.15.0  # فقط برای admin (نمی‌دانم، پایین چک کن)\n-psycopg[binary]>=3.2.0\n-django-cors-headers>=4.4.0\n-celery>=5.4.0\n-cryptography>=43.0.0\n-jdatetime>=5.0.0\n-pywebpush>=2.0.0  # (فاز push)\n-Pillow>=10.0.0\n\\ No newline at end of file\n+fastapi>=0.115,<0.116\n+uvicorn[standard]>=0.34,<0.35\n+pydantic>=2.10,<3.0\n+pydantic-settings>=2.7,<3.0\n+python-multipart>=0.0.12,<0.1\n+Django>=5.1,<5.2\n+psycopg2-binary>=2.9.10,<3.0\n+PyJWT>=2.10,<3.0\n+cryptography>=44.0,<45.0\n+jdatetime>=5.0,<6.0\n+redis>=5.2,<5.3\n+httpx>=0.28,<0.29\n+pytest>=8.3,<8.4\n"
                 }
             ],
             "date": 1795057835085,

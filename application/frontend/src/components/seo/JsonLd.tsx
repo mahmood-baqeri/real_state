@@ -1,5 +1,3 @@
-// Path: frontend/src/components/seo/JsonLd.tsx
-
 import React from "react";
 
 export function JsonLd({ data }: { data: Record<string, unknown> }) {

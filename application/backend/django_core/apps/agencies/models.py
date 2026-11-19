@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/agencies/models.py
-
 from decimal import Decimal
 from django.conf import settings
 from django.db import models

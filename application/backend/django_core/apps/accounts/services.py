@@ -1,18 +1,19 @@
-# Path: backend/django_core/apps/accounts/services.py
-
 import hashlib
 import secrets
 from typing import Optional
 from uuid import UUID
+import pyotp
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from apps.audit.services import record_audit_event
+from common.encryption import decrypt_sensitive_value, encrypt_sensitive_value
 from common.exceptions import (
     AuthenticationDomainError,
     ConflictDomainError,
     NotFoundDomainError,
     PermissionDeniedDomainError,
+    RateLimitDomainError,
     ValidationDomainError,
 )
 from common.permissions import get_active_membership, has_agency_permission, is_super_admin
@@ -27,6 +28,41 @@ from .models import (
     User,
     UserSession,
 )
+
+BRUTE_FORCE_MAX_FAILS = 5
+BRUTE_FORCE_WINDOW_SECONDS = 600
+
+
+def _lockout_cache_key(identifier: str, ip_address: Optional[str]) -> str:
+    return f"auth_fail:{identifier}:{ip_address or 'unknown'}"
+
+
+def _check_brute_force_lock(identifier: str, ip_address: Optional[str]) -> None:
+    key = _lockout_cache_key(identifier, ip_address)
+    try:
+        fails = int(cache.get(key) or 0)
+    except Exception:
+        fails = 0
+    if fails >= BRUTE_FORCE_MAX_FAILS:
+        raise RateLimitDomainError(
+            "تعداد تلاش‌های ناموفق بیش از حد مجاز بوده است. لطفاً ۱۰ دقیقه دیگر مجدداً تلاش کنید."
+        )
+
+
+def _increment_brute_force_fail(identifier: str, ip_address: Optional[str]) -> None:
+    key = _lockout_cache_key(identifier, ip_address)
+    try:
+        current = int(cache.get(key) or 0) + 1
+        cache.set(key, current, timeout=BRUTE_FORCE_WINDOW_SECONDS)
+    except Exception:
+        pass
+
+
+def _clear_brute_force_fail(identifier: str, ip_address: Optional[str]) -> None:
+    try:
+        cache.delete(_lockout_cache_key(identifier, ip_address))
+    except Exception:
+        pass
 
 
 @transaction.atomic
@@ -78,16 +114,28 @@ def authenticate_user_credentials(
     ip_address: Optional[str] = None,
     user_agent: str = "",
     device_name: str = "Web Browser",
+    mfa_code: Optional[str] = None,
 ) -> tuple[User, UserSession, Optional[AgencyMembership]]:
     identifier = phone_number.strip()
+    _check_brute_force_lock(identifier, ip_address)
+
     user = User.objects.filter(phone_number=identifier).first()
     if user is None or not user.check_password(password):
+        _increment_brute_force_fail(identifier, ip_address)
         LoginAttemptLog.objects.create(
             identifier=identifier,
             user=user,
             ip_address=ip_address,
             succeeded=False,
             failure_reason="INVALID_CREDENTIALS",
+        )
+        record_audit_event(
+            action="USER_LOGIN_FAILED",
+            resource_type="User",
+            resource_id=str(user.id) if user else identifier,
+            actor=user,
+            ip_address=ip_address,
+            metadata={"reason": "INVALID_CREDENTIALS"},
         )
         raise AuthenticationDomainError("شماره موبایل یا رمز عبور نادرست است.")
 
@@ -101,6 +149,24 @@ def authenticate_user_credentials(
         )
         raise PermissionDeniedDomainError("حساب کاربری شما فعال نیست.")
 
+    if user.is_mfa_enabled:
+        secret = decrypt_sensitive_value(user.mfa_secret_encrypted)
+        totp = pyotp.TOTP(secret) if secret else None
+        if not mfa_code or not totp or not totp.verify(mfa_code.strip(), valid_window=1):
+            _increment_brute_force_fail(identifier, ip_address)
+            LoginAttemptLog.objects.create(
+                identifier=identifier,
+                user=user,
+                ip_address=ip_address,
+                succeeded=False,
+                failure_reason="INVALID_OR_MISSING_MFA",
+            )
+            raise AuthenticationDomainError(
+                "کد احراز هویت دوعاملی (MFA) الزامی یا نامعتبر است.",
+                code="MFA_REQUIRED",
+            )
+
+    _clear_brute_force_fail(identifier, ip_address)
     user.last_login = timezone.now()
     user.save(update_fields=["last_login"])
 
@@ -122,7 +188,62 @@ def authenticate_user_credentials(
         .filter(user=user, status=AgencyMembership.Status.ACTIVE)
         .first()
     )
+    record_audit_event(
+        action="USER_LOGIN_SUCCEEDED",
+        resource_type="User",
+        resource_id=str(user.id),
+        actor=user,
+        agency_id=membership.agency_id if membership else None,
+        ip_address=ip_address,
+        metadata={"device_name": device_name[:128]},
+    )
     return user, session, membership
+
+
+def setup_mfa_for_user(user: User) -> dict:
+    secret = pyotp.random_base32()
+    user.mfa_secret_encrypted = encrypt_sensitive_value(secret)
+    user.save(update_fields=["mfa_secret_encrypted", "updated_at"])
+    uri = pyotp.TOTP(secret).provisioning_uri(
+        name=user.phone_number,
+        issuer_name="Bonyan Melk",
+    )
+    return {"secret": secret, "otpauth_uri": uri, "is_mfa_enabled": user.is_mfa_enabled}
+
+
+def enable_mfa_for_user(user: User, code: str) -> User:
+    secret = decrypt_sensitive_value(user.mfa_secret_encrypted)
+    if not secret:
+        raise ValidationDomainError("ابتدا راه‌اندازی احراز هویت دوعاملی را شروع کنید.")
+    if not pyotp.TOTP(secret).verify(code.strip(), valid_window=1):
+        raise ValidationDomainError("کد تأیید دوعاملی نامعتبر است.")
+    user.is_mfa_enabled = True
+    user.save(update_fields=["is_mfa_enabled", "updated_at"])
+    record_audit_event(
+        action="MFA_ENABLED",
+        resource_type="User",
+        resource_id=str(user.id),
+        actor=user,
+    )
+    return user
+
+
+def disable_mfa_for_user(user: User, code: str) -> User:
+    if not user.is_mfa_enabled:
+        return user
+    secret = decrypt_sensitive_value(user.mfa_secret_encrypted)
+    if not secret or not pyotp.TOTP(secret).verify(code.strip(), valid_window=1):
+        raise ValidationDomainError("کد تأیید دوعاملی برای غیرفعال‌سازی نامعتبر است.")
+    user.is_mfa_enabled = False
+    user.mfa_secret_encrypted = ""
+    user.save(update_fields=["is_mfa_enabled", "mfa_secret_encrypted", "updated_at"])
+    record_audit_event(
+        action="MFA_DISABLED",
+        resource_type="User",
+        resource_id=str(user.id),
+        actor=user,
+    )
+    return user
 
 
 def validate_active_session_for_refresh(*, user_id: str, jti: str) -> tuple[User, UserSession]:
@@ -164,7 +285,6 @@ def request_password_reset_otp(*, phone_number: str) -> dict:
         "sent": True,
         "provider": sms_res.provider_key,
         "expires_in_seconds": 600,
-        # Exposed only in sandbox/console mode to support self-contained testing without real SMS gateway
         "sandbox_otp": otp_code if sms_res.provider_key == "console" else None,
     }
 
@@ -206,6 +326,13 @@ def revoke_user_session(user: User, session_id: UUID) -> bool:
     updated = UserSession.objects.filter(
         id=session_id, user=user, revoked_at__isnull=True
     ).update(revoked_at=timezone.now())
+    if updated > 0:
+        record_audit_event(
+            action="USER_SESSION_REVOKED",
+            resource_type="UserSession",
+            resource_id=str(session_id),
+            actor=user,
+        )
     return updated > 0
 
 
@@ -251,6 +378,8 @@ def update_user_status_by_admin(actor: User, target_user_id: UUID, status_value:
     target.status = status_value
     target.is_active = status_value == User.Status.ACTIVE
     target.save(update_fields=["status", "is_active", "updated_at"])
+    if status_value != User.Status.ACTIVE:
+        UserSession.objects.filter(user=target, revoked_at__isnull=True).update(revoked_at=timezone.now())
     record_audit_event(
         action="USER_STATUS_UPDATED",
         resource_type="User",
@@ -381,6 +510,7 @@ def update_member_role_or_status(
     membership = AgencyMembership.objects.filter(id=membership_id, agency_id=agency_id).first()
     if not membership:
         raise NotFoundDomainError("عضویت یافت نشد.")
+    prev_role = membership.role.code
     if role_code:
         role = (
             Role.objects.filter(code=role_code, agency_id=agency_id).first()
@@ -396,6 +526,15 @@ def update_member_role_or_status(
     if branch_id is not None:
         membership.branch_id = branch_id
     membership.save()
+    record_audit_event(
+        action="AGENCY_MEMBER_ROLE_UPDATED",
+        resource_type="AgencyMembership",
+        resource_id=str(membership.id),
+        actor=actor,
+        agency_id=agency_id,
+        before_state={"role": prev_role},
+        after_state={"role": membership.role.code, "status": membership.status},
+    )
     return membership
 
 

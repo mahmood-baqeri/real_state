@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/exceptions.py
-
 class DomainError(Exception):
     """Base exception raised by Django domain services and translated cleanly by FastAPI."""
 
@@ -39,3 +37,8 @@ class NotFoundDomainError(DomainError):
 class ConflictDomainError(DomainError):
     code = "CONFLICT"
     status_code = 409
+
+
+class RateLimitDomainError(DomainError):
+    code = "RATE_LIMITED"
+    status_code = 429

@@ -1,5 +1,3 @@
-# Path: backend/django_core/services/__init__.py
-
 """
 Django Core Domain Services Facade.
 All business rules, atomic DB transactions, double-entry accounting invariants,

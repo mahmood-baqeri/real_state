@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/localization/calendar.py
-
 from datetime import datetime, timezone as dt_timezone
 from typing import Tuple
 import jdatetime

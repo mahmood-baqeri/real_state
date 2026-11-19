@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/tenant/middleware.py
-
 from typing import Optional
 from uuid import UUID
 from django.db import connection

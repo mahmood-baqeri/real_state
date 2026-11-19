@@ -1,5 +1,3 @@
-# Path: backend/fastapi_core/app/middleware/request_context.py
-
 import logging
 import time
 import uuid
@@ -42,4 +40,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
+        if request.url.path.startswith("/api/v1/auth"):
+            response.headers["Cache-Control"] = "no-store"
         return response

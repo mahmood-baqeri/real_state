@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/settings/models.py
-
 from decimal import Decimal
 from django.db import models
 from common.encryption import decrypt_sensitive_value, encrypt_sensitive_value
@@ -50,6 +48,7 @@ class ProviderConfiguration(BaseModel):
         PAYMENT = "PAYMENT", "Payment"
         SMS = "SMS", "SMS"
         MAP = "MAP", "Map"
+        AI = "AI", "AI Assistant"
 
     agency = models.ForeignKey(
         "agencies.Agency",
@@ -61,20 +60,107 @@ class ProviderConfiguration(BaseModel):
     category = models.CharField(max_length=16, choices=Category.choices, db_index=True)
     provider_key = models.CharField(max_length=64)
     display_name = models.CharField(max_length=120)
+    description = models.CharField(max_length=255, blank=True, default="")
+    priority = models.PositiveSmallIntegerField(default=10)
     is_active = models.BooleanField(default=False)
     is_sandbox = models.BooleanField(default=True)
     encrypted_credentials = models.TextField(blank=True, default="")
     config_json = models.JSONField(default=dict, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_check_status = models.CharField(max_length=24, blank=True, default="")
+    last_check_message = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
         db_table = "settings_provider_configuration"
-        indexes = [models.Index(fields=["agency", "category", "is_active"])]
+        indexes = [models.Index(fields=["agency", "category", "is_active", "priority"])]
 
     def set_credentials(self, raw_json: str) -> None:
         self.encrypted_credentials = encrypt_sensitive_value(raw_json)
 
     def get_credentials(self) -> str:
         return decrypt_sensitive_value(self.encrypted_credentials)
+
+
+class Province(BaseModel):
+    country = models.ForeignKey(
+        Country, on_delete=models.PROTECT, default="IR", related_name="provinces"
+    )
+    code = models.CharField(max_length=24, blank=True, default="")
+    name_fa = models.CharField(max_length=100, db_index=True)
+    name_en = models.CharField(max_length=100, blank=True, default="")
+    slug = models.SlugField(max_length=120, unique=True, allow_unicode=True)
+    center_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    center_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "settings_geo_province"
+        ordering = ["sort_order", "name_fa"]
+        unique_together = ("country", "name_fa")
+
+    def __str__(self) -> str:
+        return self.name_fa
+
+
+class City(BaseModel):
+    province = models.ForeignKey(Province, on_delete=models.PROTECT, related_name="cities")
+    name_fa = models.CharField(max_length=100, db_index=True)
+    name_en = models.CharField(max_length=100, blank=True, default="")
+    slug = models.SlugField(max_length=120, allow_unicode=True)
+    center_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    center_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "settings_geo_city"
+        ordering = ["sort_order", "name_fa"]
+        unique_together = ("province", "name_fa")
+        indexes = [models.Index(fields=["province", "is_active", "name_fa"])]
+
+    def __str__(self) -> str:
+        return f"{self.province.name_fa} - {self.name_fa}"
+
+
+class District(BaseModel):
+    city = models.ForeignKey(City, on_delete=models.PROTECT, related_name="districts")
+    name_fa = models.CharField(max_length=100, db_index=True)
+    name_en = models.CharField(max_length=100, blank=True, default="")
+    slug = models.SlugField(max_length=120, allow_unicode=True)
+    center_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    center_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "settings_geo_district"
+        ordering = ["sort_order", "name_fa"]
+        unique_together = ("city", "name_fa")
+        indexes = [models.Index(fields=["city", "is_active", "name_fa"])]
+
+    def __str__(self) -> str:
+        return f"{self.city.name_fa} - {self.name_fa}"
+
+
+class Neighborhood(BaseModel):
+    district = models.ForeignKey(District, on_delete=models.PROTECT, related_name="neighborhoods")
+    name_fa = models.CharField(max_length=100, db_index=True)
+    name_en = models.CharField(max_length=100, blank=True, default="")
+    slug = models.SlugField(max_length=120, allow_unicode=True)
+    center_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    center_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        db_table = "settings_geo_neighborhood"
+        ordering = ["sort_order", "name_fa"]
+        unique_together = ("district", "name_fa")
+        indexes = [models.Index(fields=["district", "is_active", "name_fa"])]
+
+    def __str__(self) -> str:
+        return f"{self.district.name_fa} - {self.name_fa}"
 
 
 class PlatformSetting(models.Model):

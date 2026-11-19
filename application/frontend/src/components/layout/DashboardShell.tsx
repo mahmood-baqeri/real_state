@@ -1,5 +1,3 @@
-// Path: frontend/src/components/layout/DashboardShell.tsx
-
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -51,7 +49,7 @@ import {
   NAV_GROUP_LABELS,
   type NavItemConfig,
 } from "@/lib/role-navigation";
-import type { NotificationItem } from "@/lib/types";
+import type { GlobalSearchResult, NotificationItem } from "@/lib/types";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -106,6 +104,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [wsUnreadCount, setWsUnreadCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(commandQuery.trim()), 240);
+    return () => clearTimeout(t);
+  }, [commandQuery]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -131,7 +136,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const { data: unreadCount = 0 } = useQuery({
+  useEffect(() => {
+    if (!accessToken || typeof window === "undefined") return;
+    if (window.location.protocol !== "http:") return;
+    let ws: WebSocket | null = null;
+    try {
+      const wsUrl = `ws://${window.location.hostname}:8020/api/v1/ws/notifications?token=${encodeURIComponent(accessToken)}`;
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (evt) => {
+        try {
+          const parsed = JSON.parse(evt.data);
+          if (parsed?.event === "notification_snapshot" && typeof parsed?.data?.unread_count === "number") {
+            setWsUnreadCount(parsed.data.unread_count);
+          }
+        } catch {
+          // ignore malformed event
+        }
+      };
+      ws.onerror = () => {
+        ws?.close();
+      };
+    } catch {
+      // ignore if ws blocked
+    }
+    return () => {
+      ws?.close();
+    };
+  }, [accessToken]);
+
+  const { data: restUnreadCount = 0 } = useQuery({
     queryKey: ["unread-notifications-count", user?.id],
     enabled: !!accessToken,
     queryFn: async () => {
@@ -142,6 +175,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       return env.meta?.pagination?.total_count ?? env.data.length;
     },
     staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  const unreadCount = wsUnreadCount ?? restUnreadCount;
+
+  const { data: globalSearchData, isFetching: globalSearchLoading } = useQuery({
+    queryKey: ["global-search", debouncedQuery, activeAgencyId],
+    enabled: !!accessToken && commandOpen && debouncedQuery.length >= 2,
+    queryFn: async () => {
+      const env = await apiFetch<GlobalSearchResult>(
+        `/api/v1/search/global?q=${encodeURIComponent(debouncedQuery)}&limit=4`,
+        { token: accessToken, agencyId: activeAgencyId }
+      );
+      return env.data;
+    },
+    staleTime: 10_000,
   });
 
   const activeMembership = useMemo(
@@ -178,6 +227,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       (i) => i.label.toLowerCase().includes(q) || i.href.toLowerCase().includes(q)
     );
   }, [navItems, commandQuery]);
+
+  const globalSections = useMemo(() => {
+    if (!globalSearchData) return [];
+    const defs: { key: keyof Omit<GlobalSearchResult, "total_hits">; label: string }[] = [
+      { key: "properties", label: "املاک" },
+      { key: "customers", label: "مشتریان" },
+      { key: "owners", label: "مالکان" },
+      { key: "agents", label: "مشاوران" },
+      { key: "contracts", label: "قراردادها" },
+      { key: "tickets", label: "تیکت‌ها" },
+      { key: "documents", label: "اسناد" },
+      { key: "articles", label: "مقالات" },
+    ];
+    return defs
+      .map((d) => ({ ...d, items: globalSearchData[d.key] || [] }))
+      .filter((d) => d.items.length > 0);
+  }, [globalSearchData]);
 
   if (isLoading || !user) {
     return (
@@ -310,14 +376,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Quick Command Jump Modal */}
+      {/* Quick Command Jump & Global Search Modal */}
       {commandOpen && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/60 px-4 pt-20 backdrop-blur-xs"
           onClick={() => setCommandOpen(false)}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            className="w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
@@ -327,7 +393,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 type="text"
                 value={commandQuery}
                 onChange={(e) => setCommandQuery(e.target.value)}
-                placeholder="پرش سریع به بخش‌ها (مثال: املاک، حسابداری، CRM)..."
+                placeholder="جستجوی سراسری (ملک، مشتری، قرارداد، تیکت) یا پرش به بخش..."
                 className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
               />
               <button
@@ -338,33 +404,84 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 ESC
               </button>
             </div>
-            <div className="max-h-72 divide-y divide-slate-100 overflow-y-auto p-2 dark:divide-slate-800">
-              {filteredCommands.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                  بخشی با این عبارت یافت نشد.
-                </div>
-              ) : (
-                filteredCommands.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => {
-                      setCommandOpen(false);
-                      setCommandQuery("");
-                      router.push(item.href);
-                    }}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-right text-xs font-medium text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <span className="text-teal-700 dark:text-teal-400">
-                        {ICON_MAP[item.key] || <LayoutDashboard className="h-4 w-4" />}
+            <div className="max-h-96 space-y-2 overflow-y-auto p-2">
+              {debouncedQuery.length >= 2 && (
+                <div className="rounded-lg border border-slate-100 bg-slate-50/70 p-2 dark:border-slate-800 dark:bg-slate-800/40">
+                  <div className="mb-1.5 flex items-center justify-between px-2 text-[11px] font-bold text-teal-700 dark:text-teal-400">
+                    <span>نتایج جستجوی سراسری پایگاه داده</span>
+                    {globalSearchLoading ? (
+                      <span className="text-slate-400">در حال جستجو...</span>
+                    ) : globalSearchData ? (
+                      <span className="tabular-nums text-slate-500">
+                        {globalSearchData.total_hits} نتیجه
                       </span>
-                      <span>{item.label}</span>
-                    </span>
-                    <span className="font-mono text-[11px] text-slate-400">{item.href}</span>
-                  </button>
-                ))
+                    ) : null}
+                  </div>
+                  {!globalSearchLoading && globalSections.length === 0 ? (
+                    <div className="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
+                      موردی در ماژول‌های دیتابیس با این عبارت یافت نشد.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {globalSections.map((sec) => (
+                        <div key={sec.key}>
+                          <div className="px-2 py-0.5 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                            {sec.label}
+                          </div>
+                          {sec.items.map((hit) => (
+                            <button
+                              key={`${sec.key}-${hit.id}`}
+                              type="button"
+                              onClick={() => {
+                                setCommandOpen(false);
+                                setCommandQuery("");
+                                router.push(hit.href);
+                              }}
+                              className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-right text-xs hover:bg-white dark:hover:bg-slate-900"
+                            >
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                {hit.title}
+                              </span>
+                              <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                {hit.subtitle}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
+
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredCommands.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                    بخشی با این عبارت یافت نشد.
+                  </div>
+                ) : (
+                  filteredCommands.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        setCommandOpen(false);
+                        setCommandQuery("");
+                        router.push(item.href);
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-right text-xs font-medium text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span className="text-teal-700 dark:text-teal-400">
+                          {ICON_MAP[item.key] || <LayoutDashboard className="h-4 w-4" />}
+                        </span>
+                        <span>{item.label}</span>
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-400">{item.href}</span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

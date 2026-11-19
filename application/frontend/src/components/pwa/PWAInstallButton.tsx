@@ -1,5 +1,3 @@
-// Path: frontend/src/components/pwa/PWAInstallButton.tsx
-
 "use client";
 
 import React, { useState } from "react";

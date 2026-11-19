@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/role-navigation.ts
-
 import type { EffectiveRole, PlatformRole } from "./types";
 
 export interface NavItemConfig {
@@ -29,8 +27,10 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     roles: [
       "SUPER_ADMIN",
       "AGENCY_MANAGER",
+      "SALES_MANAGER",
       "BRANCH_MANAGER",
       "AGENCY_ACCOUNTANT",
+      "SUPPORT_AGENT",
       "AGENT",
       "CUSTOMER",
     ],
@@ -54,70 +54,70 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "فهرست املاک",
     href: "/dashboard/properties",
     group: "portfolio",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "documents",
     label: "اسناد و فایل‌ها",
     href: "/dashboard/documents",
     group: "portfolio",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
   },
   {
     key: "customers",
     label: "مشتریان و اشتراک‌گذاری",
     href: "/dashboard/customers",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "SUPPORT_AGENT", "AGENT"],
   },
   {
     key: "leads",
     label: "سرنخ‌ها (Leads)",
     href: "/dashboard/leads",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "crm",
     label: "پایپ‌لاین CRM و تطبیق",
     href: "/dashboard/crm",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "appointments",
     label: "بازدیدها و تقویم",
     href: "/dashboard/appointments",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT", "CUSTOMER"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "SUPPORT_AGENT", "AGENT", "CUSTOMER"],
   },
   {
     key: "negotiations",
     label: "مذاکرات و پیشنهادها",
     href: "/dashboard/negotiations",
     group: "deals",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "contracts",
     label: "قراردادها و قالب‌ها",
     href: "/dashboard/contracts",
     group: "deals",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
   },
   {
     key: "deals",
     label: "معاملات",
     href: "/dashboard/deals",
     group: "deals",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
   },
   {
     key: "commissions",
     label: "کمیسیون‌ها و تقسیم سهم",
     href: "/dashboard/commissions",
     group: "deals",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
   },
   {
     key: "accounting",
@@ -146,14 +146,14 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "گزارش‌ها و تحلیل",
     href: "/dashboard/reports",
     group: "finance",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"],
   },
   {
     key: "team",
     label: "تیم آژانس",
     href: "/dashboard/team",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER"],
   },
   {
     key: "employees",
@@ -167,7 +167,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "مشاوران املاک",
     href: "/dashboard/agents",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER"],
   },
   {
     key: "roles",
@@ -184,8 +184,10 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     roles: [
       "SUPER_ADMIN",
       "AGENCY_MANAGER",
+      "SALES_MANAGER",
       "BRANCH_MANAGER",
       "AGENCY_ACCOUNTANT",
+      "SUPPORT_AGENT",
       "AGENT",
       "CUSTOMER",
     ],
@@ -198,8 +200,10 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     roles: [
       "SUPER_ADMIN",
       "AGENCY_MANAGER",
+      "SALES_MANAGER",
       "BRANCH_MANAGER",
       "AGENCY_ACCOUNTANT",
+      "SUPPORT_AGENT",
       "AGENT",
       "CUSTOMER",
     ],
@@ -209,21 +213,21 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "شکایات و پیگیری",
     href: "/dashboard/complaints",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "CUSTOMER"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "SUPPORT_AGENT", "CUSTOMER"],
   },
   {
     key: "surveys",
     label: "نظرسنجی و تحلیل",
     href: "/dashboard/surveys",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "SUPPORT_AGENT"],
   },
   {
     key: "ai",
     label: "دستیار هوشمند آژانس",
     href: "/dashboard/ai-assistant",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "cms",
@@ -254,8 +258,10 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     roles: [
       "SUPER_ADMIN",
       "AGENCY_MANAGER",
+      "SALES_MANAGER",
       "BRANCH_MANAGER",
       "AGENCY_ACCOUNTANT",
+      "SUPPORT_AGENT",
       "AGENT",
       "CUSTOMER",
     ],
@@ -269,8 +275,10 @@ export function resolveEffectiveRole(
   if (platformRole === "SUPER_ADMIN") return "SUPER_ADMIN";
   if (platformRole === "CUSTOMER") return "CUSTOMER";
   if (agencyRoleCode === "AGENCY_MANAGER") return "AGENCY_MANAGER";
+  if (agencyRoleCode === "SALES_MANAGER") return "SALES_MANAGER";
   if (agencyRoleCode === "BRANCH_MANAGER") return "BRANCH_MANAGER";
   if (agencyRoleCode === "AGENCY_ACCOUNTANT") return "AGENCY_ACCOUNTANT";
+  if (agencyRoleCode === "SUPPORT_AGENT") return "SUPPORT_AGENT";
   if (platformRole === "AGENCY_USER") return "AGENT";
   return "CUSTOMER";
 }

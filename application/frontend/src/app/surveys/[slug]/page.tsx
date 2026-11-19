@@ -1,5 +1,3 @@
-// Path: frontend/src/app/surveys/[slug]/page.tsx
-
 "use client";
 
 import React, { useEffect, useState } from "react";

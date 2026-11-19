@@ -1,5 +1,3 @@
-// Path: frontend/src/app/api/ai/generate/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 

@@ -1,29 +1,44 @@
-/* Path: frontend/src/app/globals.css */
-
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Bonyan Melk Unified Design System Tokens
+ * Combines Luxury Light, Cinematic Dark, Real Estate Visual & Advanced Analytics
+ */
 :root {
-  --bg-canvas: #f8fafc;
+  --font-vazirmatn: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --bg-canvas: #faf9f6;
   --bg-surface: #ffffff;
-  --bg-subtle: #f1f5f9;
-  --border-hairline: #e2e8f0;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #f3f1ec;
+  --border-hairline: #e5e2dc;
+  --border-strong: #d4cfc7;
   --text-primary: #0f172a;
-  --text-muted: #475569;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   --accent-primary: #0f766e;
+  --accent-primary-hover: #0d625b;
   --accent-secondary: #b45309;
+  --glow-accent: rgba(15, 118, 110, 0.08);
   color-scheme: light;
 }
 
 .dark {
-  --bg-canvas: #0b1120;
-  --bg-surface: #111827;
-  --bg-subtle: #1e293b;
-  --border-hairline: #263449;
-  --text-primary: #f1f5f9;
+  --bg-canvas: #070b14;
+  --bg-surface: #0f172a;
+  --bg-elevated: #152036;
+  --bg-subtle: #182338;
+  --border-hairline: #23324d;
+  --border-strong: #324669;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   --accent-primary: #14b8a6;
+  --accent-primary-hover: #2dd4bf;
   --accent-secondary: #f59e0b;
+  --glow-accent: rgba(20, 184, 166, 0.14);
   color-scheme: dark;
 }
 
@@ -33,10 +48,47 @@
     background-color: var(--bg-canvas);
     color: var(--text-primary);
     font-feature-settings: "ss01";
-    transition: background-color 150ms ease, color 150ms ease;
+    transition: background-color 180ms ease, color 180ms ease;
   }
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Cinematic & Luxury elevation utilities */
+.surface-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+}
+
+.dark .cinematic-glow {
+  background-image: radial-gradient(circle at 80% 0%, rgba(20, 184, 166, 0.14), transparent 45%),
+    radial-gradient(circle at 15% 100%, rgba(245, 158, 11, 0.08), transparent 40%);
+}
+
+.luxury-backdrop {
+  background-image: radial-gradient(circle at 85% 0%, rgba(15, 118, 110, 0.06), transparent 45%),
+    radial-gradient(circle at 10% 95%, rgba(180, 83, 9, 0.05), transparent 40%);
+}
+
+/* Leaflet RTL & Dark mode container polish */
+.leaflet-container {
+  font-family: var(--font-vazirmatn), sans-serif;
+  z-index: 10;
+}
+
+.dark .leaflet-tile-pane {
+  filter: brightness(0.82) contrast(1.06) saturate(0.85);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

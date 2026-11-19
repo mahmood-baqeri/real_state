@@ -1,5 +1,3 @@
-# Path: backend/fastapi_core/app/schemas/common.py
-
 from typing import Any, Optional
 from pydantic import BaseModel
 

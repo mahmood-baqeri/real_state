@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/tenant/managers.py
-
 from django.db import models
 from .context import get_current_agency_id, is_tenant_bypassed
 

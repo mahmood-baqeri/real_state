@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/transactions/apps.py
-
 from django.apps import AppConfig
 
 

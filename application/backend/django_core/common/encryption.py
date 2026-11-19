@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/encryption.py
-
 import base64
 import hashlib
 from cryptography.fernet import Fernet

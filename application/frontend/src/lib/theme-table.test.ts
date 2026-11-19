@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/theme-table.test.ts
-
 import test from "node:test";
 import assert from "node:assert/strict";
 import {

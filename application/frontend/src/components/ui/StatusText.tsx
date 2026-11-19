@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/StatusText.tsx
-
 import React from "react";
 import { translateStatus } from "@/lib/formatters";
 
@@ -14,6 +12,7 @@ const POSITIVE = new Set([
   "CONFIRMED",
   "COMPLETED",
   "ACCEPTED",
+  "PRE_AGREEMENT",
   "APPROVED",
   "SIGNED",
   "EXECUTED",
@@ -34,6 +33,14 @@ const WARNING = new Set([
   "PENDING_APPROVAL",
   "REQUESTED",
   "COUNTER_OFFERED",
+  "OWNER_COUNTERED",
+  "BUYER_OFFERED",
+  "BARGAINING",
+  "AWAITING_BUYER_OFFER",
+  "AWAITING_OWNER_RESPONSE",
+  "AWAITING_FINAL_APPROVAL",
+  "CREATED",
+  "PAUSED",
   "CONTRACT_ACTIVE",
   "CALCULATED",
   "PENDING",
@@ -56,6 +63,7 @@ const DANGER = new Set([
   "NO_SHOW",
   "DISQUALIFIED",
   "REJECTED",
+  "WITHDRAWN",
   "TERMINATED",
   "VOIDED",
   "REVERSED",

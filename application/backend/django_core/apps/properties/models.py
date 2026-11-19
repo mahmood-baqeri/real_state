@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/properties/models.py
-
 from decimal import Decimal
 from django.conf import settings
 from django.db import models
@@ -39,14 +37,50 @@ class DealType(models.Model):
         db_table = "properties_deal_type"
 
 
-class Amenity(models.Model):
+class AmenityCategory(models.Model):
     code = models.CharField(max_length=48, primary_key=True)
     name_fa = models.CharField(max_length=80)
-    name_en = models.CharField(max_length=80)
+    name_en = models.CharField(max_length=80, blank=True, default="")
     icon_name = models.CharField(max_length=48, blank=True, default="")
+    description = models.CharField(max_length=255, blank=True, default="")
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "properties_amenity_category"
+        ordering = ["sort_order", "name_fa"]
+
+
+class Amenity(models.Model):
+    class ValueType(models.TextChoices):
+        BOOLEAN = "BOOLEAN", "Boolean"
+        INTEGER = "INTEGER", "Integer"
+        TEXT = "TEXT", "Text"
+        CHOICE = "CHOICE", "Choice"
+
+    code = models.CharField(max_length=48, primary_key=True)
+    category = models.ForeignKey(
+        AmenityCategory,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="amenities",
+    )
+    name_fa = models.CharField(max_length=80)
+    name_en = models.CharField(max_length=80, blank=True, default="")
+    icon_name = models.CharField(max_length=48, blank=True, default="")
+    description = models.CharField(max_length=255, blank=True, default="")
+    value_type = models.CharField(
+        max_length=16, choices=ValueType.choices, default=ValueType.BOOLEAN
+    )
+    unit_label = models.CharField(max_length=32, blank=True, default="")
+    options_json = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    sort_order = models.PositiveSmallIntegerField(default=100)
 
     class Meta:
         db_table = "properties_amenity"
+        ordering = ["sort_order", "name_fa"]
 
 
 class Property(TenantScopedModel, SoftDeleteMixin):
@@ -142,9 +176,36 @@ class Property(TenantScopedModel, SoftDeleteMixin):
             self.price_per_sqm = (self.total_price / area).quantize(Decimal("0.01"))
 
 
+class PropertyAmenityValue(BaseModel):
+    property = models.ForeignKey(
+        Property, on_delete=models.CASCADE, related_name="amenity_values"
+    )
+    amenity = models.ForeignKey(
+        Amenity, on_delete=models.CASCADE, related_name="property_values"
+    )
+    value_text = models.CharField(max_length=120, blank=True, default="")
+    value_number = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        db_table = "properties_amenity_value"
+        unique_together = ("property", "amenity")
+
+
 class PropertyLocation(models.Model):
     property = models.OneToOneField(Property, on_delete=models.CASCADE, related_name="location")
     country = models.ForeignKey("settings.Country", on_delete=models.PROTECT, default="IR")
+    province_ref = models.ForeignKey(
+        "settings.Province", null=True, blank=True, on_delete=models.PROTECT, related_name="property_locations"
+    )
+    city_ref = models.ForeignKey(
+        "settings.City", null=True, blank=True, on_delete=models.PROTECT, related_name="property_locations"
+    )
+    district_ref = models.ForeignKey(
+        "settings.District", null=True, blank=True, on_delete=models.PROTECT, related_name="property_locations"
+    )
+    neighborhood_ref = models.ForeignKey(
+        "settings.Neighborhood", null=True, blank=True, on_delete=models.PROTECT, related_name="property_locations"
+    )
     province = models.CharField(max_length=80, db_index=True)
     city = models.CharField(max_length=80, db_index=True)
     district = models.CharField(max_length=80, blank=True, default="", db_index=True)
@@ -158,6 +219,10 @@ class PropertyLocation(models.Model):
 
     class Meta:
         db_table = "properties_location"
+        indexes = [
+            models.Index(fields=["latitude", "longitude"]),
+            models.Index(fields=["province_ref", "city_ref", "district_ref", "neighborhood_ref"]),
+        ]
 
 
 class PropertyOwner(BaseModel):

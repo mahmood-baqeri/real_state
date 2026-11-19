@@ -1,5 +1,3 @@
-# Path: backend/fastapi_core/app/api/v1/accounting.py
-
 from datetime import date
 from decimal import Decimal
 from typing import Optional

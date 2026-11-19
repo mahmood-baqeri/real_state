@@ -1,5 +1,3 @@
-# Path: backend/django_core/common/localization/currency.py
-
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict
 

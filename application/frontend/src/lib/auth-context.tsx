@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/auth-context.tsx
-
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -25,7 +23,7 @@ interface AuthContextValue {
   setActiveAgencyId: (id: string | null) => void;
   setCalendarMode: (mode: CalendarMode) => void;
   setCurrencyMode: (code: CurrencyCode) => void;
-  login: (phoneNumber: string, password: string) => Promise<UserProfile>;
+  login: (phoneNumber: string, password: string, mfaCode?: string) => Promise<UserProfile>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   hasPermission: (code: string) => boolean;
@@ -95,16 +93,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const login = useCallback(
-    async (phoneNumber: string, password: string): Promise<UserProfile> => {
+    async (phoneNumber: string, password: string, mfaCode?: string): Promise<UserProfile> => {
+      const payload: Record<string, string> = {
+        phone_number: phoneNumber,
+        password,
+        device_name: "Web Workspace",
+      };
+      if (mfaCode && mfaCode.trim()) {
+        payload.mfa_code = mfaCode.trim();
+      }
       const env = await apiFetch<{ access: string; refresh: string; user: UserProfile }>(
         "/api/v1/auth/login",
         {
           method: "POST",
-          body: JSON.stringify({
-            phone_number: phoneNumber,
-            password,
-            device_name: "Web Workspace",
-          }),
+          body: JSON.stringify(payload),
         }
       );
       const defaultAgency = env.data.user.memberships?.[0]?.agency_id ?? null;

@@ -1,5 +1,3 @@
-// Path: frontend/src/app/page.tsx
-
 "use client";
 
 import React, { useState } from "react";
@@ -31,6 +29,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { buildOrganizationJsonLd } from "@/lib/seo";
 import { RoleWorkspaceShowcase } from "@/components/landing/RoleWorkspaceShowcase";
 import { CommissionCalculatorPreview } from "@/components/landing/CommissionCalculatorPreview";
+import { DesignStyleShowcase } from "@/components/landing/DesignStyleShowcase";
 
 interface PriceTrendRow {
   district: string;
@@ -212,7 +211,7 @@ export default function HomePage() {
                   href="/login"
                   className="inline-flex h-11 items-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                 >
-                  ورود با ۷ حساب کاربری دمو
+                  ورود با ۹ حساب کاربری دمو
                 </Link>
               </div>
             </div>
@@ -254,10 +253,10 @@ export default function HomePage() {
             </div>
             <div className="p-4 sm:p-5">
               <div className="tabular-nums text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-                {formatNumberFa(7)} نقش RBAC
+                {formatNumberFa(9)} حساب دمو
               </div>
               <div className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-400">
-                مدیر کل، مدیر آژانس، مدیر شعبه، مشاور، حسابدار و مشتری
+                مدیر کل، مدیر آژانس، مدیر فروش، پشتیبانی، حسابدار، مشاور و مشتری
               </div>
             </div>
             <div className="p-4 sm:p-5">
@@ -390,8 +389,11 @@ export default function HomePage() {
         </p>
       </section>
 
-      {/* Section 3: Interactive 7-Role Workspace Switcher */}
+      {/* Section 3: Interactive Role Workspace Switcher */}
       <RoleWorkspaceShowcase />
+
+      {/* Section 4: Interactive 4-Style Design Showcase */}
+      <DesignStyleShowcase featuredProperties={safeProperties} />
 
       {/* Section 4: Numbered Architecture Bento Grid */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -601,7 +603,7 @@ export default function HomePage() {
               آماده تحول دیجیتال در آژانس املاک خود هستید؟
             </h3>
             <p className="max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-              همین الان با هر یک از ۷ نقش مدیریتی و عملیاتی وارد محیط زنده پلتفرم شوید یا درخواست
+              همین الان با هر یک از ۹ حساب و نقش مدیریتی، فروش، پشتیبانی و عملیاتی وارد محیط زنده پلتفرم شوید یا درخواست
               راه‌اندازی پنل اختصاصی آژانس خود را ثبت کنید.
             </p>
           </div>
@@ -610,7 +612,7 @@ export default function HomePage() {
               href="/login"
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-600 px-5 text-xs font-semibold text-white transition-colors hover:bg-teal-500 sm:text-sm"
             >
-              ورود فوری با ۷ نقش
+              ورود فوری با ۹ حساب دمو
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <Link

@@ -1,5 +1,3 @@
-// Path: frontend/src/app/dashboard/properties/page.tsx
-
 "use client";
 
 import React, { useState } from "react";
@@ -14,6 +12,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/DataTable";
 import { StatusText } from "@/components/ui/StatusText";
 import { MoneyDisplay } from "@/components/ui/MoneyDisplay";
+import { SavedViewsBar } from "@/components/ui/SavedViewsBar";
+import { ImportExportDialog } from "@/components/ui/ImportExportDialog";
 import { ErrorState, SuccessBanner } from "@/components/ui/StateNotice";
 
 export default function DashboardPropertiesPage() {
@@ -68,14 +68,27 @@ export default function DashboardPropertiesPage() {
         subtitle="فهرست فایل‌های داخلی و منتشرشده، تغییر وضعیت چرخه تایید و دسترسی به مشخصات مالک"
         breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "فهرست املاک" }]}
         actions={
-          <Link
-            href="/dashboard/properties/new"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
-          >
-            <Plus className="h-4 w-4" />
-            ثبت ملک جدید
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportExportDialog
+              module="properties"
+              moduleLabel="املاک"
+              onImported={() => qc.invalidateQueries({ queryKey: ["agency-properties"] })}
+            />
+            <Link
+              href="/dashboard/properties/new"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
+            >
+              <Plus className="h-4 w-4" />
+              ثبت ملک جدید
+            </Link>
+          </div>
         }
+      />
+
+      <SavedViewsBar
+        module="properties"
+        currentFilters={{ status: statusFilter }}
+        onApply={(f) => setStatusFilter(f.status || "")}
       />
 
       {notice && <SuccessBanner message={notice} />}

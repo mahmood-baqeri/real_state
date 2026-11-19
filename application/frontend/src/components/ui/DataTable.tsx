@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/DataTable.tsx
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -18,7 +16,7 @@ import {
   serializeCsv,
   type ExportColumn,
 } from "@/lib/table-utils";
-import { EmptyState, ErrorState, LoadingState } from "./StateNotice";
+import { EmptyState, ErrorState } from "./StateNotice";
 
 export interface ColumnDef<T> {
   key: string;
@@ -378,7 +376,36 @@ export function DataTable<T>({
       )}
 
       {isLoading ? (
-        <LoadingState />
+        <div
+          aria-busy="true"
+          aria-label="در حال بارگذاری اطلاعات جدول"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+        >
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/70">
+            <div className="grid grid-cols-4 gap-4 sm:grid-cols-6">
+              {Array.from({ length: Math.min(6, Math.max(3, visibleColumns.length)) }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-3.5 animate-pulse rounded bg-slate-200 dark:bg-slate-700"
+                />
+              ))}
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {Array.from({ length: 5 }).map((_, rowIdx) => (
+              <div key={rowIdx} className="grid grid-cols-4 gap-4 px-4 py-3.5 sm:grid-cols-6">
+                {Array.from({ length: Math.min(6, Math.max(3, visibleColumns.length)) }).map(
+                  (_, colIdx) => (
+                    <div
+                      key={colIdx}
+                      className="h-3 animate-pulse rounded bg-slate-100 dark:bg-slate-800"
+                    />
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       ) : pagedRows.length === 0 ? (
         <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />
       ) : (

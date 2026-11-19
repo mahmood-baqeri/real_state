@@ -1,5 +1,3 @@
-// Path: frontend/src/app/sitemap.ts
-
 import type { MetadataRoute } from "next";
 import { getApiOrigin, getSiteUrl } from "@/lib/seo";
 

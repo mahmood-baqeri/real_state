@@ -1,13 +1,12 @@
-// Path: frontend/src/app/dashboard/cms/page.tsx
-
 "use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Building2, CheckCircle2, FileText, Globe, Mail, Plus, Sparkles } from "lucide-react";
+import { ArrowUpRight, Building2, CheckCircle2, FileText, Globe, Mail, Plus, Rss, Sparkles } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import type { RssTopicsResult } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/DataTable";
 import { StatusText } from "@/components/ui/StatusText";
@@ -86,6 +85,8 @@ export default function CmsDashboardPage() {
   const [redirectOpen, setRedirectOpen] = useState(false);
   const [activeInquiry, setActiveInquiry] = useState<ContactInquiry | null>(null);
   const [inquiryReply, setInquiryReply] = useState("");
+  const [rssUrl, setRssUrl] = useState("");
+  const [rssResult, setRssResult] = useState<RssTopicsResult | null>(null);
 
   const [artForm, setArtForm] = useState({
     title: "",
@@ -202,6 +203,23 @@ export default function CmsDashboardPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const rssMut = useMutation({
+    mutationFn: async () =>
+      (
+        await apiFetch<RssTopicsResult>("/api/v1/ai/rss-topics", {
+          method: "POST",
+          token: accessToken,
+          agencyId: activeAgencyId,
+          body: JSON.stringify({ feed_url: rssUrl.trim() || null }),
+        })
+      ).data,
+    onSuccess: (d) => {
+      setRssResult(d);
+      toast.success("ایده‌های موضوعی بازار مسکن آماده شدند.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const createRedirMut = useMutation({
     mutationFn: async () =>
       apiFetch("/api/v1/seo/redirects", {
@@ -310,7 +328,69 @@ export default function CmsDashboardPage() {
       </div>
 
       {tab === "articles" && (
-        <DataTable
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-100">
+                <Rss className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                ایده‌پرداز هوشمند موضوعات مجله و خبر (RSS / روند بازار)
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  dir="ltr"
+                  placeholder="آدرس فید HTTPS اختیاری..."
+                  value={rssUrl}
+                  onChange={(e) => setRssUrl(e.target.value)}
+                  className="h-9 w-64 rounded-lg border border-slate-300 bg-white px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+                />
+                <button
+                  type="button"
+                  disabled={rssMut.isPending}
+                  onClick={() => rssMut.mutate()}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-teal-700 px-3 text-xs font-semibold text-teal-700 hover:bg-teal-50 dark:border-teal-500 dark:text-teal-400 dark:hover:bg-teal-950/50 disabled:opacity-50"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {rssMut.isPending ? "در حال دریافت..." : "دریافت ایده‌های موضوعی"}
+                </button>
+              </div>
+            </div>
+
+            {rssResult && rssResult.topics.length > 0 && (
+              <div className="grid grid-cols-1 gap-2.5 pt-2 md:grid-cols-3">
+                {rssResult.topics.map((topic, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-800/50"
+                  >
+                    <div className="space-y-1">
+                      <div className="font-bold text-slate-900 dark:text-slate-100">
+                        {topic.title}
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                        {topic.angle}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setArtForm((prev) => ({
+                          ...prev,
+                          title: topic.title,
+                          summary: topic.angle,
+                        }));
+                        setArticleOpen(true);
+                      }}
+                      className="mt-3 h-8 rounded-md bg-teal-700 text-[11px] font-semibold text-white hover:bg-teal-800"
+                    >
+                      استفاده در مقاله جدید
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DataTable
           rows={articlesQ.data || []}
           rowKey={(a) => a.id}
           isLoading={articlesQ.isLoading}
@@ -381,6 +461,7 @@ export default function CmsDashboardPage() {
             },
           ]}
         />
+        </div>
       )}
 
       {tab === "redirects" && (

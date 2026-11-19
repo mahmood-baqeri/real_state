@@ -1,23 +1,6 @@
-// Path: frontend/src/app/layout.tsx
-
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, Vazirmatn } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-
-const vazirmatn = Vazirmatn({
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-vazirmatn",
-  display: "swap",
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const viewport: Viewport = {
   themeColor: "#0f766e",
@@ -74,9 +57,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="fa"
       dir="rtl"
       suppressHydrationWarning
-      className={`${vazirmatn.variable} ${ibmPlexMono.variable}`}
     >
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Vazirmatn:wght@400;500;600;700&display=swap"
+        />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 font-[family-name:var(--font-vazirmatn)] antialiased">

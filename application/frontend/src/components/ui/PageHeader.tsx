@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/PageHeader.tsx
-
 import React from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";

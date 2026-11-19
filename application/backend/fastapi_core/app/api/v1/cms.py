@@ -1,5 +1,3 @@
-# Path: backend/fastapi_core/app/api/v1/cms.py
-
 from datetime import datetime
 from typing import Optional
 from uuid import UUID

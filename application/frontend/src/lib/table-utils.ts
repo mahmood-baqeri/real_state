@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/table-utils.ts
-
 export interface TableSortSpec<T> {
   key: string;
   direction: "asc" | "desc";

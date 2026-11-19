@@ -1,5 +1,3 @@
-// Path: frontend/src/components/ui/MoneyDisplay.tsx
-
 "use client";
 
 import React from "react";

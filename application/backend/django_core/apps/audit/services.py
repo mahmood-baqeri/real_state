@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/audit/services.py
-
 from typing import Any, Optional
 from uuid import UUID
 from apps.accounts.models import User

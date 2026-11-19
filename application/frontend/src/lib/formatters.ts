@@ -1,5 +1,3 @@
-// Path: frontend/src/lib/formatters.ts
-
 import type { AreaUnit, CalendarMode, CurrencyCode } from "./types";
 
 export function formatNumberFa(value: number | string): string {
@@ -154,6 +152,16 @@ export const STATUS_LABELS_FA: Record<string, string> = {
   ESCALATED: "ارجاع به سطح بالاتر",
   REVIEW: "در صف بازبینی",
   SCHEDULED: "زمان‌بندی‌شده",
+  CREATED: "ثبت اولیه مذاکره",
+  AWAITING_BUYER_OFFER: "در انتظار پیشنهاد خریدار",
+  BUYER_OFFERED: "پیشنهاد خریدار ثبت شد",
+  AWAITING_OWNER_RESPONSE: "در انتظار پاسخ مالک",
+  OWNER_COUNTERED: "پیشنهاد متقابل مالک",
+  BARGAINING: "در حال چانه‌زنی و تعدیل",
+  PRE_AGREEMENT: "توافق اولیه حاصل شد",
+  AWAITING_FINAL_APPROVAL: "در انتظار تأیید نهایی",
+  PAUSED: "مذاکره متوقف‌شده",
+  WITHDRAWN: "انصراف طرفین",
 };
 
 export function translateStatus(status: string): string {
@@ -163,7 +171,10 @@ export function translateStatus(status: string): string {
 export const ROLE_LABELS_FA: Record<string, string> = {
   SUPER_ADMIN: "مدیر کل سامانه",
   AGENCY_MANAGER: "مدیر آژانس",
+  BRANCH_MANAGER: "مدیر شعبه",
+  SALES_MANAGER: "مدیر فروش",
   AGENCY_ACCOUNTANT: "حسابدار آژانس",
+  SUPPORT_AGENT: "کارشناس پشتیبانی",
   REAL_ESTATE_AGENT: "مشاور املاک",
   AGENT: "مشاور املاک",
   CUSTOMER: "مشتری / متقاضی",

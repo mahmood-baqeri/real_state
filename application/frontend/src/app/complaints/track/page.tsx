@@ -1,5 +1,3 @@
-// Path: frontend/src/app/complaints/track/page.tsx
-
 "use client";
 
 import React, { useState } from "react";

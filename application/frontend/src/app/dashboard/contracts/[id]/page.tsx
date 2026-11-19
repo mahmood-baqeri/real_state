@@ -1,5 +1,3 @@
-// Path: frontend/src/app/dashboard/contracts/[id]/page.tsx
-
 "use client";
 
 import React from "react";

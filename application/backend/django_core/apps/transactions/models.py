@@ -1,5 +1,3 @@
-# Path: backend/django_core/apps/transactions/models.py
-
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import models

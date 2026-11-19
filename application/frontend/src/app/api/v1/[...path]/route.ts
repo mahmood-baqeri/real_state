@@ -1,14 +1,12 @@
-// Path: frontend/src/app/api/v1/[...path]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 
 const FASTAPI_BASE = process.env.INTERNAL_FASTAPI_URL || "http://127.0.0.1:8020";
 
 async function proxyToFastAPI(
   request: NextRequest,
-  context: { params: Promise<{ path: string[] }> }
+  context: { params: Promise<{ path?: string[] }> }
 ) {
-  const { path } = await context.params;
+  const { path = [] } = await context.params;
   const joined = path.join("/");
   const targetUrl = `${FASTAPI_BASE}/api/v1/${joined}${request.nextUrl.search}`;
 
@@ -23,22 +21,34 @@ async function proxyToFastAPI(
   if (idemp) forwardHeaders.set("idempotency-key", idemp);
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
-  const bodyText = hasBody ? await request.text() : undefined;
+  const bodyBuffer = hasBody ? await request.arrayBuffer() : undefined;
 
   try {
     const upstream = await fetch(targetUrl, {
       method: request.method,
       headers: forwardHeaders,
-      body: bodyText,
+      body: bodyBuffer && bodyBuffer.byteLength > 0 ? bodyBuffer : undefined,
       redirect: "manual",
     });
 
-    const respBody = await upstream.text();
-    return new NextResponse(respBody, {
+    const respBuffer = await upstream.arrayBuffer();
+    const respHeaders = new Headers();
+    respHeaders.set(
+      "content-type",
+      upstream.headers.get("content-type") || "application/json"
+    );
+    const contentDisposition = upstream.headers.get("content-disposition");
+    if (contentDisposition) {
+      respHeaders.set("content-disposition", contentDisposition);
+    }
+    const cacheControl = upstream.headers.get("cache-control");
+    if (cacheControl) {
+      respHeaders.set("cache-control", cacheControl);
+    }
+
+    return new NextResponse(respBuffer, {
       status: upstream.status,
-      headers: {
-        "content-type": upstream.headers.get("content-type") || "application/json",
-      },
+      headers: respHeaders,
     });
   } catch {
     return NextResponse.json(

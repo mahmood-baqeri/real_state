@@ -1,5 +1,3 @@
-# Path: backend/fastapi_core/app/api/v1/subscriptions.py
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.core.django_bridge import run_django

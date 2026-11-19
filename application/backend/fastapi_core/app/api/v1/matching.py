@@ -1,11 +1,8 @@
-# Path: backend/fastapi_core/app/api/v1/matching.py
-
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Query
 from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, get_optional_context
 from app.schemas.common import ok
-from app.services.matching_service import score_property_for_requirement
 
 router = APIRouter(prefix="/matching", tags=["Smart Matching & Market Analytics"])
 
@@ -21,6 +18,7 @@ async def match_properties_for_customer(
     min_budget: float = 15000000000,
     max_budget: float = 45000000000,
     min_bedrooms: int = 2,
+    amenities: str = "",
     ctx: RequestContext = Depends(get_optional_context),
 ):
     req = {
@@ -33,15 +31,18 @@ async def match_properties_for_customer(
         "min_budget": min_budget,
         "max_budget": max_budget,
         "min_bedrooms": min_bedrooms,
+        "preferred_amenities": [a.strip().upper() for a in amenities.split(",") if a.strip()],
     }
 
     def _op():
         from apps.properties.models import Property
+        from apps.search.services import score_property_for_requirement
 
         qs = (
             Property.objects.all_tenants()
             .filter(is_deleted=False, status=Property.Status.PUBLISHED)
             .select_related("location", "property_type", "deal_type")
+            .prefetch_related("amenities")
         )
         if ctx.agency_id:
             qs = qs.filter(agency_id=ctx.agency_id)
@@ -63,6 +64,7 @@ async def match_properties_for_customer(
                     "total_price": p.total_price,
                     "city": loc.city if loc else "",
                     "district": loc.district if loc else "",
+                    "amenity_codes": [a.code for a in p.amenities.all()],
                 }
             )
         scored = [score_property_for_requirement(p, req) for p in props]

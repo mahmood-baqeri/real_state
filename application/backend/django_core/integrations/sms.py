@@ -1,5 +1,3 @@
-# Path: backend/django_core/integrations/sms.py
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import logging

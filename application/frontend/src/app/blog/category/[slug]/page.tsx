@@ -1,5 +1,3 @@
-// Path: frontend/src/app/blog/category/[slug]/page.tsx
-
 "use client";
 
 import React from "react";

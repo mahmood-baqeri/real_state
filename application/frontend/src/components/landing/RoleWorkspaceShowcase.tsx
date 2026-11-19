@@ -1,5 +1,3 @@
-// Path: frontend/src/components/landing/RoleWorkspaceShowcase.tsx
-
 "use client";
 
 import React, { useState } from "react";

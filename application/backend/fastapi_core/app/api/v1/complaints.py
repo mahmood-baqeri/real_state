@@ -1,5 +1,3 @@
-# Path: backend/fastapi_core/app/api/v1/complaints.py
-
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query

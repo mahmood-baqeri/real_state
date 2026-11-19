@@ -1,5 +1,3 @@
-// Path: frontend/src/app/dashboard/tickets/[id]/page.tsx
-
 "use client";
 
 import React, { useState } from "react";

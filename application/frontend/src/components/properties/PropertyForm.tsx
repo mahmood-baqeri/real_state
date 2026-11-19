@@ -1,5 +1,3 @@
-// Path: frontend/src/components/properties/PropertyForm.tsx
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -11,9 +9,11 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import type { PropertyCatalog, PropertyItem } from "@/lib/types";
+import type { AmenityValueInput, PropertyCatalog, PropertyItem } from "@/lib/types";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
 import { StepWizard } from "@/components/ui/StepWizard";
+import { LocationCascadeSelect, type GeoCascadeValue } from "@/components/ui/LocationCascadeSelect";
+import { CategorizedAmenitySelector } from "@/components/ui/CategorizedAmenitySelector";
 import { useToast } from "@/components/ui/ToastProvider";
 
 const propertySchema = z.object({
@@ -40,11 +40,9 @@ const propertySchema = z.object({
   deposit_amount: z.coerce.number().min(0).default(0),
   rent_amount: z.coerce.number().min(0).default(0),
   initial_media_url: z.string().optional().default("/images/prop-zafaranieh.jpg"),
-  city: z.string().min(2, "نام شهر الزامی است"),
-  province: z.string().default("تهران"),
-  district: z.string().default(""),
-  neighborhood: z.string().default(""),
   full_address: z.string().default(""),
+  latitude: z.string().optional().default(""),
+  longitude: z.string().optional().default(""),
   hide_exact_address: z.boolean().default(true),
   amenity_codes: z.array(z.string()).default([]),
 });
@@ -53,8 +51,8 @@ type PropertyFormValues = z.infer<typeof propertySchema>;
 
 const STEPS = [
   { id: "basics", title: "مشخصات پایه", subtitle: "عنوان، کد و نوع معامله" },
-  { id: "specs", title: "فنی و قیمت‌گذاری", subtitle: "متراژ، امکانات و ارزش" },
-  { id: "location", title: "موقعیت و رسانه", subtitle: "آدرس، حریم خصوصی و کاور" },
+  { id: "specs", title: "فنی، امکانات و قیمت", subtitle: "متراژ، امکانات دسته‌بندی‌شده و ارزش" },
+  { id: "location", title: "موقعیت جغرافیایی و رسانه", subtitle: "استان، شهر، منطقه، محله و کاور" },
 ];
 
 const INPUT_CLS =
@@ -74,6 +72,25 @@ export function PropertyForm({
   const [step, setStep] = useState(0);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [savedOk, setSavedOk] = React.useState(false);
+
+  const [geo, setGeo] = useState<GeoCascadeValue>({
+    province_id: initialData?.location?.province_id || null,
+    city_id: initialData?.location?.city_id || null,
+    district_id: initialData?.location?.district_id || null,
+    neighborhood_id: initialData?.location?.neighborhood_id || null,
+    province_name: initialData?.location?.province || "",
+    city_name: initialData?.location?.city || "",
+    district_name: initialData?.location?.district || "",
+    neighborhood_name: initialData?.location?.neighborhood || "",
+  });
+
+  const [amenityValues, setAmenityValues] = useState<AmenityValueInput[]>(() =>
+    (initialData?.amenities || []).map((a) => ({
+      code: a.code,
+      value_text: a.value_text || "",
+      value_number: a.value_number ? Number(a.value_number) : null,
+    }))
+  );
 
   const { data: catalog, isLoading: loadingCatalog } = useQuery({
     queryKey: ["property-catalog"],
@@ -111,11 +128,9 @@ export function PropertyForm({
       deposit_amount: 0,
       rent_amount: 0,
       initial_media_url: "/images/prop-zafaranieh.jpg",
-      city: "تهران",
-      province: "تهران",
-      district: "",
-      neighborhood: "",
       full_address: "",
+      latitude: "",
+      longitude: "",
       hide_exact_address: true,
       amenity_codes: [],
     },
@@ -148,14 +163,29 @@ export function PropertyForm({
         deposit_amount: Number(initialData.deposit_amount || 0),
         rent_amount: Number(initialData.rent_amount || 0),
         initial_media_url: initialData.media_items?.[0]?.url || "/images/prop-zafaranieh.jpg",
-        city: initialData.location?.city || "تهران",
-        province: initialData.location?.province || "تهران",
-        district: initialData.location?.district || "",
-        neighborhood: initialData.location?.neighborhood || "",
         full_address: initialData.location?.full_address || "",
+        latitude: initialData.location?.latitude || "",
+        longitude: initialData.location?.longitude || "",
         hide_exact_address: initialData.location?.hide_exact_address ?? true,
         amenity_codes: initialData.amenities?.map((a) => a.code) || [],
       });
+      setGeo({
+        province_id: initialData.location?.province_id || null,
+        city_id: initialData.location?.city_id || null,
+        district_id: initialData.location?.district_id || null,
+        neighborhood_id: initialData.location?.neighborhood_id || null,
+        province_name: initialData.location?.province || "",
+        city_name: initialData.location?.city || "",
+        district_name: initialData.location?.district || "",
+        neighborhood_name: initialData.location?.neighborhood || "",
+      });
+      setAmenityValues(
+        (initialData.amenities || []).map((a) => ({
+          code: a.code,
+          value_text: a.value_text || "",
+          value_number: a.value_number ? Number(a.value_number) : null,
+        }))
+      );
     }
   }, [initialData, reset]);
 
@@ -182,7 +212,28 @@ export function PropertyForm({
   const onSubmit = async (values: PropertyFormValues) => {
     setSubmitError(null);
     setSavedOk(false);
+
+    if (!geo.city_id && !geo.city_name) {
+      setSubmitError("انتخاب استان و شهر برای موقعیت جغرافیایی ملک الزامی است.");
+      return;
+    }
+
     try {
+      const latNum = values.latitude?.trim()
+        ? values.latitude.trim()
+        : geo.center_lat
+        ? String(geo.center_lat)
+        : null;
+      const lngNum = values.longitude?.trim()
+        ? values.longitude.trim()
+        : geo.center_lng
+        ? String(geo.center_lng)
+        : null;
+
+      const activeAmenityValues = amenityValues.filter((av) =>
+        values.amenity_codes.includes(av.code)
+      );
+
       const payload = {
         property_code: values.property_code,
         title: values.title,
@@ -208,13 +259,20 @@ export function PropertyForm({
         rent_amount: String(values.rent_amount),
         initial_media_url: values.initial_media_url,
         amenity_codes: values.amenity_codes,
+        amenity_values: activeAmenityValues,
         location: {
           country_id: "IR",
-          province: values.province,
-          city: values.city,
-          district: values.district,
-          neighborhood: values.neighborhood,
+          province_id: geo.province_id,
+          city_id: geo.city_id,
+          district_id: geo.district_id,
+          neighborhood_id: geo.neighborhood_id,
+          province: geo.province_name || "تهران",
+          city: geo.city_name || "تهران",
+          district: geo.district_name || "",
+          neighborhood: geo.neighborhood_name || "",
           full_address: values.full_address,
+          latitude: latNum,
+          longitude: lngNum,
           hide_exact_address: values.hide_exact_address,
         },
       };
@@ -333,11 +391,11 @@ export function PropertyForm({
         </div>
       )}
 
-      {/* Section 2: Specs & Pricing */}
+      {/* Section 2: Specs, Categorized Amenities & Pricing */}
       {step === 1 && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">
-            ۲. مشخصات فنی و قیمت‌گذاری
+            ۲. مشخصات فنی، امکانات دسته‌بندی‌شده و قیمت‌گذاری
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
@@ -446,67 +504,73 @@ export function PropertyForm({
           </div>
 
           {catalog?.amenities && (
-            <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
-              <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                امکانات ملک
+            <div className="mt-5 border-t border-slate-100 pt-5 dark:border-slate-800">
+              <p className="mb-3 text-xs font-bold text-slate-800 dark:text-slate-200">
+                امکانات و تجهیزات تخصصی ملک (با مقادیر عددی و ویژگی‌ها)
               </p>
-              <div className="flex flex-wrap gap-2">
-                {catalog.amenities.map((am) => {
-                  const active = selectedAmenities.includes(am.code);
-                  return (
-                    <button
-                      key={am.code}
-                      type="button"
-                      onClick={() => toggleAmenity(am.code)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        active
-                          ? "border-teal-700 bg-teal-50 text-teal-800 dark:border-teal-500 dark:bg-teal-950/60 dark:text-teal-300"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                      }`}
-                    >
-                      {am.name_fa}
-                    </button>
-                  );
-                })}
-              </div>
+              <CategorizedAmenitySelector
+                categories={catalog.amenity_categories || []}
+                amenities={catalog.amenities}
+                selectedCodes={selectedAmenities}
+                amenityValues={amenityValues}
+                onToggleCode={toggleAmenity}
+                onChangeValues={setAmenityValues}
+                showTypedInputs
+              />
             </div>
           )}
         </div>
       )}
 
-      {/* Section 3: Location & Media */}
+      {/* Section 3: Hierarchical Geography & Media */}
       {step === 2 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">
-            ۳. موقعیت مکانی و تصویر کاور
-          </h2>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 space-y-5">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              ۳. انتخاب ساختاریافته موقعیت جغرافیایی و تصویر کاور
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              موقعیت ملک را به‌صورت سلسله‌مراتبی از استان تا محله انتخاب کنید (با تغییر سطح بالاتر، زیرمجموعه‌ها به‌طور خودکار پاک می‌شوند).
+            </p>
+          </div>
+
+          <LocationCascadeSelect
+            value={geo}
+            requiredCity
+            onChange={(nextGeo) => {
+              setGeo(nextGeo);
+              if (nextGeo.center_lat && nextGeo.center_lng) {
+                setValue("latitude", String(nextGeo.center_lat));
+                setValue("longitude", String(nextGeo.center_lng));
+              }
+            }}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className={LABEL_CLS}>استان</label>
-              <input {...register("province")} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>شهر *</label>
-              <input {...register("city")} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>منطقه</label>
-              <input
-                {...register("district")}
-                placeholder="مثال: زعفرانیه"
-                className={INPUT_CLS}
-              />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>محله</label>
-              <input {...register("neighborhood")} className={INPUT_CLS} />
-            </div>
             <div className="sm:col-span-2">
               <label className={LABEL_CLS}>نشانی کامل (محرمانه داخلی)</label>
               <input {...register("full_address")} className={INPUT_CLS} />
             </div>
+            <div>
+              <label className={LABEL_CLS}>عرض جغرافیایی (Lat)</label>
+              <input
+                dir="ltr"
+                placeholder="35.8021"
+                {...register("latitude")}
+                className={`${INPUT_CLS} font-mono text-left`}
+              />
+            </div>
+            <div>
+              <label className={LABEL_CLS}>طول جغرافیایی (Lng)</label>
+              <input
+                dir="ltr"
+                placeholder="51.4148"
+                {...register("longitude")}
+                className={`${INPUT_CLS} font-mono text-left`}
+              />
+            </div>
             <div className="sm:col-span-2">
-              <label className={LABEL_CLS}>تصویر کاور</label>
+              <label className={LABEL_CLS}>تصویر کاور پیش‌فرض (یا آپلود اختصاصی پس از ثبت)</label>
               <select {...register("initial_media_url")} className={INPUT_CLS}>
                 <option value="/images/prop-zafaranieh.jpg">آپارتمان لوکس مدرن</option>
                 <option value="/images/prop-fereshteh.jpg">پنت‌هاوس فرشته</option>
@@ -515,7 +579,8 @@ export function PropertyForm({
               </select>
             </div>
           </div>
-          <label className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
             <input
               type="checkbox"
               {...register("hide_exact_address")}
