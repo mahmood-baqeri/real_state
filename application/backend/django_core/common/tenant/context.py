@@ -1,3 +1,5 @@
+# Path: backend/django_core/common/tenant/context.py
+
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Iterator, Optional

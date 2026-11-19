@@ -1,0 +1,18 @@
+{
+    "sourceFile": "application/backend/fastapi_core/app/core/state.py",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1795057671461,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1795057671461,
+            "name": "Commit-0",
+            "content": "\"\"\"\r\nState machine helpers — generic. Domain-specific transitions\r\nتعریف می‌شوند در `django_core/common/state_machine.py`.\r\n\"\"\"\r\n\r\n\r\nclass InvalidTransitionError(ValueError):\r\n    pass"
+        }
+    ]
+}

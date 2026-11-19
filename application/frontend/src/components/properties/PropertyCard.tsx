@@ -1,3 +1,5 @@
+// Path: frontend/src/components/properties/PropertyCard.tsx
+
 "use client";
 
 import React from "react";

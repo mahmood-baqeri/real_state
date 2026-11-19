@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/cms/services.py
+
 import secrets
 from typing import Optional
 from uuid import UUID

@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/settings/seeding.py
+
 import uuid
 from datetime import timedelta
 from decimal import Decimal

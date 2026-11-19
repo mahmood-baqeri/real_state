@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/payments/models.py
+
 from django.db import models
 from common.models import BaseModel
 

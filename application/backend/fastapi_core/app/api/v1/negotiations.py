@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/negotiations.py
+
 from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID

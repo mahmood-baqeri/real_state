@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/appointments/apps.py
+
 from django.apps import AppConfig
 
 

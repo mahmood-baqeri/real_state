@@ -1,3 +1,5 @@
+# Path: backend/django_core/common/pagination.py
+
 from math import ceil
 from typing import Callable, Iterable, Tuple
 from django.db.models import QuerySet

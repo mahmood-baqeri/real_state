@@ -1,3 +1,5 @@
+# Path: backend/django_core/integrations/payment.py
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal

@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/support.py
+
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query

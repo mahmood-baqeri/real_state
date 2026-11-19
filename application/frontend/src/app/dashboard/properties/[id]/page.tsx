@@ -1,3 +1,5 @@
+// Path: frontend/src/app/dashboard/properties/[id]/page.tsx
+
 "use client";
 
 import React, { useState } from "react";

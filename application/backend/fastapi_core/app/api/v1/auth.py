@@ -1,9 +1,14 @@
+# Path: backend/fastapi_core/app/api/v1/auth.py
+
 from typing import Optional
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 import jwt
 from pydantic import BaseModel, Field
+
 from app.core.django_bridge import run_django
+from app.core.rate_limit import rate_limit
 from app.core.security import build_token_pair, decode_jwt_token, new_jti
 from app.dependencies.auth import RequestContext, get_current_context
 from app.schemas.common import ok
@@ -52,6 +57,11 @@ class ProfilePatchBody(BaseModel):
     timezone: Optional[str] = None
 
 
+class AcceptInvitationBody(BaseModel):
+    token: str
+    password: str = Field(min_length=8)
+
+
 def _serialize_user(user) -> dict:
     from apps.accounts.models import AgencyMembership
     from common.permissions import get_effective_permissions
@@ -93,7 +103,8 @@ def _serialize_user(user) -> dict:
 
 
 @router.post("/register", status_code=201)
-async def register(body: RegisterBody):
+@rate_limit(scope="auth_register", limit=5, window_seconds=3600)
+async def register(body: RegisterBody, request: Request):
     def _op():
         from apps.accounts.services import register_user
 
@@ -104,6 +115,7 @@ async def register(body: RegisterBody):
 
 
 @router.post("/login")
+@rate_limit(scope="auth_login", limit=10, window_seconds=60)
 async def login(body: LoginBody, request: Request):
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent", "")
@@ -125,7 +137,8 @@ async def login(body: LoginBody, request: Request):
 
 
 @router.post("/refresh")
-async def refresh_token(body: RefreshBody):
+@rate_limit(scope="auth_refresh", limit=30, window_seconds=60)
+async def refresh_token(body: RefreshBody, request: Request):
     try:
         payload = decode_jwt_token(body.refresh, expected_type="refresh")
     except jwt.PyJWTError as exc:
@@ -153,6 +166,22 @@ async def refresh_token(body: RefreshBody):
     return ok(await run_django(_op))
 
 
+@router.post("/accept-invitation")
+@rate_limit(scope="auth_accept_invitation", limit=10, window_seconds=300)
+async def accept_invitation_endpoint(body: AcceptInvitationBody, request: Request):
+    def _op():
+        from apps.accounts.services import accept_invitation, authenticate_user_credentials
+
+        user, membership = accept_invitation(token=body.token, password=body.password)
+        _, session, _ = authenticate_user_credentials(
+            phone_number=user.phone_number, password=body.password
+        )
+        tokens = build_token_pair(user=user, session=session, membership=membership)
+        return {**tokens, "user": _serialize_user(user)}
+
+    return ok(await run_django(_op))
+
+
 @router.post("/logout")
 async def logout(ctx: RequestContext = Depends(get_current_context)):
     def _op():
@@ -169,7 +198,8 @@ async def logout(ctx: RequestContext = Depends(get_current_context)):
 
 
 @router.post("/password-reset/request")
-async def password_reset_request(body: PasswordResetRequestBody):
+@rate_limit(scope="auth_pwd_reset", limit=5, window_seconds=300)
+async def password_reset_request(body: PasswordResetRequestBody, request: Request):
     def _op():
         from apps.accounts.services import request_password_reset_otp
 
@@ -179,7 +209,8 @@ async def password_reset_request(body: PasswordResetRequestBody):
 
 
 @router.post("/password-reset/confirm")
-async def password_reset_confirm(body: PasswordResetConfirmBody):
+@rate_limit(scope="auth_pwd_confirm", limit=10, window_seconds=300)
+async def password_reset_confirm(body: PasswordResetConfirmBody, request: Request):
     def _op():
         from apps.accounts.services import confirm_password_reset_otp
 

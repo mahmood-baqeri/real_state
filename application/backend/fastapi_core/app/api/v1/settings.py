@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/settings.py
+
 from typing import Any, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel

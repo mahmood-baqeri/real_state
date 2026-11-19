@@ -1,3 +1,5 @@
+// Path: frontend/src/components/layout/DashboardShell.tsx
+
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";

@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/ai.py
+
 from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field

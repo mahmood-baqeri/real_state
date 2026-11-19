@@ -1,3 +1,5 @@
+# Path: backend/django_core/common/tenant/rls.py
+
 """PostgreSQL Row-Level Security (RLS) policy helpers for Defense-in-Depth multi-tenancy."""
 
 

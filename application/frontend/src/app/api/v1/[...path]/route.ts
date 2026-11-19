@@ -1,3 +1,5 @@
+// Path: frontend/src/app/api/v1/[...path]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 
 const FASTAPI_BASE = process.env.INTERNAL_FASTAPI_URL || "http://127.0.0.1:8020";

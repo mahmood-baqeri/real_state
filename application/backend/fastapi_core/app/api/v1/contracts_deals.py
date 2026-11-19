@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/contracts_deals.py
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional

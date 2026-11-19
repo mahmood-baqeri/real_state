@@ -1,3 +1,5 @@
+// Path: frontend/src/components/ui/StatusText.tsx
+
 import React from "react";
 import { translateStatus } from "@/lib/formatters";
 

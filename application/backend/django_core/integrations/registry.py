@@ -1,3 +1,5 @@
+# Path: backend/django_core/integrations/registry.py
+
 from django.conf import settings
 from .maps import MapProviderBase, OpenStreetMapAdapter
 from .payment import PaymentProviderBase, SandboxPaymentAdapter

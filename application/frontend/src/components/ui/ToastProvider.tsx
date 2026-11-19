@@ -1,3 +1,5 @@
+// Path: frontend/src/components/ui/ToastProvider.tsx
+
 "use client";
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";

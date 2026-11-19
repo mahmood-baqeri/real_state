@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/theme-context.tsx
+
 "use client";
 
 import React, {

@@ -1,3 +1,5 @@
+// Path: frontend/src/app/dashboard/crm/page.tsx
+
 "use client";
 
 import React, { useState } from "react";

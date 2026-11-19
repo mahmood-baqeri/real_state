@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/surveys/apps.py
+
 from django.apps import AppConfig
 
 

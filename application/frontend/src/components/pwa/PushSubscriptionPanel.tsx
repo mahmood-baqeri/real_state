@@ -1,3 +1,5 @@
+// Path: frontend/src/components/pwa/PushSubscriptionPanel.tsx
+
 "use client";
 
 import React, { useState } from "react";

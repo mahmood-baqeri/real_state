@@ -1,3 +1,5 @@
+// Path: frontend/src/app/manifest.ts
+
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {

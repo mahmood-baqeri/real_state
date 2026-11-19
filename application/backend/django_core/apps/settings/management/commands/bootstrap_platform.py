@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/settings/management/commands/bootstrap_platform.py
+
 from django.core.management.base import BaseCommand
 from apps.settings.seeding import seed_all_platform_data
 

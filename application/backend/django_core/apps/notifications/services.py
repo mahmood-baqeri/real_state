@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/notifications/services.py
+
 import base64
 import hashlib
 import os

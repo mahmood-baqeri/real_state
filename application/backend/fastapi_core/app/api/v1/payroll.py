@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/payroll.py
+
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, Depends

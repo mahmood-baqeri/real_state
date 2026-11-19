@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/formatters.ts
+
 import type { AreaUnit, CalendarMode, CurrencyCode } from "./types";
 
 export function formatNumberFa(value: number | string): string {

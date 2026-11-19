@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/auth-context.tsx
+
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";

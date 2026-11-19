@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/properties/services.py
+
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID

@@ -1,3 +1,5 @@
+// Path: frontend/src/components/layout/PublicHeader.tsx
+
 "use client";
 
 import React, { useState } from "react";

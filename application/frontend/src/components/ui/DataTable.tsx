@@ -1,3 +1,5 @@
+// Path: frontend/src/components/ui/DataTable.tsx
+
 "use client";
 
 import React, { useMemo, useState } from "react";

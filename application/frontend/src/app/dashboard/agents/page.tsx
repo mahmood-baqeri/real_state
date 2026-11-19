@@ -1,3 +1,5 @@
+// Path: frontend/src/app/dashboard/agents/page.tsx
+
 "use client";
 
 import React from "react";

@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/ai_assistant/services.py
+
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID

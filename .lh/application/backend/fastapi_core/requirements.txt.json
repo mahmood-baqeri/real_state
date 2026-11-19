@@ -1,0 +1,18 @@
+{
+    "sourceFile": "application/backend/fastapi_core/requirements.txt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1795057835085,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1795057835085,
+            "name": "Commit-0",
+            "content": "# fastapi_core/requirements.txt\nfastapi>=0.115.0\nuvicorn[standard]>=0.32.0\npydantic>=2.9.0\npydantic-settings>=2.5.0\nPyJWT>=2.9.0\npython-multipart>=0.0.12\nredis>=5.0.0\nhttpx>=0.27.0\n\n# Django Core (مشترک با fastapi_core در same venv)\nDjango>=5.1.0\ndjangorestframework>=3.15.0  # فقط برای admin (نمی‌دانم، پایین چک کن)\npsycopg[binary]>=3.2.0\ndjango-cors-headers>=4.4.0\ncelery>=5.4.0\ncryptography>=43.0.0\njdatetime>=5.0.0\npywebpush>=2.0.0  # (فاز push)\nPillow>=10.0.0"
+        }
+    ]
+}

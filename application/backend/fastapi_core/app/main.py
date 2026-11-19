@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/main.py
+
 from contextlib import asynccontextmanager
 from django.core.exceptions import ValidationError as DjangoValidationError
 from fastapi import APIRouter, FastAPI, Request
@@ -6,7 +8,6 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.django_bridge import init_django
-from app.middleware import RequestContextMiddleware
 
 init_django()
 
@@ -31,12 +32,6 @@ from app.api.v1.reports_audit import router as reports_audit_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.search import router as search_router
 from app.api.v1.matching import router as matching_router
-from app.api.v1.support import router as support_router
-from app.api.v1.complaints import router as complaints_router
-from app.api.v1.surveys import router as surveys_router
-from app.api.v1.push import router as push_router
-from app.api.v1.ai import router as ai_router
-from app.api.v1.cms import router as cms_router
 
 
 @asynccontextmanager
@@ -47,19 +42,31 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="2.0.0",
+    version="2.1.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
 
-app.add_middleware(RequestContextMiddleware)
+# ✅ CORS صحیح — لیست صریح، allow_credentials هماهنگ
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "content-type",
+        "origin",
+        "user-agent",
+        "x-csrftoken",
+        "x-requested-with",
+        "x-agency-id",
+        "idempotency-key",
+    ],
 )
 
 
@@ -93,6 +100,24 @@ async def django_validation_handler(_request: Request, exc: DjangoValidationErro
     )
 
 
+@app.exception_handler(Exception)
+async def generic_error_handler(_request: Request, _exc: Exception):
+    """
+    در محیط production، پیام خطای داخلی افشا نمی‌شود.
+    """
+    is_dev = settings.ENVIRONMENT == "development"
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "data": None,
+            "meta": {},
+            "errors": {"code": "INTERNAL_ERROR", "detail": str(_exc) if is_dev else "خطای داخلی سرور"},
+            "detail": str(_exc) if is_dev else "خطای داخلی سرور",
+        },
+    )
+
+
 v1_router = APIRouter(prefix=settings.API_PREFIX)
 v1_router.include_router(auth_router)
 v1_router.include_router(admin_router)
@@ -114,19 +139,13 @@ v1_router.include_router(reports_audit_router)
 v1_router.include_router(settings_router)
 v1_router.include_router(search_router)
 v1_router.include_router(matching_router)
-v1_router.include_router(support_router)
-v1_router.include_router(complaints_router)
-v1_router.include_router(surveys_router)
-v1_router.include_router(push_router)
-v1_router.include_router(ai_router)
-v1_router.include_router(cms_router)
 
 
 @v1_router.get("/health")
 async def health():
     return {
         "success": True,
-        "data": {"service": "fastapi-django-orm", "status": "healthy"},
+        "data": {"service": "fastapi_core", "status": "healthy"},
         "meta": {},
         "errors": None,
     }

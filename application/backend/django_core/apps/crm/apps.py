@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/crm/apps.py
+
 from django.apps import AppConfig
 
 

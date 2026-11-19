@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/accounts/services.py
+
 import hashlib
 import secrets
 from typing import Optional

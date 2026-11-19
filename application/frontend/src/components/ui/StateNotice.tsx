@@ -1,3 +1,5 @@
+// Path: frontend/src/components/ui/StateNotice.tsx
+
 import React from "react";
 import { AlertCircle, CheckCircle2, Inbox, RefreshCw } from "lucide-react";
 

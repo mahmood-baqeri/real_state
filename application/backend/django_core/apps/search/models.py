@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/search/models.py
+
 from django.conf import settings
 from django.db import models
 from common.models import BaseModel

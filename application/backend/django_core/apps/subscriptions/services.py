@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/subscriptions/services.py
+
 from datetime import timedelta
 from decimal import Decimal
 from typing import Optional

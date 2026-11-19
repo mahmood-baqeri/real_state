@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/property_media/apps.py
+
 from django.apps import AppConfig
 
 

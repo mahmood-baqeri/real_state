@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/api-client.ts
+
 export interface ApiErrorItem {
   code?: string;
   field?: string | null;

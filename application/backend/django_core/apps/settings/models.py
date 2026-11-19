@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/settings/models.py
+
 from decimal import Decimal
 from django.db import models
 from common.encryption import decrypt_sensitive_value, encrypt_sensitive_value

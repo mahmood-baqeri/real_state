@@ -1,3 +1,5 @@
+// Path: frontend/src/app/layout.tsx
+
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Vazirmatn } from "next/font/google";
 import "./globals.css";

@@ -1,3 +1,5 @@
+# Path: backend/django_core/config/settings/production.py
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = False

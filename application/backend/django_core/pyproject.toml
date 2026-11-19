@@ -1,3 +1,5 @@
+# Path: backend/django_core/pyproject.toml
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py", "*_test.py"]

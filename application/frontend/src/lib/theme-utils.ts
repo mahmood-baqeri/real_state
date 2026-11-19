@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/theme-utils.ts
+
 export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 

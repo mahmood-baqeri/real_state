@@ -1,3 +1,5 @@
+// Path: frontend/src/app/dashboard/ai-assistant/page.tsx
+
 "use client";
 
 import React, { useState } from "react";

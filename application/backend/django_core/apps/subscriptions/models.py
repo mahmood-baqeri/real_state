@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/subscriptions/models.py
+
 from decimal import Decimal
 from django.db import models
 from common.models import BaseModel

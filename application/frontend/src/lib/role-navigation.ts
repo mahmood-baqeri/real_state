@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/role-navigation.ts
+
 import type { EffectiveRole, PlatformRole } from "./types";
 
 export interface NavItemConfig {

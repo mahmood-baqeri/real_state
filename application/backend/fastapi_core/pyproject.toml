@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/pyproject.toml
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

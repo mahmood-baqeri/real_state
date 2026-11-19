@@ -1,3 +1,5 @@
+// Path: frontend/src/hooks/usePWAInstall.ts
+
 "use client";
 
 import { useEffect, useState } from "react";

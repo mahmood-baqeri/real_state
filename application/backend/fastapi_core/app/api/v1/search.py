@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/search.py
+
 from decimal import Decimal
 from typing import Optional
 from fastapi import APIRouter, Depends, Query

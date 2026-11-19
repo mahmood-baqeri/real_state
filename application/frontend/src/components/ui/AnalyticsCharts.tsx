@@ -1,3 +1,5 @@
+// Path: frontend/src/components/ui/AnalyticsCharts.tsx
+
 "use client";
 
 import React from "react";

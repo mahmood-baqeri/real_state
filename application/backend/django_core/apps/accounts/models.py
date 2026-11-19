@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/accounts/models.py
+
 import uuid
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin

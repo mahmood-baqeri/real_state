@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/role-navigation.test.ts
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getNavigationForUser, getRoleNavigationKeys, resolveEffectiveRole } from "./role-navigation";

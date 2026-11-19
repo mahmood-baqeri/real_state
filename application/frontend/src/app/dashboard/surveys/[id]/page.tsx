@@ -1,3 +1,5 @@
+// Path: frontend/src/app/dashboard/surveys/[id]/page.tsx
+
 "use client";
 
 import React from "react";

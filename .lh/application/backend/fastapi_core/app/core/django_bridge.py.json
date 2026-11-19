@@ -1,0 +1,18 @@
+{
+    "sourceFile": "application/backend/fastapi_core/app/core/django_bridge.py",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1795057549970,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1795057549970,
+            "name": "Commit-0",
+            "content": "import os\nimport sys\nfrom pathlib import Path\nfrom typing import Any, Callable, Optional\nfrom uuid import UUID\n\nimport django\nfrom django.db import close_old_connections\nfrom starlette.concurrency import run_in_threadpool\n\nfrom .config import settings\n\n_DJANGO_INITIALIZED = False\n\n\ndef init_django() -> None:\n    \"\"\"\n    Idempotent Django setup for FastAPI.\n    - django_core/ را به sys.path اضافه می‌کند تا `config`, `apps`, `common` import شوند\n    - DJANGO_SETTINGS_MODULE را قبل از django.setup() ست می‌کند\n    \"\"\"\n    global _DJANGO_INITIALIZED\n    if _DJANGO_INITIALIZED:\n        return\n\n    backend_path = str(Path(settings.BACKEND_DIR).resolve())\n    if backend_path not in sys.path:\n        sys.path.insert(0, backend_path)\n\n    os.environ.setdefault(\"DJANGO_SETTINGS_MODULE\", settings.DJANGO_SETTINGS_MODULE)\n    django.setup()\n    _DJANGO_INITIALIZED = True\n\n\nasync def run_django(\n    fn: Callable[..., Any],\n    *args: Any,\n    agency_id: Optional[UUID] = None,\n    **kwargs: Any,\n) -> Any:\n    \"\"\"\n    اجرای sync Django code در threadpool امن.\n    - connection lifecycle مدیریت می‌شود\n    - tenant context ست/ریست می‌شود\n    \"\"\"\n    init_django()\n\n    from common.tenant.context import set_current_agency_id\n\n    def _wrapped():\n        close_old_connections()\n        set_current_agency_id(agency_id)\n        try:\n            return fn(*args, **kwargs)\n        finally:\n            set_current_agency_id(None)\n            close_old_connections()\n\n    return await run_in_threadpool(_wrapped)"
+        }
+    ]
+}

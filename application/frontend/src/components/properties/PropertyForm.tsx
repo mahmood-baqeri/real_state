@@ -1,3 +1,5 @@
+// Path: frontend/src/components/properties/PropertyForm.tsx
+
 "use client";
 
 import React, { useEffect, useState } from "react";

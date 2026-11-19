@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/dependencies/auth.py
+
 from dataclasses import dataclass
 from typing import Any, Optional
 from uuid import UUID

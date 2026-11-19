@@ -1,3 +1,5 @@
+# Path: backend/django_core/core/__init__.py
+
 """
 Django Core foundational primitives (Multi-tenancy, RBAC permissions, Encryption,
 Localization, Exceptions, and Idempotency) re-exported cleanly for domain apps.

@@ -1,3 +1,5 @@
+# Path: backend/fastapi_core/app/api/v1/appointments.py
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -6,6 +8,8 @@ from pydantic import BaseModel
 from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, get_current_context, require_agency_context
 from app.schemas.common import ok
+from fastapi import Request
+from app.core.rate_limit import rate_limit
 
 router = APIRouter(prefix="/appointments", tags=["Viewing Appointments"])
 
@@ -68,6 +72,7 @@ async def get_appointments(
 
 
 @router.post("/request-public", status_code=201)
+@rate_limit(scope="public_viewing_request", limit=5, window_seconds=3600)
 async def request_public(body: PublicAppointmentBody, ctx: RequestContext = Depends(get_current_context)):
     def _op():
         from apps.appointments.services import request_public_viewing
@@ -79,6 +84,7 @@ async def request_public(body: PublicAppointmentBody, ctx: RequestContext = Depe
 
 
 @router.post("", status_code=201)
+@rate_limit(scope="agency_appointment_create", limit=60, window_seconds=60)
 async def create_appointment(
     body: AgencyAppointmentBody, ctx: RequestContext = Depends(require_agency_context)
 ):

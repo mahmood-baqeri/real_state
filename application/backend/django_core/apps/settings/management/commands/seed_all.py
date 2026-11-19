@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/settings/management/commands/seed_all.py
+
 import datetime
 import json
 import uuid

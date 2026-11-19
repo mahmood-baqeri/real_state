@@ -1,3 +1,5 @@
+// Path: frontend/src/app/terms/page.tsx
+
 import React from "react";
 import type { Metadata } from "next";
 import { PublicHeader } from "@/components/layout/PublicHeader";

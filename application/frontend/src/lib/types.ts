@@ -1,3 +1,5 @@
+// Path: frontend/src/lib/types.ts
+
 export type CalendarMode = "jalali" | "gregorian";
 export type CurrencyCode = "IRT" | "IRR" | "USD" | "EUR" | "AED";
 export type AreaUnit = "SQM" | "SQFT";

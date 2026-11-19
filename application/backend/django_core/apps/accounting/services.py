@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/accounting/services.py
+
 from decimal import Decimal
 from typing import Iterable, Optional
 from uuid import UUID

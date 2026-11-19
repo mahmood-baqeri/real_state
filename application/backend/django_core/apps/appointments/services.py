@@ -1,3 +1,5 @@
+# Path: backend/django_core/apps/appointments/services.py
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID

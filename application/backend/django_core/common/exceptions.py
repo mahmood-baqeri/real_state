@@ -1,3 +1,5 @@
+# Path: backend/django_core/common/exceptions.py
+
 class DomainError(Exception):
     """Base exception raised by Django domain services and translated cleanly by FastAPI."""
 

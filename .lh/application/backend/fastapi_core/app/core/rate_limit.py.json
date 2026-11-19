@@ -1,0 +1,18 @@
+{
+    "sourceFile": "application/backend/fastapi_core/app/core/rate_limit.py",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1795057624851,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1795057624851,
+            "name": "Commit-0",
+            "content": "\"\"\"\r\nRedis-based sliding-window rate limiter.\r\n\r\nUsage:\r\n    @router.post(\"/login\")\r\n    @rate_limit(scope=\"auth_login\", limit=10, window_seconds=60)\r\n    async def login(...): ...\r\n\r\nFail-open در صورت خطای Redis (تا در دسترس نبودن Redis، لاگین را قفل نکند).\r\n\"\"\"\r\nimport functools\r\nfrom typing import Callable, Optional\r\n\r\nfrom fastapi import HTTPException, Request, status\r\n\r\nfrom .config import settings\r\n\r\ntry:\r\n    import redis as _redis_lib  # type: ignore\r\nexcept ImportError:\r\n    _redis_lib = None  # type: ignore\r\n\r\n_redis_client = None\r\n\r\n\r\ndef _get_redis():\r\n    global _redis_client\r\n    if _redis_lib is None or not settings.RATE_LIMIT_ENABLED:\r\n        return None\r\n    if _redis_client is None:\r\n        try:\r\n            _redis_client = _redis_lib.from_url(settings.REDIS_URL, decode_responses=True)\r\n        except Exception:\r\n            return None\r\n    return _redis_client\r\n\r\n\r\ndef _extract_request(args: tuple, kwargs: dict) -> Optional[Request]:\r\n    for a in args:\r\n        if isinstance(a, Request):\r\n            return a\r\n    req = kwargs.get(\"request\")\r\n    if isinstance(req, Request):\r\n        return req\r\n    return None\r\n\r\n\r\ndef rate_limit(*, scope: str, limit: int, window_seconds: int) -> Callable:\r\n    def decorator(fn: Callable) -> Callable:\r\n        @functools.wraps(fn)\r\n        async def wrapper(*args, **kwargs):\r\n            request = _extract_request(args, kwargs)\r\n            ip = \"unknown\"\r\n            if request is not None and request.client is not None:\r\n                ip = request.client.host\r\n\r\n            r = _get_redis()\r\n            if r is not None:\r\n                key = f\"rl:{scope}:{ip}\"\r\n                try:\r\n                    pipe = r.pipeline()\r\n                    pipe.incr(key)\r\n                    pipe.expire(key, window_seconds)\r\n                    count, _ = pipe.execute()\r\n                    if count and int(count) > limit:\r\n                        raise HTTPException(\r\n                            status_code=status.HTTP_429_TOO_MANY_REQUESTS,\r\n                            detail=\"تعداد درخواست‌های شما بیش از حد مجاز است. لطفاً کمی صبر کنید.\",\r\n                        )\r\n                except HTTPException:\r\n                    raise\r\n                except Exception:\r\n                    # fail-open\r\n                    pass\r\n\r\n            return await fn(*args, **kwargs)\r\n\r\n        return wrapper\r\n\r\n    return decorator"
+        }
+    ]
+}

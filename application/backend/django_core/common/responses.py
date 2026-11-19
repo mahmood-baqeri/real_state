@@ -1,3 +1,5 @@
+# Path: backend/django_core/common/responses.py
+
 from typing import Any, Optional
 
 
