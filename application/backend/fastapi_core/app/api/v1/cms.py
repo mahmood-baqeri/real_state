@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from app.core.django_bridge import run_django
-from app.dependencies.auth import RequestContext, get_current_context
+from app.core.security import extract_client_ip
+from app.dependencies.auth import RequestContext, get_current_context, get_optional_context
 from app.schemas.common import ok
 
 router = APIRouter(tags=["CMS, SEO & Public Requests"])
@@ -417,5 +418,208 @@ async def review_cooperation_request_endpoint(
             "status": r.status,
             "approved_agency_id": str(r.approved_agency_id) if r.approved_agency_id else None,
         }
+
+    return ok(await run_django(_op))
+
+
+# ==============================================================================
+# Legal, Rules, Privacy & Terms of Use CMS Endpoints
+# ==============================================================================
+
+
+class LegalDocumentUpsertBody(BaseModel):
+    slug: str = Field(min_length=2, max_length=120)
+    doc_type: str = "LEGAL"
+    title_fa: str = Field(min_length=2, max_length=240)
+    title_en: str = ""
+    summary: str = ""
+    body_html: str = ""
+    status: str = "DRAFT"
+    requires_acceptance: bool = False
+    effective_at: Optional[datetime] = None
+    meta_title: str = ""
+    meta_description: str = ""
+    sort_order: int = 100
+    is_system_doc: bool = False
+    change_note: str = ""
+
+
+class LegalStatusBody(BaseModel):
+    status: str
+
+
+def _ser_legal_doc(doc, include_versions: bool = False, accepted_by_user: Optional[bool] = None) -> dict:
+    payload = {
+        "id": str(doc.id),
+        "slug": doc.slug,
+        "doc_type": doc.doc_type,
+        "title_fa": doc.title_fa,
+        "title_en": doc.title_en,
+        "summary": doc.summary,
+        "body_html": doc.body_html,
+        "status": doc.status,
+        "version_number": doc.version_number,
+        "requires_acceptance": doc.requires_acceptance,
+        "effective_at": doc.effective_at.isoformat() if doc.effective_at else None,
+        "published_at": doc.published_at.isoformat() if doc.published_at else None,
+        "meta_title": doc.meta_title,
+        "meta_description": doc.meta_description,
+        "sort_order": doc.sort_order,
+        "is_system_doc": doc.is_system_doc,
+        "updated_at": doc.updated_at.isoformat(),
+    }
+    if accepted_by_user is not None:
+        payload["accepted_by_current_user"] = accepted_by_user
+    if include_versions:
+        payload["versions"] = [
+            {
+                "id": str(v.id),
+                "version_number": v.version_number,
+                "title_fa": v.title_fa,
+                "summary": v.summary,
+                "change_note": v.change_note,
+                "edited_by_name": v.edited_by.full_name if v.edited_by else "سیستم",
+                "created_at": v.created_at.isoformat(),
+            }
+            for v in doc.versions.all()[:20]
+        ]
+    return payload
+
+
+@router.get("/legal")
+async def list_public_legal_endpoint(doc_type: Optional[str] = Query(default=None)):
+    def _op():
+        from apps.cms.services import list_legal_documents
+
+        return [
+            _ser_legal_doc(d)
+            for d in list_legal_documents(doc_type=doc_type, published_only=True)
+        ]
+
+    return ok(await run_django(_op))
+
+
+@router.get("/legal/{slug}")
+async def get_public_legal_detail_endpoint(
+    slug: str, ctx: RequestContext = Depends(get_optional_context)
+):
+    def _op():
+        from apps.cms.services import get_public_legal_document
+
+        doc, accepted = get_public_legal_document(slug=slug, user=ctx.user)
+        return _ser_legal_doc(doc, accepted_by_user=accepted)
+
+    return ok(await run_django(_op))
+
+
+@router.post("/legal/{slug}/accept")
+async def accept_legal_document_endpoint(
+    slug: str, request: Request, ctx: RequestContext = Depends(get_current_context)
+):
+    ip = extract_client_ip(request.client.host if request.client else None)
+    ua = request.headers.get("user-agent", "")
+
+    def _op():
+        from apps.cms.services import accept_legal_document
+
+        rec = accept_legal_document(user=ctx.user, slug=slug, ip_address=ip, user_agent=ua)
+        return {
+            "id": str(rec.id),
+            "slug": slug,
+            "version_number": rec.version_number,
+            "accepted_at": rec.accepted_at.isoformat(),
+        }
+
+    return ok(await run_django(_op))
+
+
+@router.get("/cms/legal")
+async def list_admin_legal_endpoint(
+    doc_type: Optional[str] = Query(default=None),
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.cms.services import list_legal_documents
+
+        return [
+            _ser_legal_doc(d, include_versions=True)
+            for d in list_legal_documents(user=ctx.user, doc_type=doc_type, published_only=False)
+        ]
+
+    return ok(await run_django(_op))
+
+
+@router.post("/cms/legal", status_code=201)
+async def upsert_admin_legal_endpoint(
+    body: LegalDocumentUpsertBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.cms.services import upsert_legal_document
+
+        doc = upsert_legal_document(user=ctx.user, slug=body.slug, data=body.model_dump())
+        return _ser_legal_doc(doc, include_versions=True)
+
+    return ok(await run_django(_op))
+
+
+@router.get("/cms/legal/acceptances")
+async def list_legal_acceptances_endpoint(
+    doc_id: Optional[UUID] = Query(default=None),
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.cms.services import list_legal_acceptances
+
+        return [
+            {
+                "id": str(r.id),
+                "document_slug": r.document.slug,
+                "document_title": r.document.title_fa,
+                "version_number": r.version_number,
+                "user_name": r.user.full_name,
+                "user_phone": r.user.phone_number,
+                "ip_address": r.ip_address,
+                "accepted_at": r.accepted_at.isoformat(),
+            }
+            for r in list_legal_acceptances(user=ctx.user, doc_id=doc_id)
+        ]
+
+    return ok(await run_django(_op))
+
+
+@router.get("/cms/legal/{doc_id}")
+async def get_admin_legal_detail_endpoint(
+    doc_id: UUID, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.cms.services import get_legal_document_admin
+
+        return _ser_legal_doc(get_legal_document_admin(user=ctx.user, doc_id=doc_id), include_versions=True)
+
+    return ok(await run_django(_op))
+
+
+@router.post("/cms/legal/{doc_id}/status")
+async def transition_legal_status_endpoint(
+    doc_id: UUID, body: LegalStatusBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.cms.services import transition_legal_status
+
+        doc = transition_legal_status(user=ctx.user, doc_id=doc_id, to_status=body.status)
+        return _ser_legal_doc(doc, include_versions=True)
+
+    return ok(await run_django(_op))
+
+
+@router.post("/cms/legal/{doc_id}/restore/{version_number}")
+async def restore_legal_version_endpoint(
+    doc_id: UUID, version_number: int, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.cms.services import restore_legal_version
+
+        doc = restore_legal_version(user=ctx.user, doc_id=doc_id, version_number=version_number)
+        return _ser_legal_doc(doc, include_versions=True)
 
     return ok(await run_django(_op))

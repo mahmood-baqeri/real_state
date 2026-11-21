@@ -46,6 +46,9 @@ from apps.cms.models import (
     ContentVersion,
     FaqItem,
     JobOpening,
+    LegalAcceptanceRecord,
+    LegalDocument,
+    LegalDocumentVersion,
     RedirectRule,
     Tag,
 )
@@ -73,6 +76,8 @@ from apps.notifications.models import (
     NotificationMessage,
     NotificationPreference,
     PushSubscription,
+    SmsDeliveryLog,
+    SmsTemplate,
 )
 from apps.payments.models import PaymentGatewayTransaction
 from apps.payroll.models import PayrollCycle, Payslip, PayslipLineItem
@@ -88,19 +93,29 @@ from apps.properties.models import (
     PropertyPriceHistory,
     PropertyStatusHistory,
     PropertyType,
+    PropertyVerification,
+    PropertyVerificationHistory,
+    PropertyViolationReport,
 )
 from apps.property_media.models import PropertyMedia
 from apps.reports.models import DashboardLayout, ImportJob, OnboardingProgress
 from apps.search.models import SavedSearch, SavedView
 from apps.settings.models import (
+    BrandMediaSlot,
+    CalendarSystem,
     City,
     Country,
     Currency,
     District,
+    ExchangeRate,
+    ExchangeRateHistory,
     Neighborhood,
     PlatformSetting,
     ProviderConfiguration,
     Province,
+    SiteContentBlock,
+    SystemSetting,
+    SystemSettingHistory,
 )
 from apps.subscriptions.models import AgencySubscription, SubscriptionPlan
 from apps.support.models import (
@@ -195,46 +210,106 @@ def seed_all_platform_data(
         if log_fn:
             log_fn(msg)
 
-    # 1. Countries, Currencies & Platform Settings
-    Country.objects.get_or_create(
+    # 1. Calendars, Countries, Currencies, FX Rates & Platform Settings
+    CalendarSystem.objects.update_or_create(
+        code="jalali",
+        defaults={
+            "name_fa": "تقویم هجری شمسی (جلالی)",
+            "name_en": "Jalali (Solar Hijri)",
+            "date_format": "YYYY/MM/DD",
+            "datetime_format": "YYYY/MM/DD HH:mm",
+            "is_default": True,
+            "is_active": True,
+            "sort_order": 1,
+        },
+    )
+    CalendarSystem.objects.update_or_create(
+        code="gregorian",
+        defaults={
+            "name_fa": "تقویم میلادی (Gregorian)",
+            "name_en": "Gregorian",
+            "date_format": "YYYY-MM-DD",
+            "datetime_format": "YYYY-MM-DD HH:mm",
+            "is_default": False,
+            "is_active": True,
+            "sort_order": 2,
+        },
+    )
+
+    Country.objects.update_or_create(
         code="IR",
         defaults={
+            "alpha3_code": "IRN",
             "name_fa": "ایران",
             "name_en": "Iran",
             "default_currency_code": "IRT",
             "default_calendar": "jalali",
+            "supported_calendars": ["jalali", "gregorian"],
+            "default_language": "fa",
+            "supported_languages": ["fa", "en"],
             "default_timezone": "Asia/Tehran",
             "phone_prefix": "+98",
+            "sort_order": 1,
+            "is_active": True,
         },
     )
-    Country.objects.get_or_create(
+    Country.objects.update_or_create(
         code="AE",
         defaults={
+            "alpha3_code": "ARE",
             "name_fa": "امارات متحده عربی",
             "name_en": "United Arab Emirates",
             "default_currency_code": "AED",
             "default_calendar": "gregorian",
+            "supported_calendars": ["gregorian", "jalali"],
+            "default_language": "en",
+            "supported_languages": ["en", "ar", "fa"],
             "default_timezone": "Asia/Dubai",
             "phone_prefix": "+971",
+            "sort_order": 2,
+            "is_active": True,
         },
     )
 
-    for code, nfa, nen, sym, dp, factor in [
-        ("IRT", "تومان", "Iranian Toman", "تومان", 0, Decimal("10.000000")),
-        ("IRR", "ریال", "Iranian Rial", "ریال", 0, Decimal("1.000000")),
-        ("USD", "دلار آمریکا", "US Dollar", "$", 2, Decimal("1.000000")),
-        ("EUR", "یورو", "Euro", "€", 2, Decimal("1.000000")),
-        ("AED", "درهم امارات", "UAE Dirham", "AED", 2, Decimal("1.000000")),
+    currency_map = {}
+    for code, nfa, nen, sym, dp, minor, desc, factor, sord in [
+        ("IRT", "تومان", "Iranian Toman", "تومان", 0, "ريال", "واحد پول رایج معاملات ملکی ایران", Decimal("10.000000"), 1),
+        ("IRR", "ریال", "Iranian Rial", "ریال", 0, "", "واحد پایه درگاه‌های پرداخت بانکی ایران", Decimal("1.000000"), 2),
+        ("USD", "دلار آمریکا", "US Dollar", "$", 2, "سنت", "ارز مرجع بین‌المللی معاملات", Decimal("650000.000000"), 3),
+        ("EUR", "یورو", "Euro", "€", 2, "سنت", "ارز رسمی اتحادیه اروپا", Decimal("705000.000000"), 4),
+        ("AED", "درهم امارات", "UAE Dirham", "AED", 2, "فلس", "واحد پول امارات متحده عربی", Decimal("177000.000000"), 5),
     ]:
-        Currency.objects.get_or_create(
+        cur_obj, _ = Currency.objects.update_or_create(
             code=code,
             defaults={
                 "name_fa": nfa,
                 "name_en": nen,
                 "symbol": sym,
                 "decimal_places": dp,
+                "minor_unit": minor,
+                "description": desc,
                 "base_unit_factor": factor,
+                "sort_order": sord,
+                "is_active": True,
             },
+        )
+        currency_map[code] = cur_obj
+
+    fx_pairs = [
+        ("IRT", "IRR", Decimal("10.000000"), "CENTRAL_BANK"),
+        ("IRR", "IRT", Decimal("0.100000"), "CENTRAL_BANK"),
+        ("USD", "IRT", Decimal("65000.000000"), "MARKET_REF"),
+        ("IRT", "USD", Decimal("0.000015"), "MARKET_REF"),
+        ("AED", "IRT", Decimal("17700.000000"), "MARKET_REF"),
+        ("IRT", "AED", Decimal("0.000056"), "MARKET_REF"),
+        ("EUR", "IRT", Decimal("70500.000000"), "MARKET_REF"),
+        ("USD", "AED", Decimal("3.672500"), "FIXED_PEG"),
+    ]
+    for b_code, q_code, r_val, src in fx_pairs:
+        ExchangeRate.objects.get_or_create(
+            base_currency=currency_map[b_code],
+            quote_currency=currency_map[q_code],
+            defaults={"rate": r_val, "effective_at": now, "source": src, "is_active": True},
         )
 
     for key, val, desc in [
@@ -750,7 +825,10 @@ def seed_all_platform_data(
         (ProviderConfiguration.Category.PAYMENT, "zarinpal", "درگاه زرین‌پال (Zarinpal v4)", "درگاه پرداخت رسمی ایران با پشتیبانی سندباکس", 2, True, True, {"currency": "IRR"}),
         (ProviderConfiguration.Category.PAYMENT, "zibal", "درگاه زیبال (Zibal v1)", "درگاه پرداخت مستقیم با تسویه سریع", 3, True, True, {"currency": "IRR"}),
         (ProviderConfiguration.Category.PAYMENT, "idpay", "درگاه آیدی‌پی (IDPay v1.1)", "درگاه پرداخت REST با پشتیبانی سندباکس", 4, False, True, {"currency": "IRR"}),
-        (ProviderConfiguration.Category.SMS, "console", "سرویس پیامک توسعه", "ثبت پیامک در لاگ داخلی در محیط توسعه", 1, True, True, {}),
+        (ProviderConfiguration.Category.SMS, "console", "سرویس پیامک توسعه (Console Fallback)", "ثبت پیامک در لاگ داخلی در محیط توسعه و پشتیبان قطع سرویس", 99, True, True, {}),
+        (ProviderConfiguration.Category.SMS, "kavenegar", "کاوه‌نگار (Kavenegar)", "ارسال سریع OTP و پیامک اطلاع‌رسانی با خط اختصاصی", 1, False, False, {"sender_line": "10008663"}),
+        (ProviderConfiguration.Category.SMS, "melipayamak", "ملی‌پیامک (Melipayamak)", "سرویس پیامک خدماتی و وب‌سرویس الگو", 2, False, False, {"sender_line": "50004000"}),
+        (ProviderConfiguration.Category.SMS, "smsir", "پیامک ایرانیان (SMS.ir)", "ارسال وریفای کد پرسرعت و گزارش تحویل لحظه‌ای", 3, False, False, {"sender_line": "30007732"}),
         (ProviderConfiguration.Category.MAP, "osm", "OpenStreetMap استاندارد", "لایه نقشه آزاد بین‌المللی با پشتیبانی تم روشن و تیره", 1, True, False, {}),
         (ProviderConfiguration.Category.MAP, "carto", "CartoDB Architectural", "لایه مینیمال معماری با کنتراست بالا", 2, False, False, {}),
         (ProviderConfiguration.Category.MAP, "neshan", "نقشه بومی نشان (Neshan)", "نقشه فارسی ویژه ایران (نیازمند API Key)", 3, False, True, {}),
@@ -2100,6 +2178,488 @@ def seed_all_platform_data(
         },
     )
 
+    # 14. Global Settings Registry (48+ PostgreSQL-Backed Controls + History)
+    if not ExchangeRateHistory.objects.exists():
+        ExchangeRateHistory.objects.create(
+            base_currency_code="USD",
+            quote_currency_code="IRT",
+            previous_rate=Decimal("64000.000000"),
+            new_rate=Decimal("65000.000000"),
+            source="MARKET_REF",
+            change_reason="ثبت نرخ مرجع اولیه سامانه",
+            changed_by=super_admin,
+            created_by=super_admin,
+        )
+
+    settings_catalog = [
+        # GENERAL
+        ("general.platform_name_fa", "نام فارسی پلتفرم", "Platform Name (FA)", "نام اصلی نمایش‌داده‌شده در هدر، عناوین و ایمیل‌ها", "GENERAL", "IDENTITY", "STRING", "بنیان ملک", "PUBLIC", {}, 1),
+        ("general.platform_name_en", "نام انگلیسی پلتفرم", "Platform Name (EN)", "عنوان انگلیسی پلتفرم در متادیتا و اسناد", "GENERAL", "IDENTITY", "STRING", "Bonyan Melk", "PUBLIC", {}, 2),
+        ("general.platform_tagline", "شعار کوتاه برند", "Brand Tagline", "زیرعنوان پورتال عمومی و صفحه اصلی", "GENERAL", "IDENTITY", "STRING", "پلتفرم جامع مدیریت هوشمند آژانس‌های املاک و معاملات شفاف", "PUBLIC", {}, 3),
+        ("general.support_phone", "تلفن پشتیبانی پلتفرم", "Support Phone", "شماره تماس رسمی واحد پشتیبانی", "GENERAL", "CONTACT", "STRING", "021-88990011", "PUBLIC", {}, 4),
+        ("general.support_email", "ایمیل رسمی پشتیبانی", "Support Email", "نشانی ایمیل ارتباط با پشتیبانی", "GENERAL", "CONTACT", "STRING", "support@bonyanmelk.ir", "PUBLIC", {}, 5),
+        ("general.office_address", "نشانی دفتر مرکزی", "Office Address", "آدرس پستی نمایش‌داده‌شده در پاورقی و صفحه تماس", "GENERAL", "CONTACT", "STRING", "تهران، بلوار نلسون ماندلا، برج فناوری، طبقه ۸", "PUBLIC", {}, 6),
+        ("general.maintenance_mode", "حالت تعمیرات و به‌روزرسانی سامانه", "Maintenance Mode", "مسدودسازی موقت درخواست‌های غیرادمین هنگام نگهداری", "GENERAL", "OPERATIONS", "BOOLEAN", False, "PUBLIC", {}, 7),
+        ("general.allow_public_registration", "امکان ثبت‌نام عمومی کاربران", "Allow Public Registration", "فعال یا غیرفعال‌کردن فرم ثبت‌نام خریداران و کاربران جدید", "GENERAL", "ACCESS", "BOOLEAN", True, "PUBLIC", {}, 8),
+        # BRANDING
+        ("branding.default_theme_preset", "سبک بصری پیش‌فرض پلتفرم", "Default Theme Preset", "یکی از ۴ سبک طراحی سازمانی سیستم", "BRANDING", "THEME", "SELECT", "architectural", "PUBLIC", {"choices": ["architectural", "executive", "editorial", "sand"]}, 10),
+        ("branding.default_color_mode", "حالت روشنایی پیش‌فرض", "Default Color Mode", "حالت پیش‌فرض روشن یا تیره برای بازدیدکنندگان جدید", "BRANDING", "THEME", "SELECT", "light", "PUBLIC", {"choices": ["light", "dark", "system"]}, 11),
+        ("branding.copyright_text", "متن کپی‌رایت پاورقی", "Footer Copyright", "متن حقوقی نمایش‌داده‌شده در انتهای تمام صفحات", "BRANDING", "FOOTER", "STRING", "© تمامی حقوق این پلتفرم متعلق به سامانه بنیان ملک است.", "PUBLIC", {}, 12),
+        # LOCALIZATION
+        ("localization.default_country", "کشور پیش‌فرض سیستم", "Default Country", "کد دوحرفی ISO کشور پیش‌فرض", "LOCALIZATION", "DEFAULTS", "STRING", "IR", "PUBLIC", {}, 20),
+        ("localization.default_language", "زبان پیش‌فرض سامانه", "Default Language", "کد زبان پیش‌فرض رابط کاربری", "LOCALIZATION", "DEFAULTS", "SELECT", "fa", "PUBLIC", {"choices": ["fa", "en", "ar"]}, 21),
+        ("localization.default_calendar", "تقویم پیش‌فرض تاریخ‌ها", "Default Calendar", "تقویم پیش‌فرض نمایش و ثبت تاریخ در سیستم", "LOCALIZATION", "DEFAULTS", "SELECT", "jalali", "PUBLIC", {"choices": ["jalali", "gregorian"]}, 22),
+        ("localization.default_area_unit", "واحد مساحت پیش‌فرض", "Area Unit", "واحد پیش‌فرض متراژ املاک", "LOCALIZATION", "UNITS", "SELECT", "sqm", "PUBLIC", {"choices": ["sqm", "sqft"]}, 23),
+        # PROPERTY & PORTAL
+        ("property.default_currency", "ارز پیش‌فرض ثبت آگهی", "Default Property Currency", "ارز پیش‌فرض هنگام ایجاد فایل جدید", "PROPERTY", "PRICING", "STRING", "IRT", "PUBLIC", {}, 30),
+        ("property.max_media_per_listing", "حداکثر تعداد تصویر هر ملک", "Max Media Per Listing", "محدودیت تعداد عکس و ویدیوی قابل آپلود در هر فایل", "PROPERTY", "MEDIA", "INTEGER", 25, "INTERNAL", {"min": 1, "max": 100}, 31),
+        ("property.max_media_size_mb", "حداکثر حجم هر فایل رسانه (مگابایت)", "Max Media Size MB", "حداکثر حجم مجاز بارگذاری تصویر یا ویدیو", "PROPERTY", "MEDIA", "INTEGER", 10, "INTERNAL", {"min": 1, "max": 100}, 32),
+        ("property.auto_mask_exact_address_public", "مخفی‌سازی نشانی دقیق در پورتال عمومی", "Mask Exact Address Public", "عدم نمایش پلاک و آدرس دقیق به کاربران عمومی", "PROPERTY", "PRIVACY", "BOOLEAN", True, "PUBLIC", {}, 33),
+        ("property.default_featured_limit_agency", "سقف آگهی‌های ویژه هر آژانس", "Max Featured Listings", "تعداد هم‌زمان املاک ویژه در پلن استاندارد", "PROPERTY", "QUOTAS", "INTEGER", 15, "INTERNAL", {"min": 0, "max": 500}, 34),
+        # FINANCE & COMMISSION
+        ("finance.base_currency", "ارز پایه گزارش‌های مالی و حسابداری", "Base Reporting Currency", "ارز مرجع دفتر کل و محاسبات نرخ تبدیل", "FINANCE", "CURRENCY", "STRING", "IRT", "PUBLIC", {}, 40),
+        ("finance.default_vat_percent", "نرخ مالیات بر ارزش افزوده پیش‌فرض (%)", "Default VAT Percent", "درصد مالیات بر ارزش افزوده در محاسبه فاکتور و کمیسیون", "FINANCE", "TAX", "DECIMAL", "10.00", "INTERNAL", {"min": "0", "max": "50"}, 41),
+        ("finance.commission_default_agency_share_percent", "سهم پیش‌فرض آژانس از کمیسیون (%)", "Default Agency Split %", "نسبت پایه تقسیم کارمزد بین آژانس و مشاوران", "FINANCE", "COMMISSION", "DECIMAL", "50.00", "INTERNAL", {"min": "0", "max": "100"}, 42),
+        ("finance.require_deal_dual_approval", "نیاز به تایید دومرحله‌ای بسته‌شدن معامله", "Require Dual Approval", "الزام تایید مدیر یا حسابدار برای قطعی‌شدن سند معامله", "FINANCE", "WORKFLOW", "BOOLEAN", False, "INTERNAL", {}, 43),
+        # SECURITY & SESSIONS
+        ("security.password_min_length", "حداقل طول رمز عبور", "Min Password Length", "حداقل تعداد کاراکترهای الزامی هنگام ثبت‌نام یا تغییر رمز", "SECURITY", "PASSWORD", "INTEGER", 8, "PUBLIC", {"min": 6, "max": 64}, 50),
+        ("security.password_require_uppercase", "الزام حرف بزرگ انگلیسی در رمز عبور", "Require Uppercase", "نیاز به حداقل یک حرف A-Z در رمز عبور", "SECURITY", "PASSWORD", "BOOLEAN", False, "PUBLIC", {}, 51),
+        ("security.password_require_digit", "الزام عدد در رمز عبور", "Require Digit", "نیاز به حداقل یک رقم 0-9 در رمز عبور", "SECURITY", "PASSWORD", "BOOLEAN", False, "PUBLIC", {}, 52),
+        ("security.password_require_special", "الزام کاراکتر ویژه در رمز عبور", "Require Special Char", "نیاز به کاراکترهایی مانند @ # $ ! در رمز عبور", "SECURITY", "PASSWORD", "BOOLEAN", False, "PUBLIC", {}, 53),
+        ("security.brute_force_max_fails", "حداکثر تلاش ناموفق ورود پیش از قفل", "Max Failed Logins", "تعداد دفعات مجاز ورود اشتباه قبل از مسدودسازی موقت", "SECURITY", "LOCKOUT", "INTEGER", 5, "INTERNAL", {"min": 3, "max": 50}, 54),
+        ("security.brute_force_lockout_seconds", "مدت قفل موقت پس از تلاش ناموفق (ثانیه)", "Lockout Duration (s)", "مدت زمان محدودیت ورود پس از رسیدن به حد نصاب خطا", "SECURITY", "LOCKOUT", "INTEGER", 600, "INTERNAL", {"min": 60, "max": 86400}, 55),
+        ("security.mfa_policy", "سیاست احراز هویت دوعاملی (MFA)", "MFA Enforcement Policy", "تعیین اجباری یا اختیاری بودن کد TOTP", "SECURITY", "MFA", "SELECT", "OPTIONAL", "INTERNAL", {"choices": ["OPTIONAL", "ADMINS_REQUIRED", "ALL_REQUIRED"]}, 56),
+        ("security.access_token_ttl_minutes", "اعتبار توکن دسترسی JWT (دقیقه)", "JWT Access TTL (min)", "طول عمر توکن دسترسی برای نشست‌های جدید", "SECURITY", "TOKENS", "INTEGER", 30, "INTERNAL", {"min": 5, "max": 1440}, 57),
+        ("security.refresh_token_ttl_days", "اعتبار توکن تازه‌سازی (روز)", "JWT Refresh TTL (days)", "طول عمر توکن Refresh در نشست‌های فعال", "SECURITY", "TOKENS", "INTEGER", 7, "INTERNAL", {"min": 1, "max": 90}, 58),
+        ("security.session_idle_timeout_minutes", "مهلت عدم فعالیت نشست (دقیقه)", "Session Idle Timeout", "ابطال خودکار نشست در صورت نبود فعالیت کاربر", "SECURITY", "SESSIONS", "INTEGER", 480, "INTERNAL", {"min": 5, "max": 10080}, 59),
+        ("security.max_concurrent_sessions", "حداکثر نشست هم‌زمان هر کاربر", "Max Concurrent Sessions", "تعداد دستگاه‌های مجاز به‌طور هم‌زمان برای یک حساب", "SECURITY", "SESSIONS", "INTEGER", 5, "INTERNAL", {"min": 1, "max": 50}, 60),
+        ("security.rate_limit_default_rpm", "سقف نرخ درخواست عمومی (در دقیقه)", "Default Rate Limit RPM", "حداکثر درخواست مجاز در هر دقیقه برای هر IP", "SECURITY", "RATE_LIMIT", "INTEGER", 180, "INTERNAL", {"min": 30, "max": 5000}, 61),
+        ("security.rate_limit_auth_rpm", "سقف نرخ درخواست ورود و ثبت‌نام (در دقیقه)", "Auth Rate Limit RPM", "حداکثر درخواست مجاز مسیرهای Auth در هر دقیقه", "SECURITY", "RATE_LIMIT", "INTEGER", 30, "INTERNAL", {"min": 5, "max": 500}, 62),
+        # SMS CENTER
+        ("sms.enabled", "فعال‌سازی سراسری سامانه پیامک", "Enable SMS Dispatch", "کلید اصلی روشن/خاموش تمام ارسال‌های پیامکی پلتفرم", "SMS", "GLOBAL", "BOOLEAN", True, "INTERNAL", {}, 70),
+        ("sms.daily_cap", "سقف ارسال روزانه پیامک", "Daily SMS Cap", "حداکثر پیامک قابل ارسال در شبانه‌روز", "SMS", "QUOTA", "INTEGER", 5000, "INTERNAL", {"min": 10, "max": 1000000}, 71),
+        ("sms.cost_per_segment", "تعرفه تخمینی هر پیامک (تومان)", "Cost Per Segment", "مبلغ محاسبه هزینه در لاگ ارسال پیامک", "SMS", "COST", "DECIMAL", "950", "INTERNAL", {"min": "0", "max": "100000"}, 72),
+        ("sms.fallback_enabled", "فعال‌سازی سرویس پشتیبان پیامک (Fallback)", "SMS Fallback Enabled", "ارسال خودکار از خط پشتیبان در صورت خطای سرویس اول", "SMS", "FAILOVER", "BOOLEAN", True, "INTERNAL", {}, 73),
+        ("sms.event.otp_login", "پیامک کد یک‌بارمصرف ورود (OTP)", "SMS Event: OTP", "ارسال پیامکی کد تایید ورود", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 74),
+        ("sms.event.register", "پیامک خوش‌آمدگویی ثبت‌نام", "SMS Event: Register", "ارسال پیامک پس از تکمیل ثبت‌نام کاربر", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 75),
+        ("sms.event.password_reset", "پیامک بازیابی رمز عبور", "SMS Event: Password Reset", "ارسال کد تایید تغییر رمز عبور", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 76),
+        ("sms.event.appointment", "پیامک زمان‌بندی بازدید ملک", "SMS Event: Appointment", "اطلاع‌رسانی خودکار زمان بازدید به خریدار و مشاور", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 77),
+        ("sms.event.crm_followup", "پیامک یادآوری پیگیری CRM", "SMS Event: CRM Follow-up", "ارسال یادآور پیگیری مشتریان", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 78),
+        ("sms.event.deal_contract", "پیامک وضعیت قرارداد و معامله", "SMS Event: Deal & Contract", "اعلان ثبت یا تایید قرارداد به طرفین", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 79),
+        ("sms.event.payment_finance", "پیامک تراکنش مالی و اشتراک", "SMS Event: Payment", "اطلاع‌رسانی واریز موفق یا سررسید چک", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 80),
+        ("sms.event.admin_alert", "پیامک هشدارهای امنیتی و ادمین", "SMS Event: Admin Alert", "هشدار رویدادهای بحرانی به مدیران سیستم", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 81),
+        ("sms.event.notification", "پیامک اعلان‌های عمومی سامانه", "SMS Event: Notification", "ارسال اعلان‌های مهم به‌صورت پیامک", "SMS", "EVENTS", "BOOLEAN", True, "INTERNAL", {}, 82),
+        # LEGAL & COMPLIANCE GOVERNANCE
+        ("compliance.require_property_verification_before_publish", "الزام احراز اصالت ملک پیش از انتشار عمومی", "Require Verification Before Publish", "مسدودسازی انتشار عمومی ملک تا تکمیل وجود فیزیکی، سند و رضایت مالک", "LEGAL", "AUTHENTICITY", "BOOLEAN", True, "PUBLIC", {}, 90),
+        ("compliance.require_physical_verification", "الزام تأیید وجود فیزیکی ملک", "Require Physical Verification", "اجباری‌بودن تیک بازدید و تطبیق فیزیکی ملک", "LEGAL", "AUTHENTICITY", "BOOLEAN", True, "INTERNAL", {}, 91),
+        ("compliance.require_deed_verification", "الزام بررسی و احراز سند رسمی", "Require Deed Verification", "اجباری‌بودن بررسی سند مالکیت پیش از انتشار", "LEGAL", "AUTHENTICITY", "BOOLEAN", True, "INTERNAL", {}, 92),
+        ("compliance.require_owner_consent", "الزام ثبت رضایت مالک برای آگهی", "Require Owner Consent", "اجباری‌بودن اخذ رضایت مالک جهت انتشار", "LEGAL", "AUTHENTICITY", "BOOLEAN", True, "INTERNAL", {}, 93),
+        ("compliance.enable_duplicate_and_price_anomaly_detection", "پایش هوشمند آگهی تکراری و قیمت غیرواقعی", "Duplicate & Price Anomaly Detection", "تشخیص خودکار کدپستی/مختصات تکراری و ناهنجاری قیمت هر متر", "LEGAL", "ANTI_FRAUD", "BOOLEAN", True, "INTERNAL", {}, 94),
+        ("compliance.require_terms_acceptance_on_register", "الزام پذیرش شرایط استفاده و حریم خصوصی در ثبت‌نام", "Require Legal Acceptance", "نمایش و الزام تأیید اسناد حقوقی در هنگام عضویت", "LEGAL", "CONSENT", "BOOLEAN", True, "PUBLIC", {}, 95),
+        # NOTIFICATIONS & AI
+        ("notifications.enable_web_push", "فعال‌سازی اعلان‌های لحظه‌ای مرورگر (Web Push)", "Enable Web Push", "ارسال پوش نوتیفیکیشن برای رویدادهای فوری", "NOTIFICATIONS", "CHANNELS", "BOOLEAN", True, "PUBLIC", {}, 100),
+        ("ai.enable_assistant", "فعال‌سازی دستیار هوشمند تولید متن و تحلیل آژانس", "Enable AI Assistant", "فعال‌سازی ابزارهای هوشمند در داشبورد آژانس", "AI", "FEATURES", "BOOLEAN", True, "PUBLIC", {}, 110),
+        ("ai.default_model", "مدل پیش‌فرض هوش مصنوعی", "Default AI Model", "شناسه مدل انتخابی در Gateway هوش مصنوعی", "AI", "MODELS", "STRING", "gpt-4o", "INTERNAL", {}, 111),
+    ]
+
+    for key, tfa, ten, desc, cat, subcat, vtype, val, sens, schema, sord in settings_catalog:
+        SystemSetting.objects.get_or_create(
+            key=key,
+            agency=None,
+            country_code="",
+            defaults={
+                "title_fa": tfa,
+                "title_en": ten,
+                "description": desc,
+                "category": cat,
+                "subcategory": subcat,
+                "value_type": vtype,
+                "value_json": {"value": val},
+                "default_value_json": {"value": val},
+                "validation_schema": schema,
+                "sensitivity_level": sens,
+                "is_active": True,
+                "is_editable": True,
+                "requires_restart": False,
+                "sort_order": sord,
+            },
+        )
+
+    if not SystemSettingHistory.objects.exists():
+        SystemSettingHistory.objects.create(
+            setting_key="compliance.require_property_verification_before_publish",
+            agency_id_snapshot=None,
+            previous_value_json={"value": False},
+            new_value_json={"value": True},
+            is_secret=False,
+            change_reason="فعال‌سازی سیاست الزامی احراز اصالت ملک در راه‌اندازی اولیه",
+            changed_by=super_admin,
+            created_by=super_admin,
+        )
+
+    # 15. Brand Media Slots & Editable Site Content Blocks
+    for slot_key, cat, title_fa, desc, img_url, dark_url, alt_txt, sord in [
+        ("site_logo_light", "LOGO", "لوگوی اصلی پلتفرم (تم روشن)", "تصویر لوگوی نمایش‌داده‌شده در هدر و صفحات روشن", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی بنیان ملک", 1),
+        ("site_logo_dark", "LOGO", "لوگوی پلتفرم (تم تیره)", "تصویر لوگوی بهینه‌شده برای پس‌زمینه تیره", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی بنیان ملک در حالت تیره", 2),
+        ("hero_banner", "BANNER", "تصویر شاخص صفحه اصلی (Hero)", "بنر معماری نمایش‌داده‌شده در بخش اول پورتال عمومی", "/images/hero-penthouse-tehran.jpg", "/images/hero-penthouse-tehran.jpg", "پنت‌هاوس لوکس معماری در شمال تهران", 3),
+        ("auth_banner", "BANNER", "تصویر جانبی صفحات ورود و ثبت‌نام", "تصویر معماری نمایش‌داده‌شده در کنار فرم‌های احراز هویت", "/images/modern-villa-facade.jpg", "/images/modern-villa-facade.jpg", "نمای ویلای مدرن بنیان ملک", 4),
+        ("about_banner", "BANNER", "تصویر معرفی پلتفرم (درباره ما)", "تصویر دفتر مدیریت آژانس در صفحه درباره بنیان ملک", "/images/studio-agency-office.jpg", "/images/studio-agency-office.jpg", "دفتر مدرن آژانس املاک بنیان ملک", 5),
+    ]:
+        BrandMediaSlot.objects.get_or_create(
+            slot_key=slot_key,
+            defaults={
+                "category": cat,
+                "title_fa": title_fa,
+                "description": desc,
+                "image_url": img_url,
+                "dark_image_url": dark_url,
+                "alt_text": alt_txt,
+                "is_active": True,
+                "sort_order": sord,
+            },
+        )
+
+    for slug_key, pkey, skey, title_fa, subtitle_fa, body_html, cta_lbl, cta_href, items_json, sord in [
+        (
+            "home_hero",
+            "HOME",
+            "HERO",
+            "اکوسیستم یکپارچه املاک، معاملات شفاف و مدیریت هوشمند آژانس‌ها",
+            "جستجوی دقیق روی نقشه تعاملی، استعلام فایل‌های احراز اصالت‌شده و داشبورد مالی دوطرفه ویژه مدیران و مشاوران املاک",
+            "<p>پلتفرم بنیان ملک زیرساختی امن و مبتنی بر معماری چندشعبه‌ای برای کشف املاک منتخب و مدیریت کامل چرخه CRM، قرارداد، پورسانت و حسابداری است.</p>",
+            "مشاهده املاک احراز‌شده",
+            "/properties",
+            [],
+            1,
+        ),
+        (
+            "home_features",
+            "HOME",
+            "FEATURES",
+            "چرا آژانس‌های پیشرو و خریداران حرفه‌ای بنیان ملک را انتخاب می‌کنند؟",
+            "استانداردسازی کل چرخه از بازدید فیزیکی و تأیید سند تا دفتر کل دوطرفه",
+            "",
+            "درخواست همکاری آژانس",
+            "/agency-application",
+            [
+                {"title": "احراز اصالت سه‌مرحله‌ای", "description": "تطبیق وجود فیزیکی، اصالت سند و رضایت مالک پیش از انتشار عمومی هر آگهی"},
+                {"title": "حسابداری دوطرفه و کمیسیون", "description": "محاسبه دقیق اعشاری سهم آژانس و مشاوران به همراه مدیریت چک‌ها"},
+                {"title": "شفافیت قیمت و نرخ ارز پویا", "description": "پشتیبانی چندارزی با ثبت نرخ لحظه‌ای در اسناد معامله و پرداخت"},
+            ],
+            2,
+        ),
+        (
+            "home_cta",
+            "HOME",
+            "CTA",
+            "آماده ارتقای آژانس املاک خود به استاندارد سازمانی هستید؟",
+            "پنل اختصاصی چندشعبه‌ای خود را با امکانات کامل CRM، قرارداد هوشمند و پورتال عمومی راه‌اندازی کنید.",
+            "",
+            "شروع همکاری سازمانی",
+            "/agency-application",
+            [],
+            3,
+        ),
+        (
+            "about_overview",
+            "ABOUT",
+            "INTRO",
+            "درباره پلتفرم سازمانی بنیان ملک",
+            "زیرساخت مدرن مدیریت آژانس‌های املاک، شفافیت معاملاتی و حفاظت از حقوق خریداران و مالکان",
+            "<p>بنیان ملک با هدف حذف آگهی‌های غیرواقعی، ایجاد شفافیت در محاسبه حق‌الزحمه و یکپارچه‌سازی عملیات شعب املاک طراحی شده است. تمامی تنظیمات، اسناد حقوقی، تقویم‌ها و ساختارهای مالی این پلتفرم به‌صورت پویا از پایگاه‌داده مرکزی مدیریت می‌شوند.</p>",
+            "مطالعه قوانین و مقررات پلتفرم",
+            "/terms",
+            [],
+            10,
+        ),
+        (
+            "contact_banner",
+            "CONTACT",
+            "HEADER",
+            "ارتباط مستقیم با تیم عملیات، پشتیبانی و فروش سازمانی",
+            "سوالات خود درباره عضویت آژانس‌ها، گزارش تخلف یا دموی سازمانی را ثبت و با کد رهگیری پیگیری کنید.",
+            "",
+            "پیگیری درخواست ثبت‌شده",
+            "/requests/track",
+            [],
+            20,
+        ),
+        (
+            "register_intro",
+            "AUTH",
+            "REGISTER",
+            "عضویت در پلتفرم بنیان ملک",
+            "حساب کاربری شما با رعایت کامل خط‌مشی رمزنگاری، احراز هویت و حریم خصوصی راه‌اندازی می‌شود.",
+            "",
+            "مطالعه شرایط استفاده",
+            "/terms-of-use",
+            [],
+            30,
+        ),
+    ]:
+        SiteContentBlock.objects.get_or_create(
+            slug_key=slug_key,
+            defaults={
+                "page_key": pkey,
+                "section_key": skey,
+                "title_fa": title_fa,
+                "subtitle_fa": subtitle_fa,
+                "body_html": body_html,
+                "cta_label": cta_lbl,
+                "cta_href": cta_href,
+                "items_json": items_json,
+                "status": SiteContentBlock.Status.PUBLISHED,
+                "sort_order": sord,
+                "is_active": True,
+            },
+        )
+
+    # 16. SMS Templates & Initial Delivery Log
+    for tpl_key, ev_type, name_fa, body_tpl, tokens in [
+        ("otp_login", SmsTemplate.EventType.OTP_LOGIN, "کد ورود یک‌بارمصرف", "کد ورود شما به بنیان ملک: {{code}}\nاین کد تا ۲ دقیقه معتبر است.", ["code"]),
+        ("password_reset", SmsTemplate.EventType.PASSWORD_RESET, "بازیابی رمز عبور", "کد تایید تغییر رمز عبور در بنیان ملک: {{code}}", ["code"]),
+        ("viewing_scheduled", SmsTemplate.EventType.APPOINTMENT, "هماهنگی بازدید ملک", "{{name}} گرامی، بازدید ملک {{property_code}} در تاریخ {{date}} تنظیم شد.", ["name", "property_code", "date"]),
+        ("deal_closed", SmsTemplate.EventType.DEAL_CONTRACT, "تایید معامله و قرارداد", "قرارداد شماره {{deal_code}} در آژانس {{agency}} با موفقیت ثبت و تایید شد.", ["deal_code", "agency"]),
+        ("crm_followup", SmsTemplate.EventType.CRM_FOLLOWUP, "یادآور پیگیری مشاور", "یادآور پیگیری مشتری {{customer_name}} در زمان {{due_at}} ثبت شده است.", ["customer_name", "due_at"]),
+        ("admin_alert", SmsTemplate.EventType.ADMIN_ALERT, "هشدار امنیتی و مدیریتی", "هشدار سامانه بنیان ملک: {{message}}", ["message"]),
+    ]:
+        SmsTemplate.objects.get_or_create(
+            key=tpl_key,
+            defaults={
+                "event_type": ev_type,
+                "name_fa": name_fa,
+                "body_template": body_tpl,
+                "sample_tokens": tokens,
+                "is_active": True,
+            },
+        )
+
+    if not SmsDeliveryLog.objects.exists():
+        SmsDeliveryLog.objects.create(
+            recipient_masked="0912***4444",
+            recipient_hash="demo_seed_hash_09124444444",
+            event_type="APPOINTMENT",
+            template_key="viewing_scheduled",
+            provider_key="console",
+            status=SmsDeliveryLog.DeliveryStatus.SENT,
+            message_id="SMS-SEED-1001",
+            cost_amount=Decimal("950.00"),
+            agency=agency_a,
+            actor=agent_a1,
+        )
+
+    # 17. Property Verification Records & Sample Violation Report
+    for p_obj in created_props:
+        is_pub = p_obj.status == Property.Status.PUBLISHED
+        ver, ver_new = PropertyVerification.objects.get_or_create(
+            property=p_obj,
+            defaults={
+                "physical_verified": is_pub,
+                "physical_notes": "بازدید حضوری توسط کارشناس آژانس و انطباق متراژ انجام شد." if is_pub else "در انتظار بازدید تکمیلی کارشناس شعبه",
+                "deed_verified": is_pub,
+                "deed_notes": "تطبیق تصویر سند تک‌برگ با مالکیت ثبت‌شده انجام شد." if is_pub else "",
+                "owner_consent_verified": is_pub,
+                "owner_consent_notes": "رضایت‌نامه مالک برای انتشار پورتال اخذ گردید." if is_pub else "",
+                "verification_status": PropertyVerification.VerificationStatus.VERIFIED if is_pub else PropertyVerification.VerificationStatus.PENDING,
+                "verified_by": mgr_a if is_pub else None,
+                "verified_at": now - timedelta(days=2) if is_pub else None,
+                "evidence_document": doc if (is_pub and p_obj.property_code == "PN-1001") else None,
+                "created_by": mgr_a,
+            },
+        )
+        if ver_new:
+            PropertyVerificationHistory.objects.create(
+                verification=ver,
+                from_status=PropertyVerification.VerificationStatus.UNVERIFIED,
+                to_status=ver.verification_status,
+                notes="ثبت نتیجه بررسی اصالت فایل ملکی",
+                changed_by=mgr_a,
+                created_by=mgr_a,
+            )
+
+    if created_props and not PropertyViolationReport.objects.exists():
+        PropertyViolationReport.objects.create(
+            property=created_props[3],
+            reporter=customer_user,
+            reason_type=PropertyViolationReport.ReasonType.OTHER,
+            details="درخواست بررسی انطباق امکانات مشاعات ثبت‌شده با وضعیت فعلی ملک.",
+            status=PropertyViolationReport.ReportStatus.RESOLVED_DISMISSED,
+            inspector=super_admin,
+            resolution_note="مستندات و تصاویر ملک توسط بازرس پلتفرم تطبیق داده شد و اطلاعات صحیح است.",
+            resolved_at=now - timedelta(days=1),
+            created_by=customer_user,
+        )
+
+    # 18. 12 Comprehensive Legal, Policy & Compliance Documents (PostgreSQL CMS)
+    legal_docs_seed = [
+        (
+            "terms-of-use",
+            "TERMS",
+            "شرایط استفاده از سامانه بنیان ملک",
+            "Terms of Use",
+            "چارچوب رسمی استفاده از خدمات پورتال و داشبورد سازمانی بنیان ملک برای کاربران، خریداران و آژانس‌ها.",
+            "<h3>۱. تعاریف و قلمرو اجرایی</h3><p>استفاده از پلتفرم بنیان ملک به معنای پذیرش کامل ضوابط ثبت اطلاعات، احراز هویت و مسئولیت‌های قانونی کاربران و آژانس‌های عضو است.</p><h3>۲. تعهدات کاربران</h3><p>کاربران متعهد می‌شوند از ثبت اطلاعات نادرست، استفاده خودکار غیرمجاز (Scraping) و نقض حقوق مالکیت فکری سامانه خودداری نمایند.</p>",
+            True,
+            1,
+        ),
+        (
+            "privacy-policy",
+            "PRIVACY",
+            "سیاست حریم خصوصی و حفاظت از داده‌ها",
+            "Privacy Policy",
+            "نحوه گردآوری، نگهداری، رمزنگاری و حفاظت از اطلاعات هویتی، شماره تماس و مستندات کاربران و مالکان.",
+            "<h3>۱. محرمانگی شماره تماس و اطلاعات مالک</h3><p>شماره تماس و نشانی دقیق مالکان در پورتال عمومی مخفی نگه داشته می‌شود و فقط برای نقش‌های مجاز طبق سیاست دسترسی آژانس قابل مشاهده است.</p><h3>۲. رمزنگاری و ممیزی خروجی‌ها</h3><p>تمام کلیدهای محرمانه با استاندارد Fernet رمزنگاری شده و هرگونه دریافت خروجی اکسل یا CSV در لاگ ممیزی ثبت می‌گردد.</p>",
+            True,
+            2,
+        ),
+        (
+            "platform-rules",
+            "RULES",
+            "قوانین و مقررات جامع پلتفرم بنیان ملک",
+            "Platform Rules & Governance",
+            "مقررات عملیاتی ناظر بر ثبت فایل، صداقت قیمت‌گذاری، حقوق مشاوران و نظارت بازرسان پلتفرم.",
+            "<h3>۱. شفافیت آگهی و قیمت‌گذاری</h3><p>درج قیمت واقعی، متراژ صحیح و عدم انتشار آگهی‌های تکراری یا فریبنده الزامی است.</p><h3>۲. انطباق سیستمی قوانین</h3><p>ضوابط این سند مستقیماً در موتور اعتبارسنجی انتشار ملک و کنترل تخلفات Backend اعمال می‌شوند.</p>",
+            True,
+            3,
+        ),
+        (
+            "property-authenticity-policy",
+            "COMPLIANCE",
+            "ضوابط احراز اصالت فایل‌های ملکی",
+            "Property Authenticity Policy",
+            "الزام تأیید سه‌گانه وجود فیزیکی ملک، بررسی سند رسمی و اخذ رضایت مالک پیش از انتشار عمومی.",
+            "<h3>الزام سه‌مرحله‌ای پیش از انتشار</h3><p>هیچ آگهی ملکی تا پیش از ثبت تأییدیه وجود فیزیکی، بررسی سند مالکیت و رضایت مالک مجوز نمایش در پورتال عمومی را دریافت نمی‌کند. صدور استثنا صرفاً برای مدیران مجاز و با ثبت دلیل مستند در لاگ ممیزی امکان‌پذیر است.</p>",
+            False,
+            4,
+        ),
+        (
+            "agency-membership-rules",
+            "AGENCY",
+            "آیین‌نامه عضویت و تعهدات آژانس‌های املاک",
+            "Agency Membership Rules",
+            "شرایط احراز پروانه کسب، مدیریت شعب، انضباط حرفه‌ای مشاوران و سهمیه‌های پلن اشتراک.",
+            "<p>آژانس‌های عضو موظف‌اند اطلاعات ثبتی و پروانه کسب معتبر خود را به‌روز نگه دارند و دسترسی پرسنل و شعب خود را صرفاً بر اساس نیاز شغلی و با رعایت ماتریس دسترسی تنظیم کنند.</p>",
+            False,
+            5,
+        ),
+        (
+            "anti-fraud-policy",
+            "COMPLIANCE",
+            "سیاست مقابله با آگهی جعلی، تکراری و قیمت غیرواقعی",
+            "Anti-Fraud & Anomaly Policy",
+            "سازوکارهای پایش هوشمند قیمت هر متر مربع، تطبیق کدپستی و تعلیق آگهی‌های متخلف.",
+            "<p>سامانه به‌صورت مستمر قیمت‌های غیرمتعارف و مشخصات جغرافیایی/پستی تکراری را شناسایی کرده و گزارش‌های مردمی را به صف بازرسی مدیران پلتفرم ارجاع می‌دهد.</p>",
+            False,
+            6,
+        ),
+        (
+            "commission-transparency",
+            "FINANCE",
+            "منشور شفافیت کمیسیون، مالیات و تقسیم کارمزد",
+            "Commission Transparency",
+            "ضوابط محاسبه دقیق اعشاری حق‌الزحمه معاملات، سهم مشاور اول/همکار و ثبت سند حسابداری.",
+            "<p>تمامی محاسبات کارمزد و مالیات بر ارزش افزوده بر مبنای سیاست نسخه‌دار آژانس و با دقت اعشاری استاندارد (Decimal) انجام شده و نرخ ارز لحظه‌ای در سند معامله قفل می‌گردد.</p>",
+            False,
+            7,
+        ),
+        (
+            "data-retention-policy",
+            "PRIVACY",
+            "سیاست نگهداری، آرشیو و حذف امن داده‌ها",
+            "Data Retention Policy",
+            "مدت زمان نگهداری اسناد قرارداد، لاگ‌های ممیزی مالی، گزارش‌های پیامکی و تاریخچه نشست‌ها.",
+            "<p>سوابق معاملاتی و لاگ‌های ممیزی جهت پاسخگویی حقوقی و انطباق مالی به‌صورت تغییرناپذیر نگهداری می‌شوند و تاریخچه نشست‌ها طبق سیاست امنیتی پلتفرم پاک‌سازی دوره‌ای می‌گردد.</p>",
+            False,
+            8,
+        ),
+        (
+            "cookie-notice",
+            "PRIVACY",
+            "اعلامیه کوکی‌ها و ذخیره‌سازی محلی مرورگر",
+            "Cookie & Storage Notice",
+            "شفاف‌سازی درباره کوکی‌ها و توکن‌های نشست جهت امنیت احراز هویت و حفظ تنظیمات تم و تقویم.",
+            "<p>بنیان ملک صرفاً برای احراز هویت امن، تنظیمات تم روشن/تیره، زبان و تقویم انتخابی کاربر از ذخیره‌سازی استاندارد مرورگر استفاده می‌کند.</p>",
+            False,
+            9,
+        ),
+        (
+            "complaint-resolution-policy",
+            "GOVERNANCE",
+            "دستورالعمل رسیدگی به شکایات و گزارش‌های تخلف",
+            "Complaint Resolution Policy",
+            "فرایند ثبت شکایت، پیگیری با کد رهگیری، بازرسی بی‌طرفانه و زمان‌بندی پاسخ‌گویی (SLA).",
+            "<p>کاربران می‌توانند شکایات و گزارش‌های تخلف آگهی را همراه با کد رهگیری ثبت کنند. تیم نظارت پلتفرم حداکثر ظرف ۲۴ ساعت وضعیت پرونده را بررسی و در صورت احراز تخلف، آگهی را تعلیق می‌کند.</p>",
+            False,
+            10,
+        ),
+        (
+            "api-usage-terms",
+            "TECHNICAL",
+            "مقررات استفاده از وب‌سرویس‌ها و اتصالات بیرونی",
+            "API & Integration Terms",
+            "ضوابط نرخ درخواست (Rate Limit)، حفاظت از کلیدهای دسترسی و اتصال درگاه‌های پرداخت، نقشه و پیامک.",
+            "<p>تمامی درخواست‌های API مشمول سیاست محدودیت نرخ (Rate Limiting) مبتنی بر تنظیمات امنیتی پلتفرم هستند و افشا یا سوءاستفاده از توکن‌ها منجر به ابطال فوری نشست می‌شود.</p>",
+            False,
+            11,
+        ),
+        (
+            "about-platform",
+            "ABOUT",
+            "معرفی رسمی و منشور مأموریت بنیان ملک",
+            "About Bonyan Melk",
+            "معرفی ساختار فناوری، اهداف حرفه‌ای و استانداردهای کیفیت در اکوسیستم بنیان ملک.",
+            "<h3>مأموریت ما</h3><p>ایجاد پلتفرمی استاندارد، یکپارچه و قابل اتکا برای تحول دیجیتال در صنعت املاک، از جستجوی دقیق خریدار تا ترازنامه دقیق حسابداری آژانس‌ها.</p>",
+            False,
+            12,
+        ),
+    ]
+
+    first_legal_doc = None
+    for slug, dtype, tfa, ten, summary, body_html, req_acc, sord in legal_docs_seed:
+        ldoc, lnew = LegalDocument.objects.get_or_create(
+            slug=slug,
+            defaults={
+                "doc_type": dtype,
+                "title_fa": tfa,
+                "title_en": ten,
+                "summary": summary,
+                "body_html": body_html,
+                "status": LegalDocument.Status.PUBLISHED,
+                "version_number": 1,
+                "requires_acceptance": req_acc,
+                "effective_at": now - timedelta(days=30),
+                "published_at": now - timedelta(days=30),
+                "meta_title": f"{tfa} | بنیان ملک",
+                "meta_description": summary[:300],
+                "sort_order": sord,
+                "is_system_doc": True,
+                "created_by": super_admin,
+            },
+        )
+        if first_legal_doc is None:
+            first_legal_doc = ldoc
+        if lnew or not ldoc.versions.exists():
+            LegalDocumentVersion.objects.get_or_create(
+                document=ldoc,
+                version_number=ldoc.version_number,
+                defaults={
+                    "title_fa": ldoc.title_fa,
+                    "summary": ldoc.summary,
+                    "body_html": ldoc.body_html,
+                    "change_note": "انتشار نسخه اولیه رسمی",
+                    "edited_by": super_admin,
+                    "created_by": super_admin,
+                },
+            )
+
+    if first_legal_doc and not LegalAcceptanceRecord.objects.exists():
+        LegalAcceptanceRecord.objects.get_or_create(
+            document=first_legal_doc,
+            version_number=first_legal_doc.version_number,
+            user=customer_user,
+            defaults={"ip_address": "127.0.0.1", "user_agent": "Mozilla/5.0 BonyanMelk-Client"},
+        )
+
     counts = collect_domain_model_counts()
     empty_models = [name for name, cnt in counts.items() if cnt == 0]
     _log(f"Seeded {len(counts)} domain models ({len(counts) - len(empty_models)} populated, {len(empty_models)} empty).")
@@ -2166,6 +2726,9 @@ def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) 
             Customer,
             PropertyPriceHistory,
             PropertyStatusHistory,
+            PropertyVerificationHistory,
+            PropertyVerification,
+            PropertyViolationReport,
             PropertyAmenityValue,
             PropertyMedia,
             PropertyAgentAssignment,

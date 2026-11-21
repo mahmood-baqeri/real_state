@@ -10,6 +10,7 @@ import {
   Building2,
   Calendar,
   Check,
+  Flag,
   History,
   MapPin,
   Maximize2,
@@ -39,6 +40,12 @@ export default function PropertyDetailPage() {
   const [bookingMsg, setBookingMsg] = useState<string | null>(null);
   const [bookingErr, setBookingErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [violationOpen, setViolationOpen] = useState(false);
+  const [violationReason, setViolationReason] = useState("FAKE_PRICE");
+  const [violationDetails, setViolationDetails] = useState("");
+  const [violationMsg, setViolationMsg] = useState<string | null>(null);
+  const [violationErr, setViolationErr] = useState<string | null>(null);
+  const [violationSubmitting, setViolationSubmitting] = useState(false);
 
   const {
     data: property,
@@ -96,6 +103,30 @@ export default function PropertyDetailPage() {
       setBookingErr(err instanceof Error ? err.message : "خطا در ثبت درخواست بازدید");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleReportViolation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setViolationSubmitting(true);
+    setViolationErr(null);
+    setViolationMsg(null);
+    try {
+      await apiFetch(`/api/v1/properties/${params.id}/violations`, {
+        method: "POST",
+        token: accessToken,
+        body: JSON.stringify({
+          reason_type: violationReason,
+          details: violationDetails.trim(),
+        }),
+      });
+      setViolationMsg("گزارش تخلف ثبت شد و به صف تیم بازرسی بنیان ملک ارسال گردید.");
+      setViolationDetails("");
+      setViolationOpen(false);
+    } catch (err) {
+      setViolationErr(err instanceof Error ? err.message : "خطا در ثبت گزارش تخلف");
+    } finally {
+      setViolationSubmitting(false);
     }
   };
 
@@ -428,6 +459,55 @@ export default function PropertyDetailPage() {
                       : "ورود و ثبت درخواست بازدید"}
                   </button>
                 </form>
+              </div>
+
+              {/* Public Violation Report Box */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setViolationOpen((v) => !v)}
+                  className="flex w-full items-center justify-between text-xs font-semibold text-rose-700 hover:text-rose-800 dark:text-rose-400"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Flag className="h-3.5 w-3.5" />
+                    گزارش تخلف یا مغایرت آگهی
+                  </span>
+                  <span>{violationOpen ? "بستن" : "ثبت گزارش"}</span>
+                </button>
+
+                {violationMsg && <SuccessBanner message={violationMsg} />}
+                {violationErr && <ErrorState message={violationErr} />}
+
+                {violationOpen && (
+                  <form onSubmit={handleReportViolation} className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <select
+                      value={violationReason}
+                      onChange={(e) => setViolationReason(e.target.value)}
+                      className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    >
+                      <option value="FAKE_PRICE">قیمت غیرواقعی / صوری</option>
+                      <option value="DUPLICATE_LISTING">آگهی تکراری</option>
+                      <option value="MISLEADING_INFO">اطلاعات گمراه‌کننده</option>
+                      <option value="UNAVAILABLE_PROPERTY">ملک واگذار شده / ناموجود</option>
+                      <option value="OTHER">سایر موارد</option>
+                    </select>
+                    <textarea
+                      required
+                      rows={3}
+                      value={violationDetails}
+                      onChange={(e) => setViolationDetails(e.target.value)}
+                      placeholder="توضیحات دقیق مغایرت یا تخلف را بنویسید..."
+                      className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    />
+                    <button
+                      type="submit"
+                      disabled={violationSubmitting}
+                      className="h-9 w-full rounded-lg bg-rose-700 text-xs font-semibold text-white hover:bg-rose-800 disabled:opacity-50"
+                    >
+                      {violationSubmitting ? "در حال ارسال..." : "ارسال به تیم بازرسی"}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>

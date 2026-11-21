@@ -1,4 +1,65 @@
-import type { AreaUnit, CalendarMode, CurrencyCode } from "./types";
+import type {
+  AreaUnit,
+  CalendarMode,
+  CurrencyCode,
+  CurrencyConfigItem,
+  ExchangeRateItem,
+} from "./types";
+
+interface RuntimeLocalizationRegistry {
+  currencies: Record<string, CurrencyConfigItem>;
+  exchangeRates: Record<string, number>;
+}
+
+const DEFAULT_CURRENCY_LABELS: Record<string, string> = {
+  IRT: "تومان",
+  IRR: "ریال",
+  USD: "دلار",
+  EUR: "یورو",
+  AED: "درهم",
+};
+
+const runtimeLocalization: RuntimeLocalizationRegistry = {
+  currencies: {},
+  exchangeRates: {
+    "IRT->IRR": 10,
+    "IRR->IRT": 0.1,
+  },
+};
+
+export function setRuntimeLocalizationRegistry(
+  currencies: CurrencyConfigItem[] = [],
+  exchangeRates: ExchangeRateItem[] = []
+): void {
+  const curMap: Record<string, CurrencyConfigItem> = {};
+  for (const c of currencies) {
+    if (c?.code) curMap[c.code.toUpperCase()] = c;
+  }
+  const fxMap: Record<string, number> = {
+    "IRT->IRR": 10,
+    "IRR->IRT": 0.1,
+  };
+  for (const fx of exchangeRates) {
+    const rateNum = Number(fx.rate);
+    if (Number.isFinite(rateNum) && rateNum > 0) {
+      const pair = `${fx.base_currency_code.toUpperCase()}->${fx.quote_currency_code.toUpperCase()}`;
+      fxMap[pair] = rateNum;
+      const rev = `${fx.quote_currency_code.toUpperCase()}->${fx.base_currency_code.toUpperCase()}`;
+      if (!(rev in fxMap)) {
+        fxMap[rev] = 1 / rateNum;
+      }
+    }
+  }
+  runtimeLocalization.currencies = curMap;
+  runtimeLocalization.exchangeRates = fxMap;
+}
+
+export function getCurrencyDisplayLabel(code: string): string {
+  const up = (code || "IRT").toUpperCase();
+  const reg = runtimeLocalization.currencies[up];
+  if (reg?.name_fa) return reg.name_fa;
+  return DEFAULT_CURRENCY_LABELS[up] || up;
+}
 
 export function formatNumberFa(value: number | string): string {
   const num = typeof value === "string" ? Number(value) : value;
@@ -7,39 +68,46 @@ export function formatNumberFa(value: number | string): string {
 }
 
 /**
- * Explicit conversion between IRT (Toman) and IRR (Rial): 1 IRT = 10 IRR.
+ * Dynamic DB-backed currency conversion with explicit 1 IRT = 10 IRR invariant fallback.
  */
 export function convertTomanRial(
   amount: number | string,
-  fromCurrency: CurrencyCode,
-  toCurrency: CurrencyCode
+  fromCurrency: CurrencyCode | string,
+  toCurrency: CurrencyCode | string
 ): number {
   const numeric = typeof amount === "string" ? Number(amount) : amount;
   if (!Number.isFinite(numeric)) return 0;
-  if (fromCurrency === toCurrency) return numeric;
-  if (fromCurrency === "IRT" && toCurrency === "IRR") return numeric * 10;
-  if (fromCurrency === "IRR" && toCurrency === "IRT") return Math.round(numeric / 10);
+  const from = (fromCurrency || "IRT").toUpperCase();
+  const to = (toCurrency || "IRT").toUpperCase();
+  if (from === to) return numeric;
+
+  const direct = runtimeLocalization.exchangeRates[`${from}->${to}`];
+  if (direct && Number.isFinite(direct)) {
+    const decimals = runtimeLocalization.currencies[to]?.decimal_places ?? 0;
+    const factor = 10 ** decimals;
+    return Math.round(numeric * direct * factor) / factor;
+  }
+  if (from === "IRT" && to === "IRR") return numeric * 10;
+  if (from === "IRR" && to === "IRT") return Math.round(numeric / 10);
+
+  // Pivot via IRT if both pairs exist
+  const toIrt = runtimeLocalization.exchangeRates[`${from}->IRT`];
+  const fromIrt = runtimeLocalization.exchangeRates[`IRT->${to}`];
+  if (toIrt && fromIrt) {
+    const decimals = runtimeLocalization.currencies[to]?.decimal_places ?? 0;
+    const factor = 10 ** decimals;
+    return Math.round(numeric * toIrt * fromIrt * factor) / factor;
+  }
   return numeric;
 }
 
 export function formatMoney(
   amount: number | string,
-  sourceCurrency: CurrencyCode = "IRT",
-  displayCurrency: CurrencyCode = "IRT"
+  sourceCurrency: CurrencyCode | string = "IRT",
+  displayCurrency: CurrencyCode | string = "IRT"
 ): string {
   const converted = convertTomanRial(amount, sourceCurrency, displayCurrency);
-  const label =
-    displayCurrency === "IRT"
-      ? "تومان"
-      : displayCurrency === "IRR"
-      ? "ریال"
-      : displayCurrency === "USD"
-      ? "دلار"
-      : displayCurrency === "EUR"
-      ? "یورو"
-      : displayCurrency === "AED"
-      ? "درهم"
-      : displayCurrency;
+  const label = getCurrencyDisplayLabel(String(displayCurrency || "IRT"));
   return `${formatNumberFa(converted)} ${label}`;
 }
 
@@ -162,6 +230,17 @@ export const STATUS_LABELS_FA: Record<string, string> = {
   AWAITING_FINAL_APPROVAL: "در انتظار تأیید نهایی",
   PAUSED: "مذاکره متوقف‌شده",
   WITHDRAWN: "انصراف طرفین",
+  UNVERIFIED: "احرازنشده",
+  VERIFIED: "احرازشده",
+  EXCEPTION_APPROVED: "تأیید با استثنای مجاز",
+  SENT: "ارسال‌شده",
+  BLOCKED_BY_TOGGLE: "مسدود توسط تنظیمات رویداد",
+  DELIVERED: "تحویل‌شده",
+  UNDER_REVIEW: "در دست بررسی بازرسی",
+  RESOLVED_SUSPENDED: "مختومه و تعلیق آگهی",
+  RESOLVED_CONFIRMED: "تأیید تخلف",
+  DISMISSED: "ردشده / بدون تخلف",
+  INACTIVE: "غیرفعال",
 };
 
 export function translateStatus(status: string): string {

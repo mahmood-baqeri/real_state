@@ -170,8 +170,13 @@ def list_commissions(*, user: User, agency_id: UUID):
     if not membership:
         return DealCommission.objects.none()
     policy = get_agency_policy(agency_id)
-    if policy.commission_visibility == AgencyAccessPolicy.CommissionVisibility.OWN_ONLY:
-        return qs.filter(shares__beneficiary_membership=membership).distinct().order_by("-created_at")
+    if policy and policy.commission_visibility == AgencyAccessPolicy.CommissionVisibility.TEAM_LEAD:
+        if membership.role.code in ("BRANCH_MANAGER", "SALES_MANAGER", "AGENCY_ACCOUNTANT"):
+            if membership.branch_id:
+                return qs.filter(
+                    shares__beneficiary_membership__branch_id=membership.branch_id
+                ).distinct().order_by("-created_at")
+            return qs.order_by("-created_at")
     return qs.filter(shares__beneficiary_membership=membership).distinct().order_by("-created_at")
 
 

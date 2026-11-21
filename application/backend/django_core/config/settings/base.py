@@ -94,11 +94,11 @@ def parse_database_url(url: str) -> dict:
         query_params = {k: v[-1] for k, v in parse_qs(parsed.query).items() if v}
         db_config = {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": unquote(parsed.path.lstrip("/")),
-            "USER": unquote(parsed.username or ""),
-            "PASSWORD": unquote(parsed.password or ""),
-            "HOST": parsed.hostname or "127.0.0.1",
-            "PORT": str(parsed.port or 5432),
+            "NAME": "real_state",
+            "USER": "postgres",
+            "PASSWORD": "Mb@1401",
+            "HOST": "localhost",
+            "PORT": "5432",
             "CONN_MAX_AGE": 60,
             "CONN_HEALTH_CHECKS": True,
         }

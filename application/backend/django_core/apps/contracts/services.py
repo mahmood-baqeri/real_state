@@ -147,11 +147,18 @@ def list_deals(*, user: User, agency_id: UUID):
     membership = get_active_membership(user, agency_id)
     if not membership:
         return Deal.objects.none()
+    policy = get_agency_policy(agency_id)
+    if policy and policy.financial_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE:
+        if membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"):
+            return qs.order_by("-created_at")
     return qs.filter(models.Q(primary_agent=membership) | models.Q(co_agent=membership)).order_by("-created_at")
 
 
 @transaction.atomic
 def create_deal(*, user: User, agency_id: UUID, data: dict) -> Deal:
+    from apps.settings.services import get_setting_value
+    from common.localization.currency import CurrencyConversionService
+
     membership = get_active_membership(user, agency_id)
     contract = Contract.objects.all_tenants().filter(id=data["contract_id"], agency_id=agency_id).first()
     if not contract:
@@ -165,6 +172,10 @@ def create_deal(*, user: User, agency_id: UUID, data: dict) -> Deal:
     if not primary_agent_id:
         raise PermissionDeniedDomainError("مشاور اصلی معامله مشخص نیست.")
 
+    deal_currency_id = data.get("currency_id") or contract.currency_id
+    base_currency = str(get_setting_value("finance.base_currency", "IRT") or "IRT").upper()
+    fx_snapshot = CurrencyConversionService.get_snapshot_rate_to_base(deal_currency_id, base_currency)
+
     deal = Deal.objects.all_tenants().create(
         agency_id=agency_id,
         deal_code=data["deal_code"],
@@ -173,7 +184,9 @@ def create_deal(*, user: User, agency_id: UUID, data: dict) -> Deal:
         negotiation_id=data.get("negotiation_id"),
         primary_agent_id=primary_agent_id,
         co_agent_id=data.get("co_agent_id"),
-        currency_id=data.get("currency_id") or contract.currency_id,
+        currency_id=deal_currency_id,
+        base_currency_code=base_currency,
+        exchange_rate_snapshot=fx_snapshot,
         deal_value=Decimal(data.get("deal_value") or contract.amount),
         status=data.get("status", Deal.Status.CONTRACT_ACTIVE),
         created_by=user,

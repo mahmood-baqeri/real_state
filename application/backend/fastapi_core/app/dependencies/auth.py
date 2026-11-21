@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Optional
 from uuid import UUID
 from fastapi import Depends, Header, HTTPException, status
@@ -17,6 +18,7 @@ class RequestContext:
 
 
 def _resolve_auth_sync(token: str, header_agency_id: Optional[str]) -> RequestContext:
+    from django.utils import timezone
     from apps.accounts.models import AgencyMembership, User, UserSession
     from common.permissions import is_super_admin
 
@@ -38,9 +40,27 @@ def _resolve_auth_sync(token: str, header_agency_id: Optional[str]) -> RequestCo
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="حساب کاربری غیرفعال است.")
 
     if jti:
-        session_exists = UserSession.objects.filter(user=user, jti=jti, revoked_at__isnull=True).exists()
-        if not session_exists:
+        session = UserSession.objects.filter(user=user, jti=jti, revoked_at__isnull=True).first()
+        if not session:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست کاربری لغو شده است.")
+        now = timezone.now()
+        if session.expires_at and session.expires_at < now:
+            session.revoked_at = now
+            session.save(update_fields=["revoked_at"])
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست کاربری منقضی شده است.")
+        try:
+            from apps.settings.services import get_setting_value
+
+            idle_mins = int(get_setting_value("security.session_idle_timeout_minutes", 480) or 0)
+        except Exception:
+            idle_mins = 480
+        if idle_mins > 0 and session.last_active_at < now - timedelta(minutes=idle_mins):
+            session.revoked_at = now
+            session.save(update_fields=["revoked_at"])
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست به دلیل عدم فعالیت منقضی شده است.")
+        if (now - session.last_active_at).total_seconds() >= 60:
+            session.last_active_at = now
+            session.save(update_fields=["last_active_at"])
 
     resolved_agency_id: Optional[UUID] = None
     if header_agency_id:

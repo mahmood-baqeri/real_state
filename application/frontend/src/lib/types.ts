@@ -1,5 +1,5 @@
-export type CalendarMode = "jalali" | "gregorian";
-export type CurrencyCode = "IRT" | "IRR" | "USD" | "EUR" | "AED";
+export type CalendarMode = "jalali" | "gregorian" | (string & {});
+export type CurrencyCode = "IRT" | "IRR" | "USD" | "EUR" | "AED" | (string & {});
 export type AreaUnit = "SQM" | "SQFT";
 export type PlatformRole = "SUPER_ADMIN" | "AGENCY_USER" | "CUSTOMER";
 export type EffectiveRole =
@@ -940,5 +940,355 @@ export interface AiChatMessageResult {
   tokens_used: number;
   latency_ms: number;
   fallback_note?: string;
+}
+
+export interface SystemSettingItem {
+  id: string;
+  key: string;
+  agency_id: string | null;
+  country_code: string;
+  title_fa: string;
+  title_en: string;
+  description: string;
+  category: string;
+  subcategory: string;
+  value_type: "STRING" | "INTEGER" | "DECIMAL" | "BOOLEAN" | "JSON" | "SECRET" | "COLOR" | "SELECT" | string;
+  value: unknown;
+  default_value: unknown;
+  has_secret_value: boolean;
+  validation_schema: {
+    min?: number;
+    max?: number;
+    options?: string[];
+    [key: string]: unknown;
+  };
+  is_active: boolean;
+  sensitivity_level: "PUBLIC" | "ADMIN" | "SECRET" | string;
+  is_editable: boolean;
+  requires_restart: boolean;
+  sort_order: number;
+  updated_at: string;
+}
+
+export interface SystemSettingHistoryItem {
+  id: string;
+  setting_key: string;
+  agency_id_snapshot: string | null;
+  previous_value: unknown;
+  new_value: unknown;
+  is_secret: boolean;
+  change_reason: string;
+  changed_by_name: string;
+  created_at: string;
+}
+
+export interface BrandMediaSlotItem {
+  id?: string;
+  slot_key: string;
+  category: string;
+  title_fa: string;
+  description?: string;
+  image_url: string;
+  dark_image_url: string;
+  alt_text: string;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface SiteContentBlockItem {
+  id?: string;
+  slug_key: string;
+  page_key: string;
+  section_key: string;
+  title_fa: string;
+  subtitle_fa: string;
+  body_html: string;
+  cta_label: string;
+  cta_href: string;
+  items_json: Record<string, unknown>[];
+  status?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface CalendarSystemItem {
+  code: string;
+  name_fa: string;
+  name_en: string;
+  date_format: string;
+  datetime_format: string;
+  is_default: boolean;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface CountryItem {
+  code: string;
+  alpha3_code: string;
+  name_fa: string;
+  name_en: string;
+  default_language: string;
+  supported_languages: string[];
+  default_calendar: string;
+  supported_calendars: string[];
+  default_currency: string;
+  default_currency_code?: string;
+  timezone: string;
+  default_timezone?: string;
+  phone_prefix: string;
+  flag_url: string;
+  sort_order?: number;
+  is_active?: boolean;
+  area_unit?: string;
+}
+
+export interface CurrencyConfigItem {
+  code: string;
+  name_fa: string;
+  name_en: string;
+  symbol: string;
+  decimal_places: number;
+  minor_unit: string;
+  description: string;
+  base_unit_factor?: string;
+  exchange_rate_to_base: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface ExchangeRateItem {
+  id: string;
+  base_currency_code: string;
+  quote_currency_code: string;
+  rate: string;
+  source: string;
+  effective_at: string;
+  is_active?: boolean;
+}
+
+export interface ExchangeRateHistoryItem {
+  id: string;
+  base_currency_code: string;
+  quote_currency_code: string;
+  previous_rate: string | null;
+  new_rate: string;
+  source: string;
+  change_reason: string;
+  changed_by_name: string;
+  created_at: string;
+}
+
+export interface PublicLegalSummaryItem {
+  slug: string;
+  doc_type: string;
+  title_fa: string;
+  version_number: number;
+  requires_acceptance: boolean;
+  effective_at: string | null;
+}
+
+export interface PublicBootstrapPayload {
+  public_settings: Record<string, unknown>;
+  branding: Record<string, BrandMediaSlotItem>;
+  content_blocks: Record<string, SiteContentBlockItem>;
+  legal_documents: PublicLegalSummaryItem[];
+  countries: CountryItem[];
+  calendars: CalendarSystemItem[];
+  currencies: CurrencyConfigItem[];
+  exchange_rates: ExchangeRateItem[];
+  map_provider: {
+    provider_key: string;
+    display_name: string;
+    tile_url: string;
+    dark_tile_url: string;
+    attribution: string;
+    max_zoom: number;
+    requires_api_key: boolean;
+  };
+}
+
+export interface SmsTemplateItem {
+  id: string;
+  key: string;
+  event_type: string;
+  name_fa: string;
+  body_template: string;
+  sample_tokens: string[];
+  provider_template_id: string;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface SmsDeliveryLogItem {
+  id: string;
+  recipient_masked: string;
+  event_type: string;
+  template_key: string;
+  provider_key: string;
+  status: string;
+  message_id: string;
+  cost_amount: string;
+  error_message: string;
+  agency_name: string | null;
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface SmsSettingsStats {
+  enabled: boolean;
+  daily_cap: number;
+  cost_per_segment: string;
+  fallback_enabled: boolean;
+  event_toggles: Record<string, boolean>;
+  stats: {
+    today_sent: number;
+    month_sent: number;
+    month_failed: number;
+    month_estimated_cost: string;
+  };
+}
+
+export interface AdminSessionItem {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_phone: string;
+  device_name: string;
+  device_type: string;
+  auth_method: string;
+  ip_address: string | null;
+  user_agent: string;
+  is_suspicious: boolean;
+  suspicious_reason: string;
+  last_active_at: string;
+  expires_at: string | null;
+  created_at: string;
+  is_current: boolean;
+}
+
+export interface SecurityEventItem {
+  id: string;
+  phone_number: string;
+  user_name: string | null;
+  ip_address: string | null;
+  succeeded: boolean;
+  failure_reason: string;
+  created_at: string;
+}
+
+export interface LegalDocumentVersionItem {
+  id: string;
+  version_number: number;
+  title_fa: string;
+  summary: string;
+  change_note: string;
+  edited_by_name: string;
+  created_at: string;
+}
+
+export interface LegalDocumentItem {
+  id: string;
+  slug: string;
+  doc_type: string;
+  title_fa: string;
+  title_en: string;
+  summary: string;
+  body_html: string;
+  status: string;
+  version_number: number;
+  requires_acceptance: boolean;
+  effective_at: string | null;
+  published_at: string | null;
+  meta_title: string;
+  meta_description: string;
+  sort_order: number;
+  is_system_doc: boolean;
+  updated_at: string;
+  accepted_by_current_user?: boolean;
+  versions?: LegalDocumentVersionItem[];
+}
+
+export interface LegalAcceptanceItem {
+  id: string;
+  document_slug: string;
+  document_title: string;
+  version_number: number;
+  user_name: string;
+  user_phone: string;
+  ip_address: string | null;
+  accepted_at: string;
+}
+
+export interface PropertyVerificationAnomaly {
+  code: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | string;
+  message: string;
+}
+
+export interface PropertyVerificationData {
+  id?: string;
+  property_id: string;
+  physical_verified: boolean;
+  physical_notes: string;
+  deed_verified: boolean;
+  deed_notes: string;
+  owner_consent_verified: boolean;
+  owner_consent_notes: string;
+  verification_status: "UNVERIFIED" | "PENDING" | "VERIFIED" | "REJECTED" | "EXCEPTION_APPROVED" | string;
+  verified_by_name: string | null;
+  verified_at: string | null;
+  evidence_document_id: string | null;
+  evidence_document_title: string | null;
+  exception_override: boolean;
+  override_reason: string;
+  override_by_name: string | null;
+  history: {
+    id: string;
+    from_status: string;
+    to_status: string;
+    notes: string;
+    changed_by_name: string;
+    created_at: string;
+  }[];
+  anomaly_flags: PropertyVerificationAnomaly[];
+}
+
+export interface PropertyViolationReportItem {
+  id: string;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  agency_id: string;
+  agency_name: string;
+  reason_type: string;
+  details: string;
+  status: string;
+  reporter_name: string;
+  inspector_name: string | null;
+  resolution_note: string;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export interface SystemHealthPayload {
+  database_ok: boolean;
+  redis_ok: boolean;
+  environment_mode: string;
+  settings_count: number;
+  active_sessions_count: number;
+  suspicious_sessions_count: number;
+  env_status: {
+    key: string;
+    label: string;
+    configured: boolean;
+  }[];
+  providers_summary: {
+    category: string;
+    provider_key: string;
+    display_name: string;
+    is_active: boolean;
+    is_sandbox: boolean;
+    last_check_status: string;
+  }[];
 }
 

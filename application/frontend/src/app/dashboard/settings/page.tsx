@@ -5,12 +5,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   CreditCard,
+  FileText,
   Globe2,
+  History,
+  Image as ImageIcon,
   ListChecks,
+  Lock,
   MapPin,
+  MessageSquare,
   Plug,
   Plus,
+  Scale,
   ShieldCheck,
+  SlidersHorizontal,
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
@@ -29,6 +36,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusText } from "@/components/ui/StatusText";
 import { ModalDrawer } from "@/components/ui/ModalDrawer";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
+import { GeneralSettingsTab } from "@/components/settings/GeneralSettingsTab";
+import { BrandingContentTab } from "@/components/settings/BrandingContentTab";
+import { CountriesCurrenciesTab } from "@/components/settings/CountriesCurrenciesTab";
+import { SmsCenterTab } from "@/components/settings/SmsCenterTab";
+import { SecurityConsoleTab } from "@/components/settings/SecurityConsoleTab";
+import { LegalComplianceTab } from "@/components/settings/LegalComplianceTab";
+import { SettingsHistoryHealthTab } from "@/components/settings/SettingsHistoryHealthTab";
 
 interface LocalizationResponse {
   countries: {
@@ -93,11 +107,22 @@ const GATEWAY_CRED_FIELD_MAP: Record<string, { field: string; label: string; pla
 };
 
 export default function SettingsPage() {
-  const { accessToken, activeAgencyId } = useAuth();
+  const { accessToken, activeAgencyId, effectiveRole } = useAuth();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"gateways" | "providers" | "geography" | "amenities">(
-    "gateways"
-  );
+  const isSuperAdmin = effectiveRole === "SUPER_ADMIN";
+  type SettingsTabKey =
+    | "general"
+    | "branding"
+    | "localization"
+    | "sms"
+    | "security"
+    | "legal"
+    | "gateways"
+    | "providers"
+    | "geography"
+    | "amenities"
+    | "history";
+  const [activeTab, setActiveTab] = useState<SettingsTabKey>("general");
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
@@ -468,9 +493,9 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="مرکز کنترل تنظیمات، درگاه‌ها، جغرافیا و امکانات"
-        subtitle="مدیریت درگاه‌های پرداخت ایرانی، اتصال GapGPT و سرویس نقشه، سلسله‌مراتب جغرافیا و کاتالوگ امکانات"
-        breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "تنظیمات سازمانی" }]}
+        title="مرکز جامع تنظیمات سیستم و پیکربندی پلتفرم"
+        subtitle="مدیریت ۱۰۰٪ پویای تنظیمات عمومی، برندینگ، کشورها و ارزها، پیامک، امنیت نشست‌ها، قوانین حقوقی، درگاه‌ها و جغرافیا"
+        breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "تنظیمات سیستم" }]}
       />
 
       {notice && <SuccessBanner message={notice} />}
@@ -479,26 +504,108 @@ export default function SettingsPage() {
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
         {[
-          { key: "gateways", label: "درگاه‌های پرداخت ایرانی", icon: <CreditCard className="h-4 w-4" /> },
-          { key: "providers", label: "هوش مصنوعی، نقشه و بومی‌سازی", icon: <Plug className="h-4 w-4" /> },
-          { key: "geography", label: "مدیریت استان / شهر / منطقه / محله", icon: <MapPin className="h-4 w-4" /> },
-          { key: "amenities", label: "امکانات دسته‌بندی‌شده ملک", icon: <ListChecks className="h-4 w-4" /> },
-        ].map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setActiveTab(t.key as typeof activeTab)}
-            className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-xs font-semibold transition-colors ${
-              activeTab === t.key
-                ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-            }`}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
+          { key: "general", label: "تنظیمات عمومی پلتفرم", icon: <SlidersHorizontal className="h-4 w-4" />, superOnly: false },
+          { key: "branding", label: "برندینگ، لوگو و محتوا", icon: <ImageIcon className="h-4 w-4" />, superOnly: true },
+          { key: "localization", label: "کشورها، تقویم و ارزها", icon: <Globe2 className="h-4 w-4" />, superOnly: true },
+          { key: "sms", label: "پیامک و الگوها", icon: <MessageSquare className="h-4 w-4" />, superOnly: true },
+          { key: "security", label: "امنیت و نشست‌ها", icon: <Lock className="h-4 w-4" />, superOnly: true },
+          { key: "legal", label: "قوانین، حریم خصوصی و تخلفات", icon: <Scale className="h-4 w-4" />, superOnly: true },
+          { key: "gateways", label: "درگاه‌های پرداخت", icon: <CreditCard className="h-4 w-4" />, superOnly: false },
+          { key: "providers", label: "آداپترهای AI و نقشه", icon: <Plug className="h-4 w-4" />, superOnly: false },
+          { key: "geography", label: "استان / شهر / محله", icon: <MapPin className="h-4 w-4" />, superOnly: false },
+          { key: "amenities", label: "امکانات ملک", icon: <ListChecks className="h-4 w-4" />, superOnly: false },
+          { key: "history", label: "تاریخچه و سلامت سیستم", icon: <History className="h-4 w-4" />, superOnly: false },
+        ]
+          .filter((t) => !t.superOnly || isSuperAdmin)
+          .map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => {
+                setErrMsg(null);
+                setActiveTab(t.key as SettingsTabKey);
+              }}
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                activeTab === t.key
+                  ? "border-teal-700 bg-teal-700 text-white dark:border-teal-500 dark:bg-teal-600"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
       </div>
+
+      {activeTab === "general" && (
+        <GeneralSettingsTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
+
+      {activeTab === "branding" && isSuperAdmin && (
+        <BrandingContentTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
+
+      {activeTab === "localization" && isSuperAdmin && (
+        <CountriesCurrenciesTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
+
+      {activeTab === "sms" && isSuperAdmin && (
+        <SmsCenterTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
+
+      {activeTab === "security" && isSuperAdmin && (
+        <SecurityConsoleTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
+
+      {activeTab === "legal" && isSuperAdmin && (
+        <LegalComplianceTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
+
+      {activeTab === "history" && (
+        <SettingsHistoryHealthTab
+          onNotice={(m) => {
+            setErrMsg(null);
+            setNotice(m);
+          }}
+          onError={(m) => setErrMsg(m)}
+        />
+      )}
 
       {/* TAB 1: IRANIAN PAYMENT GATEWAYS */}
       {activeTab === "gateways" && (

@@ -145,6 +145,31 @@ class MediaReorderBody(BaseModel):
     cover_media_id: Optional[UUID] = None
 
 
+class PropertyVerificationUpsertBody(BaseModel):
+    physical_verified: Optional[bool] = None
+    physical_notes: Optional[str] = None
+    deed_verified: Optional[bool] = None
+    deed_notes: Optional[str] = None
+    owner_consent_verified: Optional[bool] = None
+    owner_consent_notes: Optional[str] = None
+    verification_status: Optional[str] = None
+    evidence_document_id: Optional[UUID] = None
+    exception_override: bool = False
+    override_reason: str = ""
+    notes: str = ""
+
+
+class PropertyViolationCreateBody(BaseModel):
+    reason_type: str = "OTHER"
+    details: str
+
+
+class PropertyViolationResolveBody(BaseModel):
+    resolution_status: str
+    resolution_note: str = ""
+    suspend_listing: bool = False
+
+
 def _ser_amenity_item(a, value_map: Optional[dict] = None) -> dict:
     val_obj = (value_map or {}).get(a.code)
     return {
@@ -239,6 +264,7 @@ def _ser_public_property(p, include_history: bool = False) -> dict:
         ],
         "agency_id": str(p.agency_id),
         "agency_name": p.agency.name,
+        "verification_status": getattr(getattr(p, "verification", None), "verification_status", "UNVERIFIED"),
         "view_count": p.view_count,
         "created_at": p.created_at.isoformat(),
     }
@@ -560,6 +586,64 @@ async def create_property_endpoint(
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
 
+@router.get("/violations")
+async def list_property_violations_endpoint(
+    status: Optional[str] = Query(default=None),
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.properties.services import list_violation_reports
+
+        return [
+            {
+                "id": str(r.id),
+                "property_id": str(r.property_id),
+                "property_code": r.property.property_code,
+                "property_title": r.property.title,
+                "agency_id": str(r.property.agency_id),
+                "agency_name": r.property.agency.name,
+                "reason_type": r.reason_type,
+                "details": r.details,
+                "status": r.status,
+                "reporter_name": r.reporter.full_name if r.reporter else "کاربر مهمان",
+                "inspector_name": r.inspector.full_name if r.inspector else None,
+                "resolution_note": r.resolution_note,
+                "resolved_at": r.resolved_at.isoformat() if r.resolved_at else None,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in list_violation_reports(user=ctx.user, agency_id=ctx.agency_id, status_filter=status)
+        ]
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/violations/{report_id}/resolve")
+async def resolve_property_violation_endpoint(
+    report_id: UUID,
+    body: PropertyViolationResolveBody,
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.properties.services import resolve_violation_report
+
+        r = resolve_violation_report(
+            user=ctx.user,
+            report_id=report_id,
+            resolution_status=body.resolution_status,
+            resolution_note=body.resolution_note,
+            suspend_listing=body.suspend_listing,
+        )
+        return {
+            "id": str(r.id),
+            "status": r.status,
+            "resolution_note": r.resolution_note,
+            "resolved_at": r.resolved_at.isoformat() if r.resolved_at else None,
+            "property_status": r.property.status,
+        }
+
+    return ok(await run_django(_op))
+
+
 @router.get("/{property_id}")
 async def get_property(property_id: UUID, ctx: RequestContext = Depends(get_optional_context)):
     def _op():
@@ -777,3 +861,62 @@ async def remove_media(
         return {"deleted": True}
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/{property_id}/verification")
+async def get_property_verification_endpoint(
+    property_id: UUID, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.properties.services import get_property_verification
+
+        return get_property_verification(
+            user=ctx.user, agency_id=ctx.agency_id, property_id=property_id
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.put("/{property_id}/verification")
+async def upsert_property_verification_endpoint(
+    property_id: UUID,
+    body: PropertyVerificationUpsertBody,
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.properties.services import upsert_property_verification
+
+        return upsert_property_verification(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            property_id=property_id,
+            data=body.model_dump(exclude_none=True),
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/{property_id}/violations", status_code=201)
+async def submit_property_violation_endpoint(
+    property_id: UUID,
+    body: PropertyViolationCreateBody,
+    ctx: RequestContext = Depends(get_optional_context),
+):
+    def _op():
+        from apps.properties.services import submit_violation_report
+
+        r = submit_violation_report(
+            user=ctx.user,
+            property_id=property_id,
+            reason_type=body.reason_type,
+            details=body.details,
+        )
+        return {
+            "id": str(r.id),
+            "property_id": str(r.property_id),
+            "reason_type": r.reason_type,
+            "status": r.status,
+            "created_at": r.created_at.isoformat(),
+        }
+
+    return ok(await run_django(_op))

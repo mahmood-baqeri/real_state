@@ -37,6 +37,10 @@ class Deal(TenantScopedModel):
         related_name="co_deals",
     )
     currency = models.ForeignKey("settings.Currency", on_delete=models.PROTECT, default="IRT")
+    base_currency_code = models.CharField(max_length=10, default="IRT")
+    exchange_rate_snapshot = models.DecimalField(
+        max_digits=18, decimal_places=6, default=Decimal("1.000000")
+    )
     deal_value = models.DecimalField(max_digits=20, decimal_places=2, default=Decimal("0.00"))
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.INITIATED)
     closed_at = models.DateTimeField(null=True, blank=True)

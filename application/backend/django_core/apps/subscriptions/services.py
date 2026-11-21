@@ -1,11 +1,46 @@
 from typing import Optional
 from uuid import UUID
+from django.utils import timezone
 from apps.accounts.models import User
 from apps.payments.models import PaymentGatewayTransaction
 from apps.payments.services import initiate_gateway_payment, verify_gateway_payment
 from common.exceptions import PermissionDeniedDomainError
 from common.permissions import get_active_membership, is_super_admin
 from .models import AgencySubscription, SubscriptionPlan
+
+
+def get_active_agency_subscription(agency_id: UUID) -> Optional[AgencySubscription]:
+    now = timezone.now()
+    return (
+        AgencySubscription.objects.select_related("plan")
+        .filter(
+            agency_id=agency_id,
+            status__in=[AgencySubscription.Status.ACTIVE, AgencySubscription.Status.TRIAL],
+            expires_at__gte=now,
+        )
+        .order_by("-expires_at")
+        .first()
+    )
+
+
+def enforce_agency_quota(
+    *,
+    agency_id: UUID,
+    quota_field: str,
+    current_count: int,
+    actor: Optional[User] = None,
+    label_fa: str = "مورد",
+) -> None:
+    if actor and is_super_admin(actor):
+        return
+    active_sub = get_active_agency_subscription(agency_id)
+    if not active_sub or not active_sub.plan:
+        return
+    limit = int(getattr(active_sub.plan, quota_field, 0) or 0)
+    if limit > 0 and current_count >= limit:
+        raise PermissionDeniedDomainError(
+            f"سقف مجاز {label_fa} در پلن اشتراک فعلی شما ({limit}) تکمیل شده است. لطفاً پلن خود را ارتقا دهید."
+        )
 
 
 def list_subscription_plans() -> list[SubscriptionPlan]:

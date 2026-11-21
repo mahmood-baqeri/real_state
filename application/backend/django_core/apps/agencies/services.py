@@ -172,6 +172,18 @@ def create_branch(*, actor: User, agency_id: UUID, data: dict) -> Branch:
         raise PermissionDeniedDomainError("عدم دسترسی ایجاد شعبه.")
     if Branch.objects.all_tenants().filter(agency_id=agency_id, code=data["code"]).exists():
         raise ConflictDomainError("شعبه‌ای با این کد در آژانس موجود است.")
+
+    from apps.subscriptions.services import enforce_agency_quota
+
+    current_branches = Branch.objects.all_tenants().filter(agency_id=agency_id, is_active=True).count()
+    enforce_agency_quota(
+        agency_id=agency_id,
+        quota_field="max_branches",
+        current_count=current_branches,
+        actor=actor,
+        label_fa="شعبه‌های فعال",
+    )
+
     branch = Branch.objects.all_tenants().create(
         agency_id=agency_id,
         name=data["name"],

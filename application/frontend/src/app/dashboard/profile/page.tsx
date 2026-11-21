@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Laptop, Save, ShieldCheck, Trash2, UserCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { usePublicConfig } from "@/lib/public-config-context";
 import type { CalendarMode, CurrencyCode } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DateDisplay } from "@/components/ui/DateDisplay";
@@ -26,6 +27,24 @@ interface MfaSetupPayload {
 
 export default function ProfilePage() {
   const { user, accessToken, refreshUser } = useAuth();
+  const { currencies, calendars, countries } = usePublicConfig();
+  const activeCurrencies =
+    currencies.length > 0
+      ? currencies
+      : [
+          { code: "IRT", name_fa: "تومان" },
+          { code: "IRR", name_fa: "ریال" },
+          { code: "USD", name_fa: "دلار" },
+          { code: "EUR", name_fa: "یورو" },
+          { code: "AED", name_fa: "درهم" },
+        ];
+  const activeCalendars =
+    calendars.length > 0
+      ? calendars
+      : [
+          { code: "jalali", name_fa: "شمسی (جلالی)" },
+          { code: "gregorian", name_fa: "میلادی (Gregorian)" },
+        ];
   const qc = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -199,11 +218,11 @@ export default function ProfilePage() {
                 onChange={(e) => setForm({ ...form, preferred_currency: e.target.value as CurrencyCode })}
                 className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
               >
-                <option value="IRT">تومان (IRT)</option>
-                <option value="IRR">ریال (IRR)</option>
-                <option value="USD">دلار (USD)</option>
-                <option value="EUR">یورو (EUR)</option>
-                <option value="AED">درهم (AED)</option>
+                {activeCurrencies.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name_fa} ({c.code})
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -213,8 +232,11 @@ export default function ProfilePage() {
                 onChange={(e) => setForm({ ...form, preferred_calendar: e.target.value as CalendarMode })}
                 className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
               >
-                <option value="jalali">شمسی (جلالی)</option>
-                <option value="gregorian">میلادی (Gregorian)</option>
+                {activeCalendars.map((cal) => (
+                  <option key={cal.code} value={cal.code}>
+                    {cal.name_fa}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -223,10 +245,18 @@ export default function ProfilePage() {
             <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">منطقه زمانی</label>
             <input
               dir="ltr"
+              list="country-timezone-options"
               value={form.timezone}
               onChange={(e) => setForm({ ...form, timezone: e.target.value })}
               className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-left font-mono text-sm"
             />
+            <datalist id="country-timezone-options">
+              {countries.map((c) => (
+                <option key={c.code} value={c.timezone}>
+                  {c.name_fa} ({c.timezone})
+                </option>
+              ))}
+            </datalist>
           </div>
 
           <button

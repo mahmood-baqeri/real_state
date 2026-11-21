@@ -14,6 +14,7 @@ from common.exceptions import (
     ValidationDomainError,
 )
 from common.permissions import is_super_admin
+from common.sanitizer import sanitize_html
 from .models import (
     AgencyCooperationRequest,
     Article,
@@ -23,6 +24,9 @@ from .models import (
     ContentVersion,
     FaqItem,
     JobOpening,
+    LegalAcceptanceRecord,
+    LegalDocument,
+    LegalDocumentVersion,
     RedirectRule,
     Tag,
 )
@@ -34,6 +38,14 @@ ARTICLE_TRANSITIONS = {
     Article.Status.SCHEDULED: {Article.Status.PUBLISHED, Article.Status.DRAFT, Article.Status.ARCHIVED},
     Article.Status.PUBLISHED: {Article.Status.ARCHIVED, Article.Status.DRAFT},
     Article.Status.ARCHIVED: {Article.Status.DRAFT},
+}
+
+LEGAL_TRANSITIONS = {
+    LegalDocument.Status.DRAFT: {LegalDocument.Status.REVIEW, LegalDocument.Status.PUBLISHED, LegalDocument.Status.ARCHIVED},
+    LegalDocument.Status.REVIEW: {LegalDocument.Status.APPROVED, LegalDocument.Status.DRAFT, LegalDocument.Status.ARCHIVED},
+    LegalDocument.Status.APPROVED: {LegalDocument.Status.PUBLISHED, LegalDocument.Status.DRAFT, LegalDocument.Status.ARCHIVED},
+    LegalDocument.Status.PUBLISHED: {LegalDocument.Status.ARCHIVED},
+    LegalDocument.Status.ARCHIVED: {LegalDocument.Status.DRAFT},
 }
 
 
@@ -50,6 +62,242 @@ def _assert_cms_editor(user: Optional[User]) -> None:
 def _assert_cms_approver(user: Optional[User]) -> None:
     if not user or not user.is_authenticated or not is_super_admin(user):
         raise PermissionDeniedDomainError("تأیید نهایی و انتشار عمومی در پرتال فقط توسط مدیر کل سامانه مجاز است.")
+
+
+def _assert_legal_admin(user: Optional[User]) -> None:
+    if not user or not user.is_authenticated or not is_super_admin(user):
+        raise PermissionDeniedDomainError("مدیریت قوانین، حریم خصوصی و اسناد حقوقی فقط توسط مدیر کل مجاز است.")
+
+
+# ==============================================================================
+# Legal, Governance & Policy Document CMS
+# ==============================================================================
+
+
+def list_legal_documents(*, user: Optional[User] = None, doc_type: Optional[str] = None, published_only: bool = True):
+    qs = LegalDocument.objects.prefetch_related("versions")
+    if published_only:
+        qs = qs.filter(status=LegalDocument.Status.PUBLISHED)
+    elif not is_super_admin(user):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به مشاهده پیش‌نویس‌های اسناد حقوقی است.")
+    if doc_type:
+        qs = qs.filter(doc_type=doc_type.upper())
+    return list(qs.order_by("sort_order", "slug"))
+
+
+def get_public_legal_document(*, slug: str, user: Optional[User] = None) -> tuple[LegalDocument, bool]:
+    clean_slug = slug.strip().lower()
+    doc = LegalDocument.objects.filter(slug=clean_slug, status=LegalDocument.Status.PUBLISHED).first()
+    if not doc:
+        raise NotFoundDomainError("سند حقوقی یا صفحه مقررات مورد نظر یافت نشد.")
+    accepted = False
+    if user and user.is_authenticated:
+        accepted = LegalAcceptanceRecord.objects.filter(
+            document=doc, version_number=doc.version_number, user=user
+        ).exists()
+    return doc, accepted
+
+
+def get_legal_document_admin(*, user: User, doc_id: UUID) -> LegalDocument:
+    _assert_legal_admin(user)
+    doc = LegalDocument.objects.prefetch_related("versions__edited_by").filter(id=doc_id).first()
+    if not doc:
+        raise NotFoundDomainError("سند حقوقی یافت نشد.")
+    return doc
+
+
+@transaction.atomic
+def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> LegalDocument:
+    _assert_legal_admin(user)
+    clean_slug = (slug or data.get("slug") or "").strip().lower()
+    if not clean_slug:
+        raise ValidationDomainError("شناسه یکتا (slug) سند الزامی است.")
+
+    sanitized_body = sanitize_html(str(data.get("body_html") or ""))
+    existing = LegalDocument.objects.filter(slug=clean_slug).first()
+
+    if existing is None:
+        doc = LegalDocument.objects.create(
+            slug=clean_slug,
+            doc_type=str(data.get("doc_type") or "LEGAL").upper(),
+            title_fa=str(data["title_fa"]).strip(),
+            title_en=str(data.get("title_en") or "").strip(),
+            summary=str(data.get("summary") or "").strip(),
+            body_html=sanitized_body,
+            status=str(data.get("status") or LegalDocument.Status.DRAFT),
+            version_number=1,
+            requires_acceptance=bool(data.get("requires_acceptance", False)),
+            effective_at=data.get("effective_at"),
+            published_at=timezone.now() if data.get("status") == LegalDocument.Status.PUBLISHED else None,
+            meta_title=str(data.get("meta_title") or data["title_fa"])[:160],
+            meta_description=str(data.get("meta_description") or data.get("summary") or "")[:320],
+            sort_order=int(data.get("sort_order", 100)),
+            is_system_doc=bool(data.get("is_system_doc", False)),
+            created_by=user,
+            updated_by=user,
+        )
+        LegalDocumentVersion.objects.create(
+            document=doc,
+            version_number=1,
+            title_fa=doc.title_fa,
+            summary=doc.summary,
+            body_html=doc.body_html,
+            change_note=str(data.get("change_note") or "ایجاد نسخه اولیه")[:240],
+            edited_by=user,
+            created_by=user,
+        )
+    else:
+        doc = existing
+        for f in ("title_fa", "title_en", "summary", "doc_type", "requires_acceptance", "effective_at", "meta_title", "meta_description", "sort_order"):
+            if f in data and data[f] is not None:
+                setattr(doc, f, data[f])
+        new_status = str(data.get("status") or "").strip()
+        if new_status and new_status in LegalDocument.Status.values and new_status != doc.status:
+            doc.status = new_status
+            if new_status == LegalDocument.Status.PUBLISHED:
+                doc.published_at = doc.published_at or timezone.now()
+                doc.effective_at = doc.effective_at or timezone.now()
+        if "body_html" in data and data["body_html"] is not None:
+            doc.body_html = sanitized_body
+        doc.version_number += 1
+        doc.updated_by = user
+        doc.save()
+        LegalDocumentVersion.objects.create(
+            document=doc,
+            version_number=doc.version_number,
+            title_fa=doc.title_fa,
+            summary=doc.summary,
+            body_html=doc.body_html,
+            change_note=str(data.get("change_note") or f"ویرایش نسخه {doc.version_number}")[:240],
+            edited_by=user,
+            created_by=user,
+        )
+
+    record_audit_event(
+        action="LEGAL_DOCUMENT_UPSERTED",
+        resource_type="LegalDocument",
+        resource_id=doc.slug,
+        actor=user,
+        after_state={"version": doc.version_number, "status": doc.status},
+    )
+    from apps.settings.services import invalidate_public_bootstrap_cache
+
+    invalidate_public_bootstrap_cache()
+    return doc
+
+
+@transaction.atomic
+def transition_legal_status(*, user: User, doc_id: UUID, to_status: str) -> LegalDocument:
+    _assert_legal_admin(user)
+    doc = LegalDocument.objects.filter(id=doc_id).first()
+    if not doc:
+        raise NotFoundDomainError("سند حقوقی یافت نشد.")
+    if to_status not in LegalDocument.Status.values:
+        raise ValidationDomainError("وضعیت انتخاب‌شده برای سند حقوقی نامعتبر است.")
+
+    allowed = LEGAL_TRANSITIONS.get(doc.status, set())
+    if doc.status != to_status and to_status not in allowed:
+        raise ValidationDomainError(f"انتقال وضعیت سند حقوقی از {doc.status} به {to_status} مجاز نیست (سند منتشرشده فقط قابل بایگانی است).")
+
+    prev = doc.status
+    doc.status = to_status
+    if to_status == LegalDocument.Status.PUBLISHED:
+        doc.published_at = doc.published_at or timezone.now()
+        doc.effective_at = doc.effective_at or timezone.now()
+    doc.updated_by = user
+    doc.save()
+
+    record_audit_event(
+        action="LEGAL_DOCUMENT_STATUS_CHANGED",
+        resource_type="LegalDocument",
+        resource_id=doc.slug,
+        actor=user,
+        before_state={"status": prev},
+        after_state={"status": to_status},
+    )
+    from apps.settings.services import invalidate_public_bootstrap_cache
+
+    invalidate_public_bootstrap_cache()
+    return doc
+
+
+@transaction.atomic
+def restore_legal_version(*, user: User, doc_id: UUID, version_number: int) -> LegalDocument:
+    _assert_legal_admin(user)
+    doc = LegalDocument.objects.filter(id=doc_id).first()
+    if not doc:
+        raise NotFoundDomainError("سند حقوقی یافت نشد.")
+    ver = LegalDocumentVersion.objects.filter(document=doc, version_number=version_number).first()
+    if not ver:
+        raise NotFoundDomainError("نسخه انتخاب‌شده یافت نشد.")
+
+    doc.title_fa = ver.title_fa
+    doc.summary = ver.summary
+    doc.body_html = sanitize_html(ver.body_html)
+    doc.version_number += 1
+    doc.updated_by = user
+    doc.save()
+
+    LegalDocumentVersion.objects.create(
+        document=doc,
+        version_number=doc.version_number,
+        title_fa=doc.title_fa,
+        summary=doc.summary,
+        body_html=doc.body_html,
+        change_note=f"بازگردانی از نسخه {version_number}",
+        edited_by=user,
+        created_by=user,
+    )
+    record_audit_event(
+        action="LEGAL_DOCUMENT_VERSION_RESTORED",
+        resource_type="LegalDocument",
+        resource_id=doc.slug,
+        actor=user,
+        after_state={"restored_from": version_number, "new_version": doc.version_number},
+    )
+    return doc
+
+
+@transaction.atomic
+def accept_legal_document(
+    *, user: User, slug: str, ip_address: Optional[str] = None, user_agent: str = ""
+) -> LegalAcceptanceRecord:
+    doc = LegalDocument.objects.filter(slug=slug.strip().lower(), status=LegalDocument.Status.PUBLISHED).first()
+    if not doc:
+        raise NotFoundDomainError("سند حقوقی منتشرشده یافت نشد.")
+    rec, created = LegalAcceptanceRecord.objects.get_or_create(
+        document=doc,
+        version_number=doc.version_number,
+        user=user,
+        defaults={
+            "ip_address": ip_address,
+            "user_agent": (user_agent or "")[:255],
+            "created_by": user,
+        },
+    )
+    if created:
+        record_audit_event(
+            action="LEGAL_DOCUMENT_ACCEPTED",
+            resource_type="LegalDocument",
+            resource_id=doc.slug,
+            actor=user,
+            ip_address=ip_address,
+            after_state={"version_number": doc.version_number},
+        )
+    return rec
+
+
+def list_legal_acceptances(*, user: User, doc_id: Optional[UUID] = None) -> list[LegalAcceptanceRecord]:
+    _assert_legal_admin(user)
+    qs = LegalAcceptanceRecord.objects.select_related("document", "user")
+    if doc_id:
+        qs = qs.filter(document_id=doc_id)
+    return list(qs.order_by("-accepted_at")[:200])
+
+
+# ==============================================================================
+# Articles, Categories, Redirects, Inquiries, FAQs, Jobs
+# ==============================================================================
 
 
 def list_categories():
@@ -122,7 +370,7 @@ def create_article(*, user: User, data: dict) -> Article:
     if data.get("category_id"):
         category = ContentCategory.objects.filter(id=data["category_id"]).first()
 
-    body = data["content_body"].strip()
+    body = sanitize_html(data["content_body"].strip())
     reading_mins = max(1, len(body.split()) // 160)
 
     art = Article.objects.create(
@@ -169,9 +417,11 @@ def update_article(*, user: User, article_id: UUID, data: dict) -> Article:
     if not is_super_admin(user) and art.created_by_id != user.id:
         raise PermissionDeniedDomainError("شما فقط مجاز به ویرایش مقالات خود هستید.")
 
-    for field in ("title", "summary", "content_body", "cover_image_url", "meta_title", "meta_description", "canonical_url", "article_type"):
+    for field in ("title", "summary", "cover_image_url", "meta_title", "meta_description", "canonical_url", "article_type"):
         if field in data and data[field] is not None:
             setattr(art, field, data[field])
+    if "content_body" in data and data["content_body"] is not None:
+        art.content_body = sanitize_html(data["content_body"])
     if "category_id" in data and data["category_id"] is not None:
         art.category_id = data["category_id"]
     art.updated_by = user

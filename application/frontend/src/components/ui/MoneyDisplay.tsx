@@ -17,12 +17,7 @@ export function MoneyDisplay({
   className = "",
 }: MoneyDisplayProps) {
   const { currencyMode } = useAuth();
-  const display =
-    sourceCurrency === "IRT" || sourceCurrency === "IRR"
-      ? currencyMode === "IRR" || currencyMode === "IRT"
-        ? currencyMode
-        : sourceCurrency
-      : sourceCurrency;
+  const display = currencyMode || sourceCurrency;
 
   return (
     <span className={`tabular-nums whitespace-nowrap ${className}`}>

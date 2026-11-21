@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { usePublicConfig } from "@/lib/public-config-context";
 import type { AmenityValueInput, PropertyCatalog, PropertyItem } from "@/lib/types";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
 import { StepWizard } from "@/components/ui/StepWizard";
@@ -68,6 +69,16 @@ export function PropertyForm({
 }) {
   const router = useRouter();
   const { accessToken, activeAgencyId } = useAuth();
+  const { currencies } = usePublicConfig();
+  const activeCurrencies =
+    currencies.length > 0
+      ? currencies
+      : [
+          { code: "IRT", name_fa: "تومان" },
+          { code: "IRR", name_fa: "ریال" },
+          { code: "USD", name_fa: "دلار" },
+          { code: "AED", name_fa: "درهم" },
+        ];
   const toast = useToast();
   const [step, setStep] = useState(0);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
@@ -434,9 +445,11 @@ export function PropertyForm({
             <div>
               <label className={LABEL_CLS}>ارز</label>
               <select {...register("currency_id")} className={INPUT_CLS}>
-                <option value="IRT">تومان (IRT)</option>
-                <option value="IRR">ریال (IRR)</option>
-                <option value="USD">دلار (USD)</option>
+                {activeCurrencies.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name_fa} ({c.code})
+                  </option>
+                ))}
               </select>
             </div>
 

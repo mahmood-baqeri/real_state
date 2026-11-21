@@ -255,22 +255,37 @@ async def patch_me(body: ProfilePatchBody, ctx: RequestContext = Depends(get_cur
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
 
+class EmergencyForceLogoutBody(BaseModel):
+    password_confirm: str
+    exclude_current: bool = True
+
+
+def _ser_session(s, current_jti: Optional[str] = None) -> dict:
+    return {
+        "id": str(s.id),
+        "user_id": str(s.user_id),
+        "user_name": s.user.full_name if s.user else "",
+        "user_phone": s.user.phone_number if s.user else "",
+        "device_name": s.device_name,
+        "device_type": s.device_type,
+        "auth_method": s.auth_method,
+        "ip_address": s.ip_address,
+        "user_agent": s.user_agent,
+        "is_suspicious": s.is_suspicious,
+        "suspicious_reason": getattr(s, "suspicious_reason", ""),
+        "last_active_at": s.last_active_at.isoformat(),
+        "expires_at": s.expires_at.isoformat() if s.expires_at else None,
+        "created_at": s.created_at.isoformat(),
+        "is_current": bool(current_jti and str(s.jti) == str(current_jti)),
+    }
+
+
 @router.get("/sessions")
 async def list_sessions(ctx: RequestContext = Depends(get_current_context)):
     def _op():
         from apps.accounts.services import list_user_sessions
 
-        return [
-            {
-                "id": str(s.id),
-                "device_name": s.device_name,
-                "ip_address": s.ip_address,
-                "user_agent": s.user_agent,
-                "last_active_at": s.last_active_at.isoformat(),
-                "is_current": str(s.jti) == str(ctx.session_jti),
-            }
-            for s in list_user_sessions(ctx.user)
-        ]
+        return [_ser_session(s, ctx.session_jti) for s in list_user_sessions(ctx.user)]
 
     return ok(await run_django(_op))
 
@@ -284,5 +299,84 @@ async def delete_session(session_id: UUID, ctx: RequestContext = Depends(get_cur
         if not ok_flag:
             raise HTTPException(status_code=404, detail="نشست مورد نظر یافت نشد.")
         return {"revoked": True}
+
+    return ok(await run_django(_op))
+
+
+@router.get("/admin/sessions")
+async def admin_list_sessions(
+    user_id: Optional[UUID] = None,
+    suspicious_only: bool = False,
+    q: Optional[str] = None,
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.accounts.services import list_all_active_sessions
+
+        return [
+            _ser_session(s, ctx.session_jti)
+            for s in list_all_active_sessions(
+                actor=ctx.user, user_id=user_id, suspicious_only=suspicious_only, q=q
+            )
+        ]
+
+    return ok(await run_django(_op))
+
+
+@router.delete("/admin/sessions/{session_id}")
+async def admin_revoke_session(session_id: UUID, ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.accounts.services import revoke_session_by_admin
+
+        return {"revoked": revoke_session_by_admin(actor=ctx.user, session_id=session_id)}
+
+    return ok(await run_django(_op))
+
+
+@router.post("/admin/users/{user_id}/revoke-sessions")
+async def admin_revoke_user_sessions(user_id: UUID, ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.accounts.services import revoke_all_user_sessions
+
+        return {"revoked_count": revoke_all_user_sessions(actor=ctx.user, target_user_id=user_id)}
+
+    return ok(await run_django(_op))
+
+
+@router.post("/admin/emergency-force-logout")
+async def admin_emergency_force_logout(
+    body: EmergencyForceLogoutBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.accounts.services import emergency_force_logout_all
+
+        cnt = emergency_force_logout_all(
+            actor=ctx.user,
+            password_confirm=body.password_confirm,
+            current_jti=ctx.session_jti,
+            exclude_current=body.exclude_current,
+        )
+        return {"revoked_count": cnt}
+
+    return ok(await run_django(_op))
+
+
+@router.get("/admin/security-events")
+async def admin_security_events(ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.accounts.services import list_security_events
+
+        return [
+            {
+                "id": str(ev.id),
+                "phone_number": ev.phone_number,
+                "user_name": ev.user.full_name if ev.user else None,
+                "ip_address": ev.ip_address,
+                "succeeded": ev.succeeded,
+                "failure_reason": ev.failure_reason,
+                "created_at": ev.created_at.isoformat(),
+            }
+            for ev in list_security_events(actor=ctx.user)
+        ]
 
     return ok(await run_django(_op))

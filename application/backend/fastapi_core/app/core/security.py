@@ -17,10 +17,24 @@ def extract_client_ip(raw_host: Optional[str]) -> Optional[str]:
         return None
 
 
+def _resolve_dynamic_ttl() -> tuple[int, int]:
+    access_mins = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    refresh_days = settings.REFRESH_TOKEN_EXPIRE_DAYS
+    try:
+        from apps.settings.services import get_setting_value
+
+        access_mins = max(5, int(get_setting_value("security.access_token_ttl_minutes", access_mins) or access_mins))
+        refresh_days = max(1, int(get_setting_value("security.refresh_token_ttl_days", refresh_days) or refresh_days))
+    except Exception:
+        pass
+    return access_mins, refresh_days
+
+
 def build_token_pair(*, user, session, membership=None) -> dict[str, Any]:
     now = datetime.now(dt_timezone.utc)
-    access_exp = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    refresh_exp = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    access_mins, refresh_days = _resolve_dynamic_ttl()
+    access_exp = now + timedelta(minutes=access_mins)
+    refresh_exp = now + timedelta(days=refresh_days)
 
     base_claims = {
         "user_id": str(user.id),
@@ -48,7 +62,7 @@ def build_token_pair(*, user, session, membership=None) -> dict[str, Any]:
         "access": jwt.encode(access_payload, settings.JWT_SIGNING_KEY, algorithm=settings.JWT_ALGORITHM),
         "refresh": jwt.encode(refresh_payload, settings.JWT_SIGNING_KEY, algorithm=settings.JWT_ALGORITHM),
         "token_type": "Bearer",
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "expires_in": access_mins * 60,
     }
 
 

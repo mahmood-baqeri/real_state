@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2, LayoutDashboard, LogIn, Menu, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { usePublicConfig } from "@/lib/public-config-context";
+import { useTheme } from "@/lib/theme-context";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV_LINKS = [
@@ -17,8 +19,14 @@ const NAV_LINKS = [
 
 export function PublicHeader() {
   const { user } = useAuth();
+  const { getSetting, getBrandAsset } = usePublicConfig();
+  const { resolvedTheme } = useTheme();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const platformName = getSetting<string>("general.platform_name_fa", "بنیان ملک");
+  const isDark = resolvedTheme === "dark";
+  const logoUrl = getBrandAsset(isDark ? "site_logo_dark" : "site_logo_light", isDark, "");
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-md dark:border-slate-800/90 dark:bg-slate-900/95">
@@ -34,12 +42,20 @@ export function PublicHeader() {
           </button>
 
           <Link href="/" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700 text-white shadow-xs dark:bg-teal-600">
-              <Building2 className="h-5 w-5" />
-            </div>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={platformName}
+                className="h-9 w-9 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+              />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700 text-white shadow-xs dark:bg-teal-600">
+                <Building2 className="h-5 w-5" />
+              </div>
+            )}
             <div>
               <span className="block whitespace-nowrap text-base font-bold text-slate-900 dark:text-slate-100">
-                بنیان ملک
+                {platformName}
               </span>
             </div>
           </Link>

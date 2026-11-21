@@ -1,10 +1,11 @@
+from datetime import timedelta
 import hashlib
 import secrets
 from typing import Optional
 from uuid import UUID
 import pyotp
 from django.core.cache import cache
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from apps.audit.services import record_audit_event
 from common.encryption import decrypt_sensitive_value, encrypt_sensitive_value
@@ -17,7 +18,6 @@ from common.exceptions import (
     ValidationDomainError,
 )
 from common.permissions import get_active_membership, has_agency_permission, is_super_admin
-from integrations.registry import get_sms_provider
 from .models import (
     AgencyMembership,
     LoginAttemptLog,
@@ -29,8 +29,30 @@ from .models import (
     UserSession,
 )
 
-BRUTE_FORCE_MAX_FAILS = 5
-BRUTE_FORCE_WINDOW_SECONDS = 600
+
+def _get_security_setting(key: str, default):
+    try:
+        from apps.settings.services import get_setting_value
+
+        return get_setting_value(key, default)
+    except Exception:
+        return default
+
+
+def _validate_password_policy(password: str) -> None:
+    min_len = int(_get_security_setting("security.password_min_length", 8) or 8)
+    req_upper = bool(_get_security_setting("security.password_require_uppercase", False))
+    req_digit = bool(_get_security_setting("security.password_require_digit", False))
+    req_special = bool(_get_security_setting("security.password_require_special", False))
+
+    if len(password or "") < min_len:
+        raise ValidationDomainError(f"رمز عبور باید حداقل {min_len} کاراکتر باشد.")
+    if req_upper and not any(ch.isupper() for ch in password):
+        raise ValidationDomainError("رمز عبور باید حداقل شامل یک حرف بزرگ انگلیسی باشد.")
+    if req_digit and not any(ch.isdigit() for ch in password):
+        raise ValidationDomainError("رمز عبور باید حداقل شامل یک رقم باشد.")
+    if req_special and not any(not ch.isalnum() for ch in password):
+        raise ValidationDomainError("رمز عبور باید حداقل شامل یک کاراکتر ویژه (مانند @ یا #) باشد.")
 
 
 def _lockout_cache_key(identifier: str, ip_address: Optional[str]) -> str:
@@ -38,22 +60,24 @@ def _lockout_cache_key(identifier: str, ip_address: Optional[str]) -> str:
 
 
 def _check_brute_force_lock(identifier: str, ip_address: Optional[str]) -> None:
+    max_fails = int(_get_security_setting("security.brute_force_max_fails", 5) or 5)
     key = _lockout_cache_key(identifier, ip_address)
     try:
         fails = int(cache.get(key) or 0)
     except Exception:
         fails = 0
-    if fails >= BRUTE_FORCE_MAX_FAILS:
+    if fails >= max_fails:
         raise RateLimitDomainError(
-            "تعداد تلاش‌های ناموفق بیش از حد مجاز بوده است. لطفاً ۱۰ دقیقه دیگر مجدداً تلاش کنید."
+            "تعداد تلاش‌های ناموفق بیش از حد مجاز بوده است. لطفاً پس از پایان زمان قفل مجدداً تلاش کنید."
         )
 
 
 def _increment_brute_force_fail(identifier: str, ip_address: Optional[str]) -> None:
+    window_sec = int(_get_security_setting("security.brute_force_lockout_seconds", 600) or 600)
     key = _lockout_cache_key(identifier, ip_address)
     try:
         current = int(cache.get(key) or 0) + 1
-        cache.set(key, current, timeout=BRUTE_FORCE_WINDOW_SECONDS)
+        cache.set(key, current, timeout=window_sec)
     except Exception:
         pass
 
@@ -63,6 +87,17 @@ def _clear_brute_force_fail(identifier: str, ip_address: Optional[str]) -> None:
         cache.delete(_lockout_cache_key(identifier, ip_address))
     except Exception:
         pass
+
+
+def _infer_device_type(user_agent: str, device_name: str) -> str:
+    combined = f"{user_agent} {device_name}".lower()
+    if any(k in combined for k in ("iphone", "android", "mobile", "pwa")):
+        return "MOBILE"
+    if any(k in combined for k in ("ipad", "tablet")):
+        return "TABLET"
+    if any(k in combined for k in ("curl", "python", "httpx", "postman", "api")):
+        return "API_CLIENT"
+    return "WEB"
 
 
 @transaction.atomic
@@ -77,9 +112,11 @@ def register_user(
     preferred_calendar: str = "jalali",
     preferred_currency: str = "IRT",
 ) -> User:
+    if not bool(_get_security_setting("general.allow_public_registration", True)):
+        raise PermissionDeniedDomainError("ثبت‌نام عمومی کاربران در حال حاضر از مرکز تنظیمات غیرفعال است.")
+
     clean_phone = phone_number.strip()
-    if len(password) < 8:
-        raise ValidationDomainError("رمز عبور باید حداقل ۸ کاراکتر باشد.")
+    _validate_password_policy(password)
     if User.objects.filter(phone_number=clean_phone).exists():
         raise ConflictDomainError("این شماره موبایل قبلاً ثبت شده است.")
     clean_email = email.strip().lower() if email else None
@@ -149,7 +186,16 @@ def authenticate_user_credentials(
         )
         raise PermissionDeniedDomainError("حساب کاربری شما فعال نیست.")
 
-    if user.is_mfa_enabled:
+    # Enforce MFA if enabled on user OR enforced globally by security policy when MFA is configured
+    mfa_policy = str(_get_security_setting("security.mfa_policy", "OPTIONAL") or "OPTIONAL").upper()
+    requires_mfa = bool(user.is_mfa_enabled)
+    if (
+        (mfa_policy == "ALL_REQUIRED" or (mfa_policy == "ADMINS_REQUIRED" and user.platform_role == User.PlatformRole.SUPER_ADMIN))
+        and user.mfa_secret_encrypted
+    ):
+        requires_mfa = True
+
+    if requires_mfa:
         secret = decrypt_sensitive_value(user.mfa_secret_encrypted)
         totp = pyotp.TOTP(secret) if secret else None
         if not mfa_code or not totp or not totp.verify(mfa_code.strip(), valid_window=1):
@@ -167,7 +213,8 @@ def authenticate_user_credentials(
             )
 
     _clear_brute_force_fail(identifier, ip_address)
-    user.last_login = timezone.now()
+    now = timezone.now()
+    user.last_login = now
     user.save(update_fields=["last_login"])
 
     LoginAttemptLog.objects.create(
@@ -176,12 +223,38 @@ def authenticate_user_credentials(
         ip_address=ip_address,
         succeeded=True,
     )
+
+    # Suspicious login detection (new IP or recent failed attempts)
+    recent_prior_ips = set(
+        UserSession.objects.filter(user=user).exclude(ip_address__isnull=True).values_list("ip_address", flat=True)[:10]
+    )
+    recent_fails = LoginAttemptLog.objects.filter(
+        identifier=identifier,
+        succeeded=False,
+        created_at__gte=now - timedelta(minutes=15),
+    ).count()
+    is_suspicious = bool((ip_address and recent_prior_ips and ip_address not in recent_prior_ips) or recent_fails >= 3)
+
+    # Enforce max concurrent active sessions
+    max_sessions = int(_get_security_setting("security.max_concurrent_sessions", 5) or 5)
+    active_sessions = list(
+        UserSession.objects.filter(user=user, revoked_at__isnull=True).order_by("last_active_at")
+    )
+    if max_sessions > 0 and len(active_sessions) >= max_sessions:
+        overflow = active_sessions[: len(active_sessions) - max_sessions + 1]
+        UserSession.objects.filter(id__in=[s.id for s in overflow]).update(revoked_at=now)
+
+    refresh_ttl_days = int(_get_security_setting("security.refresh_token_ttl_days", 7) or 7)
     session = UserSession.objects.create(
         user=user,
         device_name=device_name[:128],
+        device_type=_infer_device_type(user_agent, device_name),
+        auth_method="PASSWORD_MFA" if requires_mfa else "PASSWORD",
         ip_address=ip_address,
         user_agent=(user_agent or "")[:255],
-        last_active_at=timezone.now(),
+        is_suspicious=is_suspicious,
+        last_active_at=now,
+        expires_at=now + timedelta(days=refresh_ttl_days),
     )
     membership = (
         AgencyMembership.objects.select_related("agency", "role", "branch")
@@ -195,7 +268,7 @@ def authenticate_user_credentials(
         actor=user,
         agency_id=membership.agency_id if membership else None,
         ip_address=ip_address,
-        metadata={"device_name": device_name[:128]},
+        metadata={"device_name": device_name[:128], "is_suspicious": is_suspicious},
     )
     return user, session, membership
 
@@ -253,6 +326,18 @@ def validate_active_session_for_refresh(*, user_id: str, jti: str) -> tuple[User
     session = UserSession.objects.filter(user=user, jti=jti, revoked_at__isnull=True).first()
     if not session:
         raise AuthenticationDomainError("نشست کاربری منقضی یا لغو شده است.")
+
+    now = timezone.now()
+    if session.expires_at and session.expires_at < now:
+        session.revoked_at = now
+        session.save(update_fields=["revoked_at"])
+        raise AuthenticationDomainError("نشست کاربری منقضی شده است.")
+
+    idle_timeout_mins = int(_get_security_setting("security.session_idle_timeout_minutes", 480) or 0)
+    if idle_timeout_mins > 0 and session.last_active_at < now - timedelta(minutes=idle_timeout_mins):
+        session.revoked_at = now
+        session.save(update_fields=["revoked_at"])
+        raise AuthenticationDomainError("نشست به دلیل عدم فعالیت بیش از حد منقضی شد.")
     return user, session
 
 
@@ -273,8 +358,16 @@ def request_password_reset_otp(*, phone_number: str) -> dict:
     otp_hash = hashlib.sha256(otp_code.encode()).hexdigest()
     cache.set(f"pwd_reset:{clean_phone}", otp_hash, timeout=600)
 
-    sms = get_sms_provider()
-    sms_res = sms.send_otp(clean_phone, "password_reset", {"code": otp_code})
+    from apps.notifications.services import dispatch_sms_with_policy
+
+    sms_res = dispatch_sms_with_policy(
+        phone_number=clean_phone,
+        event_type="PASSWORD_RESET",
+        template_key="password_reset_otp",
+        tokens={"code": otp_code, "name": user.full_name},
+        is_otp=True,
+        actor=user,
+    )
     record_audit_event(
         action="PASSWORD_RESET_OTP_REQUESTED",
         resource_type="User",
@@ -282,18 +375,17 @@ def request_password_reset_otp(*, phone_number: str) -> dict:
         actor=user,
     )
     return {
-        "sent": True,
-        "provider": sms_res.provider_key,
+        "sent": bool(sms_res.get("accepted")),
+        "provider": sms_res.get("provider_key", "console"),
         "expires_in_seconds": 600,
-        "sandbox_otp": otp_code if sms_res.provider_key == "console" else None,
+        "sandbox_otp": otp_code if sms_res.get("provider_key") == "console" else None,
     }
 
 
 @transaction.atomic
 def confirm_password_reset_otp(*, phone_number: str, otp_code: str, new_password: str) -> User:
     clean_phone = phone_number.strip()
-    if len(new_password) < 8:
-        raise ValidationDomainError("رمز عبور جدید باید حداقل ۸ کاراکتر باشد.")
+    _validate_password_policy(new_password)
     expected_hash = cache.get(f"pwd_reset:{clean_phone}")
     provided_hash = hashlib.sha256(otp_code.strip().encode()).hexdigest()
     if not expected_hash or expected_hash != provided_hash:
@@ -334,6 +426,103 @@ def revoke_user_session(user: User, session_id: UUID) -> bool:
             actor=user,
         )
     return updated > 0
+
+
+# ==============================================================================
+# SuperAdmin Security & Session Management Console
+# ==============================================================================
+
+
+def list_all_active_sessions(
+    *, actor: User, user_id: Optional[UUID] = None, suspicious_only: bool = False, q: Optional[str] = None
+) -> list[UserSession]:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به مشاهده نشست‌های کل سامانه است.")
+    qs = UserSession.objects.select_related("user").filter(revoked_at__isnull=True)
+    if user_id:
+        qs = qs.filter(user_id=user_id)
+    if suspicious_only:
+        qs = qs.filter(is_suspicious=True)
+    if q:
+        clean = q.strip()
+        qs = qs.filter(
+            models.Q(user__phone_number__icontains=clean)
+            | models.Q(user__first_name__icontains=clean)
+            | models.Q(user__last_name__icontains=clean)
+            | models.Q(device_name__icontains=clean)
+        )
+    return list(qs.order_by("-last_active_at")[:200])
+
+
+@transaction.atomic
+def revoke_session_by_admin(*, actor: User, session_id: UUID) -> bool:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به لغو نشست کاربران است.")
+    session = UserSession.objects.select_related("user").filter(id=session_id, revoked_at__isnull=True).first()
+    if not session:
+        raise NotFoundDomainError("نشست فعال یافت نشد.")
+    session.revoked_at = timezone.now()
+    session.save(update_fields=["revoked_at"])
+    record_audit_event(
+        action="ADMIN_SESSION_REVOKED",
+        resource_type="UserSession",
+        resource_id=str(session.id),
+        actor=actor,
+        after_state={"target_user": session.user.phone_number, "device_name": session.device_name},
+    )
+    return True
+
+
+@transaction.atomic
+def revoke_all_user_sessions(*, actor: User, target_user_id: UUID) -> int:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به مسدودسازی نشست‌های کاربر است.")
+    target = User.objects.filter(id=target_user_id).first()
+    if not target:
+        raise NotFoundDomainError("کاربر یافت نشد.")
+    count = UserSession.objects.filter(user=target, revoked_at__isnull=True).update(revoked_at=timezone.now())
+    record_audit_event(
+        action="ADMIN_USER_ALL_SESSIONS_REVOKED",
+        resource_type="User",
+        resource_id=str(target.id),
+        actor=actor,
+        after_state={"revoked_count": count},
+    )
+    return count
+
+
+@transaction.atomic
+def emergency_force_logout_all(
+    *, actor: User, password_confirm: str, current_jti: Optional[str] = None, exclude_current: bool = True
+) -> int:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به اجرای خروج اضطراری سراسری است.")
+    if not password_confirm or not actor.check_password(password_confirm):
+        raise AuthenticationDomainError("رمز عبور مدیر کل برای تأیید عملیات اضطراری نادرست است.")
+
+    qs = UserSession.objects.filter(revoked_at__isnull=True)
+    if exclude_current and current_jti:
+        qs = qs.exclude(jti=current_jti)
+    count = qs.update(revoked_at=timezone.now())
+    record_audit_event(
+        action="EMERGENCY_GLOBAL_FORCE_LOGOUT",
+        resource_type="UserSession",
+        resource_id="ALL",
+        actor=actor,
+        after_state={"revoked_count": count, "excluded_current": exclude_current},
+    )
+    return count
+
+
+def list_security_events(*, actor: User) -> list[LoginAttemptLog]:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به مشاهده رویدادهای امنیتی است.")
+    return list(LoginAttemptLog.objects.select_related("user").order_by("-created_at")[:150])
+
+
+# ==============================================================================
+# Profile, Admin User Management, Roles & Quotas
+# ==============================================================================
 
 
 def update_user_profile(user: User, **fields) -> User:
@@ -461,6 +650,30 @@ def add_agency_member(
 
     clean_phone = phone_number.strip()
     user = User.objects.filter(phone_number=clean_phone).first()
+    already_member = bool(user and AgencyMembership.objects.filter(user=user, agency_id=agency_id, status=AgencyMembership.Status.ACTIVE).exists())
+
+    # Enforce active subscription max_agents quota for new members
+    if not already_member and not is_super_admin(actor):
+        from apps.subscriptions.models import AgencySubscription
+
+        active_sub = (
+            AgencySubscription.objects.select_related("plan")
+            .filter(
+                agency_id=agency_id,
+                status__in=[AgencySubscription.Status.ACTIVE, AgencySubscription.Status.TRIAL],
+            )
+            .order_by("-expires_at")
+            .first()
+        )
+        if active_sub and active_sub.plan:
+            current_agents = AgencyMembership.objects.filter(
+                agency_id=agency_id, status=AgencyMembership.Status.ACTIVE
+            ).count()
+            if current_agents >= active_sub.plan.max_agents:
+                raise PermissionDeniedDomainError(
+                    f"سقف مجاز مشاوران پلن اشتراک شما ({active_sub.plan.max_agents} نفر) تکمیل شده است. لطفاً پلن خود را ارتقا دهید."
+                )
+
     if user is None:
         user = User.objects.create_user(
             phone_number=clean_phone,

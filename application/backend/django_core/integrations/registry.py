@@ -17,7 +17,13 @@ from .payment import (
     ZibalPaymentAdapter,
 )
 from .push import PushProviderBase, SandboxPushAdapter, WebPushVapidAdapter
-from .sms import ConsoleSMSAdapter, SMSProviderBase
+from .sms import (
+    ConsoleSMSAdapter,
+    KavenegarSMSAdapter,
+    MelipayamakSMSAdapter,
+    SMSIrSMSAdapter,
+    SMSProviderBase,
+)
 from .storage import LocalSecureStorageAdapter, S3CompatibleStorageAdapter, StorageProviderBase
 
 PAYMENT_PROVIDERS = {
@@ -29,6 +35,9 @@ PAYMENT_PROVIDERS = {
 
 SMS_PROVIDERS = {
     "console": ConsoleSMSAdapter,
+    "kavenegar": KavenegarSMSAdapter,
+    "melipayamak": MelipayamakSMSAdapter,
+    "smsir": SMSIrSMSAdapter,
 }
 
 EMAIL_PROVIDERS = {

@@ -166,6 +166,12 @@ def initiate_gateway_payment(
         is_sandbox=is_sandbox,
     )
 
+    from apps.settings.services import get_setting_value
+    from common.localization.currency import CurrencyConversionService
+
+    base_currency = str(get_setting_value("finance.base_currency", "IRT") or "IRT").upper()
+    fx_snapshot = CurrencyConversionService.get_snapshot_rate_to_base(plan.currency_id, base_currency)
+
     tx = PaymentGatewayTransaction.objects.create(
         agency_id=agency_id,
         subscription=sub,
@@ -175,6 +181,8 @@ def initiate_gateway_payment(
         idempotency_key=idempotency_key,
         callback_url=callback_url,
         currency=plan.currency,
+        base_currency_code=base_currency,
+        exchange_rate_snapshot=fx_snapshot,
         amount=amount,
         status=PaymentGatewayTransaction.Status.INITIATED,
         raw_payload=init_res.raw_response,

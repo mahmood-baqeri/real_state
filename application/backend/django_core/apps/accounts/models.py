@@ -97,10 +97,14 @@ class UserSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sessions")
     jti = models.UUIDField(unique=True, default=uuid.uuid4)
     device_name = models.CharField(max_length=128, blank=True, default="Web Browser")
+    device_type = models.CharField(max_length=24, blank=True, default="WEB")
+    auth_method = models.CharField(max_length=24, blank=True, default="PASSWORD")
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=255, blank=True, default="")
+    is_suspicious = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=dj_timezone.now)
     last_active_at = models.DateTimeField(default=dj_timezone.now)
+    expires_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

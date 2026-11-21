@@ -43,6 +43,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { usePublicConfig } from "@/lib/public-config-context";
+import { useTheme } from "@/lib/theme-context";
 import { ROLE_LABELS_FA } from "@/lib/formatters";
 import {
   getNavigationForUser,
@@ -101,6 +103,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     isLoading,
     logout,
   } = useAuth();
+  const { getSetting, getBrandAsset, currencies, calendars } = usePublicConfig();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const platformName = getSetting<string>("general.platform_name_fa", "بنیان ملک");
+  const brandLogo = getBrandAsset(isDark ? "site_logo_dark" : "site_logo_light", isDark, "");
+  const activeCurrencies =
+    currencies.length > 0
+      ? currencies
+      : [
+          { code: "IRT", name_fa: "تومان", name_en: "Toman", symbol: "تومان", decimal_places: 0, minor_unit: "", description: "", exchange_rate_to_base: "1" },
+          { code: "IRR", name_fa: "ریال", name_en: "Rial", symbol: "ریال", decimal_places: 0, minor_unit: "", description: "", exchange_rate_to_base: "10" },
+        ];
+  const activeCalendars =
+    calendars.length > 0
+      ? calendars
+      : [
+          { code: "jalali", name_fa: "شمسی", name_en: "Jalali", date_format: "YYYY/MM/DD", datetime_format: "YYYY/MM/DD HH:mm", is_default: true },
+          { code: "gregorian", name_fa: "میلادی", name_en: "Gregorian", date_format: "YYYY-MM-DD", datetime_format: "YYYY-MM-DD HH:mm", is_default: false },
+        ];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
@@ -258,12 +279,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const sidebarContent = (
     <div className="flex h-full flex-col bg-white dark:bg-slate-900">
       <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-slate-800">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white dark:bg-teal-600">
-            <Building2 className="h-4 w-4" />
-          </div>
+            <Link href="/" className="flex items-center gap-2.5">
+          {brandLogo ? (
+            <img
+              src={brandLogo}
+              alt={platformName}
+              className="h-8 w-8 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white dark:bg-teal-600">
+              <Building2 className="h-4 w-4" />
+            </div>
+          )}
           <div>
-            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">بنیان ملک</div>
+            <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{platformName}</div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">میز کار یکپارچه</div>
           </div>
         </Link>
@@ -549,56 +578,40 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <ThemeToggle variant="compact" />
             </div>
 
-            {/* Currency Mode Toggle */}
+            {/* Currency Mode Switcher */}
             <div className="hidden items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800/80 sm:flex">
-              <button
-                type="button"
-                onClick={() => setCurrencyMode("IRT")}
-                className={`h-7 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
-                  currencyMode === "IRT"
-                    ? "bg-white text-teal-800 shadow-xs dark:bg-slate-900 dark:text-teal-300"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                }`}
-              >
-                تومان
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrencyMode("IRR")}
-                className={`h-7 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
-                  currencyMode === "IRR"
-                    ? "bg-white text-teal-800 shadow-xs dark:bg-slate-900 dark:text-teal-300"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                }`}
-              >
-                ریال
-              </button>
+              {activeCurrencies.slice(0, 4).map((cur) => (
+                <button
+                  key={cur.code}
+                  type="button"
+                  onClick={() => setCurrencyMode(cur.code)}
+                  className={`h-7 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
+                    currencyMode === cur.code
+                      ? "bg-white text-teal-800 shadow-xs dark:bg-slate-900 dark:text-teal-300"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  }`}
+                >
+                  {cur.name_fa}
+                </button>
+              ))}
             </div>
 
             {/* Calendar Mode Toggle */}
             <div className="hidden items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800/80 sm:flex">
-              <button
-                type="button"
-                onClick={() => setCalendarMode("jalali")}
-                className={`h-7 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
-                  calendarMode === "jalali"
-                    ? "bg-white text-teal-800 shadow-xs dark:bg-slate-900 dark:text-teal-300"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                }`}
-              >
-                شمسی
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalendarMode("gregorian")}
-                className={`h-7 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
-                  calendarMode === "gregorian"
-                    ? "bg-white text-teal-800 shadow-xs dark:bg-slate-900 dark:text-teal-300"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                }`}
-              >
-                میلادی
-              </button>
+              {activeCalendars.map((cal) => (
+                <button
+                  key={cal.code}
+                  type="button"
+                  onClick={() => setCalendarMode(cal.code)}
+                  className={`h-7 whitespace-nowrap rounded-md px-2 text-[11px] font-semibold transition-colors ${
+                    calendarMode === cal.code
+                      ? "bg-white text-teal-800 shadow-xs dark:bg-slate-900 dark:text-teal-300"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  }`}
+                >
+                  {cal.name_fa}
+                </button>
+              ))}
             </div>
 
             <Link

@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
+import { usePublicConfig } from "@/lib/public-config-context";
 import type { PublicSearchProperty } from "@/lib/types";
 import { formatMoney, formatNumberFa } from "@/lib/formatters";
 import { PublicHeader } from "@/components/layout/PublicHeader";
@@ -100,6 +101,11 @@ const ARCHITECTURE_PILLARS = [
 ];
 
 export default function HomePage() {
+  const { getContentBlock, getBrandAsset } = usePublicConfig();
+  const homeHero = getContentBlock("home_hero");
+  const homeCta = getContentBlock("home_cta");
+  const heroBannerUrl = getBrandAsset("hero_banner", false, "/images/hero-penthouse-tehran.jpg");
+
   const [city, setCity] = useState("تهران");
   const [district, setDistrict] = useState("");
   const [dealType, setDealType] = useState("");
@@ -192,19 +198,18 @@ export default function HomePage() {
                 className="text-3xl font-extrabold leading-[1.25] tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl lg:text-[44px]"
                 style={{ textWrap: "balance" }}
               >
-                پلتفرم جامع مدیریت املاک، قراردادها و حسابداری آژانس‌های پیشرو
+                {homeHero?.title_fa || "پلتفرم جامع مدیریت املاک، قراردادها و حسابداری آژانس‌های پیشرو"}
               </h1>
               <p className="max-w-xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
-                بنیان ملک، جستجوی شفاف فایل‌های احراز‌شده برای متقاضیان را با یک میز کار سازمانی
-                کامل شامل پایپ‌لاین ۱۲مرحله‌ای CRM، تقسیم دقیق کمیسیون و دفتر کل حسابداری دوطرفه
-                ترکیب می‌کند.
+                {homeHero?.subtitle_fa ||
+                  "بنیان ملک، جستجوی شفاف فایل‌های احراز‌شده برای متقاضیان را با یک میز کار سازمانی کامل شامل پایپ‌لاین ۱۲مرحله‌ای CRM، تقسیم دقیق کمیسیون و دفتر کل حسابداری دوطرفه ترکیب می‌کند."}
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <a
-                  href="#listings"
+                  href={homeHero?.cta_href || "#listings"}
                   className="inline-flex h-11 items-center gap-2 rounded-lg bg-teal-700 px-6 text-sm font-semibold text-white transition-colors hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500"
                 >
-                  جستجو در فایل‌های تأییدشده
+                  {homeHero?.cta_label || "جستجو در فایل‌های تأییدشده"}
                   <ArrowLeft className="h-4 w-4" />
                 </a>
                 <Link
@@ -219,8 +224,8 @@ export default function HomePage() {
             <div className="lg:col-span-6">
               <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-800 dark:bg-slate-800">
                 <img
-                  src="/images/hero-penthouse-tehran.jpg"
-                  alt="پنت‌هاوس لوکس مشرف به شمال تهران — بنیان ملک"
+                  src={heroBannerUrl}
+                  alt="بنیان ملک"
                   className="aspect-[16/9] w-full object-cover"
                 />
                 <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-2.5 text-xs dark:border-slate-800 dark:bg-slate-950/90">
@@ -600,11 +605,11 @@ export default function HomePage() {
               شروع همکاری سازمانی آژانس‌ها
             </div>
             <h3 className="text-xl font-bold sm:text-2xl">
-              آماده تحول دیجیتال در آژانس املاک خود هستید؟
+              {homeCta?.title_fa || "آماده تحول دیجیتال در آژانس املاک خود هستید؟"}
             </h3>
             <p className="max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-              همین الان با هر یک از ۹ حساب و نقش مدیریتی، فروش، پشتیبانی و عملیاتی وارد محیط زنده پلتفرم شوید یا درخواست
-              راه‌اندازی پنل اختصاصی آژانس خود را ثبت کنید.
+              {homeCta?.subtitle_fa ||
+                "همین الان با هر یک از ۹ حساب و نقش مدیریتی، فروش، پشتیبانی و عملیاتی وارد محیط زنده پلتفرم شوید یا درخواست راه‌اندازی پنل اختصاصی آژانس خود را ثبت کنید."}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-3">
@@ -616,10 +621,10 @@ export default function HomePage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <Link
-              href="/agency-application"
+              href={homeCta?.cta_href || "/agency-application"}
               className="inline-flex h-11 items-center rounded-lg border border-slate-600 bg-transparent px-5 text-xs font-semibold text-slate-100 transition-colors hover:bg-slate-800 sm:text-sm"
             >
-              ثبت درخواست همکاری
+              {homeCta?.cta_label || "ثبت درخواست همکاری"}
             </Link>
           </div>
         </div>

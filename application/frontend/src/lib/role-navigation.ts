@@ -238,7 +238,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
   },
   {
     key: "settings",
-    label: "بومی‌سازی و سرویس‌ها",
+    label: "تنظیمات سیستم",
     href: "/dashboard/settings",
     group: "admin",
     roles: ["SUPER_ADMIN", "AGENCY_MANAGER"],

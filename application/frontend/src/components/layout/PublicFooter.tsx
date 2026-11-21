@@ -1,23 +1,47 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
+import { usePublicConfig } from "@/lib/public-config-context";
+import { useTheme } from "@/lib/theme-context";
 
 export function PublicFooter() {
+  const { getSetting, getBrandAsset, legalDocuments } = usePublicConfig();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  const platformName = getSetting<string>("general.platform_name_fa", "بنیان ملک");
+  const tagline = getSetting<string>(
+    "general.footer_tagline",
+    "پلتفرم سازمانی چندآژانسی مدیریت املاک، پایپ‌لاین فروش CRM، محاسبه دقیق کمیسیون و حسابداری دوطرفه برای شبکه حرفه‌ای مشاوران املاک."
+  );
+  const copyrightText = getSetting<string>(
+    "general.copyright_text",
+    "© ۱۴۰۵ پلتفرم سازمانی بنیان ملک — تمامی حقوق محفوظ است."
+  );
+  const logoUrl = getBrandAsset(isDark ? "site_logo_dark" : "site_logo_light", isDark, "");
+
   return (
     <footer className="border-t border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white dark:bg-teal-600">
-                <Building2 className="h-4 w-4" />
-              </div>
-              <span className="text-base font-bold">بنیان ملک</span>
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={platformName}
+                  className="h-8 w-8 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white dark:bg-teal-600">
+                  <Building2 className="h-4 w-4" />
+                </div>
+              )}
+              <span className="text-base font-bold">{platformName}</span>
             </div>
-            <p className="text-xs leading-relaxed">
-              پلتفرم سازمانی چندآژانسی مدیریت املاک، پایپ‌لاین فروش CRM، محاسبه دقیق کمیسیون و
-              حسابداری دوطرفه برای شبکه حرفه‌ای مشاوران املاک.
-            </p>
+            <p className="text-xs leading-relaxed">{tagline}</p>
           </div>
 
           <div>
@@ -125,14 +149,28 @@ export function PublicFooter() {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-[11px] dark:border-slate-800 sm:flex-row">
-          <span>© ۱۴۰۵ پلتفرم سازمانی بنیان ملک — تمامی حقوق محفوظ است.</span>
-          <div className="flex items-center gap-4">
-            <Link href="/privacy" className="hover:text-teal-700 dark:hover:text-teal-400">
-              حریم خصوصی
-            </Link>
-            <Link href="/terms-of-use" className="hover:text-teal-700 dark:hover:text-teal-400">
-              شرایط استفاده
-            </Link>
+          <span>{copyrightText}</span>
+          <div className="flex flex-wrap items-center gap-4">
+            {legalDocuments.length > 0 ? (
+              legalDocuments.slice(0, 6).map((doc) => (
+                <Link
+                  key={doc.slug}
+                  href={`/legal/${doc.slug}`}
+                  className="hover:text-teal-700 dark:hover:text-teal-400"
+                >
+                  {doc.title_fa}
+                </Link>
+              ))
+            ) : (
+              <>
+                <Link href="/privacy" className="hover:text-teal-700 dark:hover:text-teal-400">
+                  حریم خصوصی
+                </Link>
+                <Link href="/terms-of-use" className="hover:text-teal-700 dark:hover:text-teal-400">
+                  شرایط استفاده
+                </Link>
+              </>
+            )}
             <Link href="/careers" className="hover:text-teal-700 dark:hover:text-teal-400">
               فرصت‌های شغلی
             </Link>

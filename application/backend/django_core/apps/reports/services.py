@@ -727,6 +727,40 @@ def get_agency_analytics(
                 row_slots.append({"slot": s_name, "count": count})
             heatmap.append({"day": d_name, "slots": row_slots})
 
+    # Enforce 10-domain AgencyAccessPolicy on performance & financial visibility
+    if agency_id and not is_super_admin(user):
+        from apps.agencies.models import AgencyAccessPolicy
+        from common.permissions import get_agency_policy
+
+        membership = get_active_membership(user, agency_id)
+        policy = get_agency_policy(agency_id)
+        is_mgr = bool(
+            membership
+            and membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "SALES_MANAGER", "AGENCY_ACCOUNTANT")
+        )
+        if policy and not is_mgr:
+            if policy.agent_performance_visibility == AgencyAccessPolicy.PerformanceVisibility.OWN_ONLY:
+                own_id = str(membership.id) if membership else ""
+                leaderboard = [row for row in leaderboard if row["membership_id"] == own_id]
+            elif policy.agent_performance_visibility == AgencyAccessPolicy.PerformanceVisibility.RANKING_ONLY:
+                own_id = str(membership.id) if membership else ""
+                leaderboard = [
+                    {
+                        **row,
+                        "agent_name": row["agent_name"]
+                        if row["membership_id"] == own_id
+                        else f"مشاور رتبه {idx}",
+                    }
+                    for idx, row in enumerate(leaderboard, start=1)
+                ]
+            if (
+                policy.financial_visibility != AgencyAccessPolicy.StandardVisibility.PERMISSION_BASED
+                or not has_agency_permission(user, agency_id, "accounting.view")
+            ):
+                for bucket in timeline_series:
+                    bucket["revenue"] = "0"
+                    bucket["expense"] = "0"
+
     return {
         "period_days": period_days,
         "properties_by_status": props_by_status,
@@ -1100,6 +1134,13 @@ def preview_or_execute_import(
     }
 
 
+def _mask_phone_for_export(phone: str) -> str:
+    clean = (phone or "").strip()
+    if len(clean) <= 6:
+        return "***"
+    return f"{clean[:4]}***{clean[-3:]}"
+
+
 def export_module_workbook(*, user: User, agency_id: Optional[UUID], module: str, fmt: str = "xlsx") -> tuple[bytes, str, str]:
     if not agency_id and not is_super_admin(user):
         raise PermissionDeniedDomainError("دسترسی به خروجی اطلاعات مجاز نیست.")
@@ -1107,6 +1148,10 @@ def export_module_workbook(*, user: User, agency_id: Optional[UUID], module: str
     headers: list[str] = []
     rows: list[list[Any]] = []
     scope = {"agency_id": agency_id} if agency_id else {}
+    membership = get_active_membership(user, agency_id) if agency_id else None
+    is_mgr_or_admin = is_super_admin(user) or (
+        membership is not None and membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER")
+    )
 
     if module == "properties":
         headers = ["کد فایل", "عنوان", "نوع ملک", "نوع معامله", "شهر", "منطقه", "متراژ", "قیمت کل", "وضعیت"]
@@ -1124,15 +1169,39 @@ def export_module_workbook(*, user: User, agency_id: Optional[UUID], module: str
                 p.status,
             ])
     elif module == "customers":
+        can_export_full_phone = is_mgr_or_admin or (
+            agency_id is not None and has_agency_permission(user, agency_id, "owner.view_pii")
+        )
         headers = ["نام کامل", "تلفن", "نوع مشتری", "امتیاز سرنخ", "سطح آمادگی"]
-        for c in Customer.objects.all_tenants().filter(is_deleted=False, **scope):
-            rows.append([c.full_name, c.primary_phone, c.customer_type, c.lead_score, c.readiness_level])
+        qs = Customer.objects.all_tenants().filter(is_deleted=False, **scope)
+        if not is_mgr_or_admin and agency_id and not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+            if membership:
+                qs = qs.filter(Q(assigned_membership=membership) | Q(shares__membership=membership)).distinct()
+            else:
+                qs = qs.none()
+        for c in qs:
+            phone_val = c.primary_phone if can_export_full_phone else _mask_phone_for_export(c.primary_phone)
+            rows.append([c.full_name, phone_val, c.customer_type, c.lead_score, c.readiness_level])
     elif module == "accounting":
+        if not is_super_admin(user) and agency_id and not (
+            (membership and membership.role.code in ("AGENCY_MANAGER", "AGENCY_ACCOUNTANT"))
+            or has_agency_permission(user, agency_id, "accounting.view")
+        ):
+            raise PermissionDeniedDomainError("عدم مجوز دریافت خروجی مالی.")
         headers = ["شماره سند", "تاریخ", "شرح", "وضعیت", "ارز"]
         for j in JournalEntry.objects.all_tenants().filter(**scope):
             rows.append([j.entry_number, j.entry_date.isoformat(), j.description, j.status, j.currency_id])
     else:
         raise ValidationDomainError("ماژول خروجی نامعتبر است.")
+
+    record_audit_event(
+        action="DATA_EXPORTED",
+        resource_type="Export",
+        resource_id=module,
+        actor=user,
+        agency_id=agency_id,
+        after_state={"module": module, "format": fmt, "row_count": len(rows)},
+    )
 
     if fmt == "csv":
         buf = io.StringIO()

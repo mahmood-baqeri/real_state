@@ -171,3 +171,66 @@ class FaqItem(BaseModel):
     class Meta:
         db_table = "cms_faq_item"
         ordering = ["sort_order", "created_at"]
+
+
+class LegalDocument(BaseModel):
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        REVIEW = "REVIEW", "In Review"
+        APPROVED = "APPROVED", "Approved"
+        PUBLISHED = "PUBLISHED", "Published"
+        ARCHIVED = "ARCHIVED", "Archived"
+
+    slug = models.SlugField(max_length=100, unique=True)
+    doc_type = models.CharField(max_length=32, default="LEGAL", db_index=True)
+    title_fa = models.CharField(max_length=200)
+    title_en = models.CharField(max_length=200, blank=True, default="")
+    summary = models.TextField(blank=True, default="")
+    body_html = models.TextField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    version_number = models.PositiveIntegerField(default=1)
+    requires_acceptance = models.BooleanField(default=False)
+    effective_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    meta_title = models.CharField(max_length=160, blank=True, default="")
+    meta_description = models.CharField(max_length=320, blank=True, default="")
+    sort_order = models.PositiveSmallIntegerField(default=100)
+    is_system_doc = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "cms_legal_document"
+        ordering = ["sort_order", "slug"]
+
+
+class LegalDocumentVersion(BaseModel):
+    document = models.ForeignKey(LegalDocument, on_delete=models.CASCADE, related_name="versions")
+    version_number = models.PositiveIntegerField()
+    title_fa = models.CharField(max_length=200)
+    summary = models.TextField(blank=True, default="")
+    body_html = models.TextField()
+    change_note = models.CharField(max_length=240, blank=True, default="")
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        db_table = "cms_legal_document_version"
+        unique_together = ("document", "version_number")
+        ordering = ["-version_number"]
+
+
+class LegalAcceptanceRecord(BaseModel):
+    document = models.ForeignKey(LegalDocument, on_delete=models.CASCADE, related_name="acceptances")
+    version_number = models.PositiveIntegerField()
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="legal_acceptances"
+    )
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True, default="")
+    accepted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cms_legal_acceptance_record"
+        unique_together = ("document", "version_number", "user")
+        ordering = ["-accepted_at"]
+

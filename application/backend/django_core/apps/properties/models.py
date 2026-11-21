@@ -284,3 +284,112 @@ class PropertyStatusHistory(models.Model):
 
     class Meta:
         db_table = "properties_status_history"
+
+
+class PropertyVerification(BaseModel):
+    class VerificationStatus(models.TextChoices):
+        UNVERIFIED = "UNVERIFIED", "Unverified"
+        PENDING = "PENDING", "Pending Review"
+        VERIFIED = "VERIFIED", "Verified"
+        REJECTED = "REJECTED", "Rejected"
+        EXCEPTION_APPROVED = "EXCEPTION_APPROVED", "Exception Approved"
+
+    property = models.OneToOneField(Property, on_delete=models.CASCADE, related_name="verification")
+    physical_verified = models.BooleanField(default=False)
+    physical_notes = models.CharField(max_length=255, blank=True, default="")
+    deed_verified = models.BooleanField(default=False)
+    deed_notes = models.CharField(max_length=255, blank=True, default="")
+    owner_consent_verified = models.BooleanField(default=False)
+    owner_consent_notes = models.CharField(max_length=255, blank=True, default="")
+    verification_status = models.CharField(
+        max_length=24,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+        db_index=True,
+    )
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="verified_properties",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    evidence_document = models.ForeignKey(
+        "documents.Document",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="property_verifications",
+    )
+    exception_override = models.BooleanField(default=False)
+    override_reason = models.CharField(max_length=300, blank=True, default="")
+    override_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="overridden_property_verifications",
+    )
+
+    class Meta:
+        db_table = "properties_verification"
+
+
+class PropertyVerificationHistory(BaseModel):
+    verification = models.ForeignKey(
+        PropertyVerification, on_delete=models.CASCADE, related_name="history"
+    )
+    from_status = models.CharField(max_length=24)
+    to_status = models.CharField(max_length=24)
+    notes = models.CharField(max_length=300, blank=True, default="")
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        db_table = "properties_verification_history"
+        ordering = ["-created_at"]
+
+
+class PropertyViolationReport(BaseModel):
+    class ReasonType(models.TextChoices):
+        DUPLICATE_LISTING = "DUPLICATE_LISTING", "Duplicate Listing"
+        FAKE_PRICE = "FAKE_PRICE", "Fake or Misleading Price"
+        MISLEADING_INFO = "MISLEADING_INFO", "Misleading Information"
+        UNVERIFIED_OWNER = "UNVERIFIED_OWNER", "Unverified Owner"
+        OTHER = "OTHER", "Other"
+
+    class ReportStatus(models.TextChoices):
+        OPEN = "OPEN", "Open"
+        UNDER_REVIEW = "UNDER_REVIEW", "Under Review"
+        RESOLVED_DISMISSED = "RESOLVED_DISMISSED", "Dismissed"
+        RESOLVED_SUSPENDED = "RESOLVED_SUSPENDED", "Listing Suspended"
+
+    property = models.ForeignKey(
+        Property, on_delete=models.CASCADE, related_name="violation_reports"
+    )
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    reason_type = models.CharField(
+        max_length=24, choices=ReasonType.choices, default=ReasonType.OTHER
+    )
+    details = models.TextField()
+    status = models.CharField(
+        max_length=24, choices=ReportStatus.choices, default=ReportStatus.OPEN, db_index=True
+    )
+    inspector = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="inspected_violations",
+    )
+    resolution_note = models.TextField(blank=True, default="")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "properties_violation_report"
+        ordering = ["-created_at"]
+

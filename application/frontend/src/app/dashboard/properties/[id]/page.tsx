@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Bath,
@@ -14,6 +15,7 @@ import {
   ExternalLink,
   MapPin,
   Maximize2,
+  ShieldCheck,
   Star,
   Trash2,
   UserCheck,
@@ -21,7 +23,7 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { formatArea, formatNumberFa } from "@/lib/formatters";
-import type { PropertyItem } from "@/lib/types";
+import type { DocumentItem, PropertyItem, PropertyVerificationData } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusText } from "@/components/ui/StatusText";
 import { MoneyDisplay } from "@/components/ui/MoneyDisplay";
@@ -38,6 +40,18 @@ export default function DashboardPropertyDetailPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [uploadQueue, setUploadQueue] = useState<QueuedUploadFile[]>([]);
+  const [verDraft, setVerDraft] = useState<{
+    physical_verified?: boolean;
+    physical_notes?: string;
+    deed_verified?: boolean;
+    deed_notes?: string;
+    owner_consent_verified?: boolean;
+    owner_consent_notes?: string;
+    evidence_document_id?: string | null;
+    exception_override?: boolean;
+    override_reason?: string;
+    notes?: string;
+  }>({});
 
   const propQ = useQuery({
     queryKey: ["dashboard-property-detail", params.id, activeAgencyId],
@@ -49,6 +63,65 @@ export default function DashboardPropertyDetailPage() {
           agencyId: activeAgencyId,
         })
       ).data,
+  });
+
+  const verificationQ = useQuery({
+    queryKey: ["property-verification", params.id, activeAgencyId],
+    enabled: !!accessToken,
+    queryFn: async () =>
+      (
+        await apiFetch<PropertyVerificationData>(`/api/v1/properties/${params.id}/verification`, {
+          token: accessToken,
+          agencyId: activeAgencyId,
+        })
+      ).data,
+  });
+
+  const docsQ = useQuery({
+    queryKey: ["agency-documents-brief", activeAgencyId],
+    enabled: !!accessToken && !!activeAgencyId,
+    queryFn: async () =>
+      (
+        await apiFetch<DocumentItem[]>("/api/v1/documents?page_size=50", {
+          token: accessToken,
+          agencyId: activeAgencyId,
+        })
+      ).data,
+  });
+
+  const saveVerificationMut = useMutation({
+    mutationFn: async (overrideMode: boolean) => {
+      const cur = verificationQ.data;
+      return apiFetch<PropertyVerificationData>(`/api/v1/properties/${params.id}/verification`, {
+        method: "PUT",
+        token: accessToken,
+        agencyId: activeAgencyId,
+        body: JSON.stringify({
+          physical_verified: verDraft.physical_verified ?? cur?.physical_verified ?? false,
+          physical_notes: verDraft.physical_notes ?? cur?.physical_notes ?? "",
+          deed_verified: verDraft.deed_verified ?? cur?.deed_verified ?? false,
+          deed_notes: verDraft.deed_notes ?? cur?.deed_notes ?? "",
+          owner_consent_verified:
+            verDraft.owner_consent_verified ?? cur?.owner_consent_verified ?? false,
+          owner_consent_notes: verDraft.owner_consent_notes ?? cur?.owner_consent_notes ?? "",
+          evidence_document_id:
+            verDraft.evidence_document_id !== undefined
+              ? verDraft.evidence_document_id || null
+              : cur?.evidence_document_id || null,
+          exception_override: overrideMode,
+          override_reason: overrideMode ? verDraft.override_reason || "" : "",
+          notes: verDraft.notes || "به‌روزرسانی چک‌لیست اصالت ملک",
+        }),
+      });
+    },
+    onSuccess: () => {
+      setVerDraft({});
+      setErrMsg(null);
+      setNotice("وضعیت احراز اصالت ملک با موفقیت ثبت شد.");
+      qc.invalidateQueries({ queryKey: ["property-verification", params.id] });
+      qc.invalidateQueries({ queryKey: ["dashboard-property-detail", params.id] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
   });
 
   const actionMut = useMutation({
@@ -498,6 +571,172 @@ export default function DashboardPropertyDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Authenticity Verification Checklist */}
+            {verificationQ.data && (() => {
+              const ver = verificationQ.data;
+              const phys = verDraft.physical_verified ?? ver.physical_verified;
+              const deed = verDraft.deed_verified ?? ver.deed_verified;
+              const consent = verDraft.owner_consent_verified ?? ver.owner_consent_verified;
+              const evDoc =
+                verDraft.evidence_document_id !== undefined
+                  ? verDraft.evidence_document_id || ""
+                  : ver.evidence_document_id || "";
+              const canOverride =
+                effectiveRole === "SUPER_ADMIN" || effectiveRole === "AGENCY_MANAGER";
+              return (
+                <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5 dark:border-slate-800">
+                    <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <ShieldCheck className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                      احراز اصالت پیش از انتشار
+                    </h3>
+                    <StatusText status={ver.verification_status} />
+                  </div>
+
+                  {ver.anomaly_flags && ver.anomaly_flags.length > 0 && (
+                    <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                      {ver.anomaly_flags.map((flag, i) => (
+                        <div key={`${flag.code}-${i}`} className="flex items-start gap-1.5">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
+                          <span>{flag.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-2.5 text-xs">
+                    <label className="flex items-center gap-2 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={phys}
+                        onChange={(e) =>
+                          setVerDraft((d) => ({ ...d, physical_verified: e.target.checked }))
+                        }
+                        className="h-4 w-4 accent-teal-700"
+                      />
+                      تأیید وجود فیزیکی ملک
+                    </label>
+                    <input
+                      placeholder="توضیح بازدید فیزیکی..."
+                      value={verDraft.physical_notes ?? ver.physical_notes ?? ""}
+                      onChange={(e) =>
+                        setVerDraft((d) => ({ ...d, physical_notes: e.target.value }))
+                      }
+                      className="h-8 w-full rounded border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    />
+
+                    <label className="flex items-center gap-2 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={deed}
+                        onChange={(e) =>
+                          setVerDraft((d) => ({ ...d, deed_verified: e.target.checked }))
+                        }
+                        className="h-4 w-4 accent-teal-700"
+                      />
+                      تأیید بررسی اصالت سند
+                    </label>
+                    <input
+                      placeholder="توضیح وضعیت سند..."
+                      value={verDraft.deed_notes ?? ver.deed_notes ?? ""}
+                      onChange={(e) =>
+                        setVerDraft((d) => ({ ...d, deed_notes: e.target.value }))
+                      }
+                      className="h-8 w-full rounded border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    />
+
+                    <label className="flex items-center gap-2 font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={consent}
+                        onChange={(e) =>
+                          setVerDraft((d) => ({ ...d, owner_consent_verified: e.target.checked }))
+                        }
+                        className="h-4 w-4 accent-teal-700"
+                      />
+                      تأیید رضایت مالک برای انتشار
+                    </label>
+                    <input
+                      placeholder="توضیح رضایت مالک..."
+                      value={verDraft.owner_consent_notes ?? ver.owner_consent_notes ?? ""}
+                      onChange={(e) =>
+                        setVerDraft((d) => ({ ...d, owner_consent_notes: e.target.value }))
+                      }
+                      className="h-8 w-full rounded border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    />
+
+                    <div>
+                      <label className="mb-1 block text-[11px] text-slate-500">
+                        سند/مدرک پیوست احراز
+                      </label>
+                      <select
+                        value={evDoc}
+                        onChange={(e) =>
+                          setVerDraft((d) => ({ ...d, evidence_document_id: e.target.value || null }))
+                        }
+                        className="h-8 w-full rounded border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
+                      >
+                        <option value="">بدون سند پیوست</option>
+                        {(docsQ.data || []).map((doc) => (
+                          <option key={doc.id} value={doc.id}>
+                            {doc.title} ({doc.category})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={saveVerificationMut.isPending}
+                      onClick={() => saveVerificationMut.mutate(false)}
+                      className="h-9 w-full rounded-lg bg-teal-700 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+                    >
+                      ذخیره وضعیت احراز اصالت
+                    </button>
+
+                    {canOverride &&
+                      ver.verification_status !== "VERIFIED" &&
+                      ver.verification_status !== "EXCEPTION_APPROVED" && (
+                        <div className="border-t border-slate-100 pt-2.5 dark:border-slate-800 space-y-2">
+                          <input
+                            placeholder="دلیل ثبت استثنای مجاز (حداقل ۵ کاراکتر)..."
+                            value={verDraft.override_reason ?? ver.override_reason ?? ""}
+                            onChange={(e) =>
+                              setVerDraft((d) => ({ ...d, override_reason: e.target.value }))
+                            }
+                            className="h-8 w-full rounded border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                          />
+                          <button
+                            type="button"
+                            disabled={saveVerificationMut.isPending}
+                            onClick={() => saveVerificationMut.mutate(true)}
+                            className="h-8 w-full rounded-lg border border-amber-400 bg-amber-50 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                          >
+                            ثبت استثنای مجاز با Audit
+                          </button>
+                        </div>
+                      )}
+
+                    {ver.history && ver.history.length > 0 && (
+                      <div className="border-t border-slate-100 pt-2 dark:border-slate-800 space-y-1">
+                        <div className="text-[11px] font-semibold text-slate-500">
+                          تاریخچه تغییر وضعیت احراز
+                        </div>
+                        {ver.history.slice(0, 4).map((h) => (
+                          <div key={h.id} className="flex justify-between text-[10px] text-slate-500">
+                            <span>
+                              {h.from_status} ➔ {h.to_status} ({h.changed_by_name})
+                            </span>
+                            <DateDisplay value={h.created_at} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <button
               type="button"

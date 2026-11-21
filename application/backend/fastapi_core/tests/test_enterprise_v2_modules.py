@@ -216,8 +216,24 @@ def test_2_and_3_spatial_map_search_and_categorized_amenities():
     prop = create_res.json()["data"]
     assert any(a["code"] == am_code and a["value_number"] in ("2", "2.00") for a in prop["amenities"])
 
+    # Unverified property must be blocked from public publishing
+    blocked_pub = client.post(f"/api/v1/properties/{prop['id']}/publish", headers=headers)
+    assert blocked_pub.status_code in (400, 422), blocked_pub.text
+
+    ver_res = client.put(
+        f"/api/v1/properties/{prop['id']}/verification",
+        headers=headers,
+        json={
+            "physical_verified": True,
+            "deed_verified": True,
+            "owner_consent_verified": True,
+            "physical_notes": "بازدید فیزیکی تایید شد",
+        },
+    )
+    assert ver_res.status_code == 200, ver_res.text
+
     pub_res = client.post(f"/api/v1/properties/{prop['id']}/publish", headers=headers)
-    assert pub_res.status_code == 200
+    assert pub_res.status_code == 200, pub_res.text
 
     # Spatial Bounding Box search
     bbox_res = client.get(
