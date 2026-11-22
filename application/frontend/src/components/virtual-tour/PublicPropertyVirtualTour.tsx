@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Box, Compass, Map as MapIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { formatNumberFa } from "@/lib/formatters";
-import type { PublicVirtualTourData } from "@/lib/types";
+import type { PublicVirtualTourData, VirtualTourDetail } from "@/lib/types";
 import {
   PanoramaViewer,
   type PanoramaViewerHotspot,
@@ -16,11 +16,82 @@ import { DollhouseViewer } from "./DollhouseViewer";
 interface PublicPropertyVirtualTourProps {
   propertyId?: string;
   publicSlug?: string;
+  /** Present for authenticated agency users; enables a permission-checked draft/preview view. */
+  tourId?: string | null;
+  accessToken?: string | null;
+  agencyId?: string | null;
+}
+
+function normalizePrivateTour(raw: VirtualTourDetail): PublicVirtualTourData {
+  const scenes = (raw.scenes || []).flatMap((scene) => {
+    const panorama =
+      scene.current_panorama ||
+      scene.panoramas?.find((item) => item.is_current) ||
+      scene.panoramas?.[0] ||
+      null;
+    if (!scene.active || !panorama?.panorama_url) return [];
+
+    return [{
+      id: scene.id,
+      floor_id: scene.floor_id,
+      floor_title: scene.floor_title,
+      title: scene.title,
+      room_type: scene.room_type,
+      description: scene.description,
+      is_start_scene: scene.is_start_scene,
+      initial_yaw: scene.initial_yaw,
+      initial_pitch: scene.initial_pitch,
+      panorama_version_id: panorama.id,
+      panorama_url: panorama.panorama_url,
+      thumbnail_url: panorama.thumbnail_url || scene.thumbnail_url || "",
+      width_px: panorama.width_px,
+      height_px: panorama.height_px,
+      links: (scene.outgoing_links || []).map((link) => ({
+        id: link.id,
+        target_scene_id: link.target_scene_id,
+        target_scene_title: link.target_scene_title,
+        yaw: link.yaw,
+        pitch: link.pitch,
+        title: link.title,
+      })),
+      hotspots: (scene.hotspots || []).map((hotspot) => ({
+        id: hotspot.id,
+        kind: hotspot.kind,
+        title: hotspot.title,
+        body: hotspot.body,
+        yaw: hotspot.yaw,
+        pitch: hotspot.pitch,
+        target_scene_id: hotspot.target_scene_id,
+        metadata: hotspot.metadata,
+      })),
+    }];
+  });
+
+  return {
+    tour_id: raw.id,
+    property_id: raw.property_id,
+    publication_version: raw.active_publication?.version || 0,
+    public_slug: raw.active_publication?.public_slug || "",
+    published_at: raw.published_at || raw.created_at,
+    title: raw.title,
+    description: raw.description,
+    floors: raw.floors,
+    scenes,
+    floorplans: raw.floorplans || [],
+    rooms: raw.rooms || [],
+    dollhouse: raw.current_model || null,
+  };
 }
 
 type PublicViewMode = "panorama" | "dollhouse" | "floorplan";
 
-export function PublicPropertyVirtualTour({ propertyId, publicSlug }: PublicPropertyVirtualTourProps) {
+export function PublicPropertyVirtualTour({
+  propertyId,
+  publicSlug,
+  tourId,
+  accessToken,
+  agencyId,
+}: PublicPropertyVirtualTourProps) {
   const openedRef = useRef<string | null>(null);
   const visitedScenesRef = useRef<Set<string>>(new Set());
   const sessionKeyRef = useRef<string>("");
@@ -28,21 +99,32 @@ export function PublicPropertyVirtualTour({ propertyId, publicSlug }: PublicProp
   const [viewMode, setViewMode] = useState<PublicViewMode>("panorama");
 
   const tourQ = useQuery({
-    queryKey: ["public-property-virtual-tour", propertyId, publicSlug],
+    queryKey: ["public-property-virtual-tour", propertyId, publicSlug, tourId, agencyId, Boolean(accessToken)],
+    enabled: Boolean(publicSlug || propertyId),
     retry: false,
     queryFn: async () => {
+      // An authenticated agency user may preview a draft or ready tour. This endpoint
+      // enforces tenant permissions and returns signed asset URLs; public visitors never
+      // use it and can only receive an active publication snapshot.
+      if (!publicSlug && propertyId && tourId && accessToken) {
+        try {
+          const privateRes = await apiFetch<VirtualTourDetail | { tour: null }>(
+            `/api/v1/properties/${propertyId}/virtual-tour`,
+            { token: accessToken, agencyId }
+          );
+          if (privateRes.data && "id" in privateRes.data) {
+            return normalizePrivateTour(privateRes.data as VirtualTourDetail);
+          }
+        } catch {
+          // A user without studio access may still view the public publication below.
+        }
+      }
+
       const endpoint = publicSlug
         ? `/api/v1/public/virtual-tours/${encodeURIComponent(publicSlug)}`
         : `/api/v1/public/properties/${propertyId}/virtual-tour`;
-      try {
-        const res = await apiFetch<PublicVirtualTourData>(endpoint);
-        return res.data;
-      } catch (error) {
-        // Embedded property pages quietly omit a missing tour; standalone share pages
-        // show the actual availability error instead of silently rendering nothing.
-        if (publicSlug) throw error;
-        return null;
-      }
+      const res = await apiFetch<PublicVirtualTourData>(endpoint);
+      return res.data;
     },
   });
 
@@ -82,7 +164,7 @@ export function PublicPropertyVirtualTour({ propertyId, publicSlug }: PublicProp
     eventType: string,
     extra: { scene_id?: string; hotspot_id?: string; duration_sec?: number } = {}
   ) => {
-    if (!tour) return;
+    if (!tour || !tour.public_slug || tour.publication_version < 1) return;
     if (!sessionKeyRef.current) {
       const stored =
         typeof window !== "undefined" ? sessionStorage.getItem("vt_session_key") : null;
@@ -136,10 +218,29 @@ export function PublicPropertyVirtualTour({ propertyId, publicSlug }: PublicProp
   if (tourQ.isLoading) {
     return publicSlug ? <div className="mx-auto max-w-6xl p-8 text-center text-sm text-slate-500">در حال بارگذاری تور مجازی…</div> : null;
   }
-  if (tourQ.isError && publicSlug) {
-    return <div className="mx-auto max-w-4xl p-8 text-center"><h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">تور مجازی در دسترس نیست</h1><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">این تور ممکن است از انتشار خارج شده باشد یا لینک آن معتبر نباشد.</p></div>;
+  if (tourQ.isError) {
+    if (publicSlug) {
+      return <div className="mx-auto max-w-4xl p-8 text-center"><h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">تور مجازی در دسترس نیست</h1><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">این تور ممکن است از انتشار خارج شده باشد یا لینک آن معتبر نباشد.</p></div>;
+    }
+    if (tourId) {
+      return (
+        <section id="virtual-tour" className="rounded-xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20">
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">تور مجازی این ملک هنوز برای نمایش عمومی آماده نیست</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">تور ثبت شده، اما دریافت اطلاعات آن ممکن نشد. بررسی کن تور منتشر شده باشد و صحنه‌های آن پانورامای معتبر داشته باشند.</p>
+        </section>
+      );
+    }
+    return null;
   }
-  if (!tour || viewerScenes.length === 0) return null;
+  if (!tour) return null;
+  if (viewerScenes.length === 0) {
+    return (
+      <section id="virtual-tour" className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">تور مجازی ملک</h2>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">تور ساخته شده است، اما هنوز صحنه‌ای با تصویر پانورامای قابل نمایش ندارد.</p>
+      </section>
+    );
+  }
 
   const hasDollhouse = Boolean(tour.dollhouse?.file_url);
   const hasFloorplans = (tour.floorplans || []).length > 0;

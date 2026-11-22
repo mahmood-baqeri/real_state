@@ -277,6 +277,19 @@ export default function DashboardPropertiesPage() {
             render: (p) => (
               <div className="flex flex-wrap items-center gap-1.5">
                 <Link
+                  href={`/dashboard/properties/${p.id}`}
+                  className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  جزئیات
+                </Link>
+                <Link
+                  href={`/dashboard/properties/${p.id}/virtual-tour`}
+                  className="inline-flex h-7 items-center gap-1 rounded border border-teal-300 bg-teal-50 px-2 text-xs font-semibold text-teal-800 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300 whitespace-nowrap"
+                >
+                  تور مجازی
+                </Link>
+                <Link
                   href={`/dashboard/properties/${p.id}/edit`}
                   className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
                 >

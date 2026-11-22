@@ -111,6 +111,7 @@ def parse_database_url(url: str) -> dict:
     )
 
 
+
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://realestate_user:realestate_pass@127.0.0.1:5432/realestate_db",

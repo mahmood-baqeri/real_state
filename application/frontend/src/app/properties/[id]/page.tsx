@@ -162,7 +162,12 @@ export default function PropertyDetailPage() {
                 mediaItems={property.media_items || []}
               />
 
-              <PublicPropertyVirtualTour propertyId={property.id} />
+              <PublicPropertyVirtualTour
+                propertyId={property.id}
+                tourId={property.virtual_tour_id}
+                accessToken={accessToken}
+                agencyId={activeAgencyId}
+              />
 
               <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">

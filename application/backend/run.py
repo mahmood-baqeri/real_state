@@ -160,3 +160,6 @@ if __name__ == "__main__":
 #     raise ValueError(
 #         f"Unsupported DATABASE_URL scheme '{parsed.scheme}'. PostgreSQL is strictly required."
 #     )
+
+
+#pip install --upgrade PyMuPDF
