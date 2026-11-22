@@ -1,6 +1,7 @@
 # application/backend/run.py
 import os
 import sys
+import argparse
 import subprocess
 from pathlib import Path
 
@@ -28,8 +29,6 @@ def _seed_if_available(env):
         ["seed_demo"],
     ]
     for args in candidates:
-        cmd = [sys.executable, "manage.py"] + args
-        # بررسی وجود دستور با help
         check = subprocess.run(
             [sys.executable, "manage.py", "help", args[0]],
             cwd=str(DJANGO_DIR),
@@ -38,32 +37,65 @@ def _seed_if_available(env):
             stderr=subprocess.DEVNULL,
         )
         if check.returncode == 0:
-            _run(cmd, DJANGO_DIR, env, f"Seeding database via '{' '.join(args)}'")
+            _run([sys.executable, "manage.py"] + args, DJANGO_DIR, env,
+                 f"Seeding database via '{' '.join(args)}'")
             return
     print("⚠️  No seed command found (seed_all/seed_demo). Skipping seed.\n")
 
 
-def main():
-    env = os.environ.copy()
+def _reset_database(env):
+    """پاک‌سازی کامل دیتابیس و اجرای migrate + seed از صفر."""
+    print("🧨 Resetting database (drop all tables & re-create)...\n")
 
+    # 1) drop all tables from the DB
+    #    سریع‌ترین و مطمئن‌ترین راه: flush --noinput
+    #    (اگر خواستی دیتابیس کاملاً drop شود، پایین کامنت شده)
+    _run(
+        [sys.executable, "manage.py", "flush", "--noinput"],
+        DJANGO_DIR, env, "Flushing all data from database"
+    )
+
+    # --- گزینه جایگزین: حذف کامل جداول (migrate zero) ---
+    # _run([sys.executable, "manage.py", "migrate", "zero", "--noinput"],
+    #      DJANGO_DIR, env, "Unapplying all migrations")
+
+    # 2) migrate از صفر
+    _run(
+        [sys.executable, "manage.py", "migrate", "--noinput"],
+        DJANGO_DIR, env, "Running migrations"
+    )
+
+    # 3) seed
+    _seed_if_available(env)
+
+    print("✅ Database reset & re-seeded.\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run Bonyan Melk backend services.")
+    parser.add_argument(
+        "--reset-db",
+        action="store_true",
+        help="Drop all data, re-run migrations, and re-seed the database before starting.",
+    )
+    args = parser.parse_args()
+
+    env = os.environ.copy()
     env["PYTHONPATH"] = (
         f"{BACKEND_DIR}{os.pathsep}{DJANGO_DIR}{os.pathsep}{FASTAPI_DIR}{os.pathsep}"
         + env.get("PYTHONPATH", "")
     )
     env["DJANGO_SETTINGS_MODULE"] = "config.settings.development"
 
-    print("⏳ Preparing database (migrate + seed)...\n")
+    # فقط اگر کاربر خواسته، دیتابیس را ریست کن
+    if args.reset_db:
+        _reset_database(env)
+    else:
+        print("ℹ️  Skipping database reset (pass --reset-db to wipe & re-seed).\n")
 
-    # 1) Migrations
-    _run([sys.executable, "manage.py", "migrate", "--noinput"], DJANGO_DIR, env, "Running migrations")
-
-    # 2) Seed (اول seed_all بعد seed_demo — هر کدام موجود بود)
-    _seed_if_available(env)
-
-    print("✅ Database is ready.\n")
     print("⏳ Starting servers...\n")
 
-    # 3) Django
+    # Django
     django_cmd = [
         sys.executable, "-m", "uvicorn", "config.asgi:application",
         "--host", "0.0.0.0", "--port", "8010", "--reload"
@@ -71,7 +103,7 @@ def main():
     print("🚀 [Django] Running on port 8010...")
     p_django = subprocess.Popen(django_cmd, cwd=str(DJANGO_DIR), env=env)
 
-    # 4) FastAPI
+    # FastAPI
     fastapi_cmd = [
         sys.executable, "-m", "uvicorn", "app.main:app",
         "--host", "0.0.0.0", "--port", "8020", "--reload"
@@ -95,6 +127,10 @@ if __name__ == "__main__":
     main()
     
     
+    
+# python run.py
+# python run.py --reset-db
+
 
 
 
