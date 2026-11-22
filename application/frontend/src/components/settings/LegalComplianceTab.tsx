@@ -2,13 +2,14 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertOctagon, CheckCircle2, FileText, History, RotateCcw, Save, Shield } from "lucide-react";
+import { AlertOctagon, ArrowDown, ArrowUp, CheckCircle2, FileText, History, Plus, RotateCcw, Save, Shield, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { formatNumberFa } from "@/lib/formatters";
 import type {
   LegalAcceptanceItem,
   LegalDocumentItem,
+  LegalSectionItem,
   PropertyViolationReportItem,
   SystemSettingItem,
 } from "@/lib/types";
@@ -33,6 +34,7 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
     title_en: "",
     summary: "",
     body_html: "",
+    sections_json: [] as LegalSectionItem[],
     status: "DRAFT",
     requires_acceptance: false,
     meta_title: "",
@@ -99,6 +101,7 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
       title_en: doc.title_en || "",
       summary: doc.summary || "",
       body_html: doc.body_html || "",
+      sections_json: Array.isArray(doc.sections_json) ? doc.sections_json : [],
       status: doc.status,
       requires_acceptance: doc.requires_acceptance,
       meta_title: doc.meta_title || "",
@@ -118,6 +121,7 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
       title_en: "",
       summary: "",
       body_html: "<h2>عنوان بند</h2><p>متن رسمی مقررات...</p>",
+      sections_json: [],
       status: "DRAFT",
       requires_acceptance: false,
       meta_title: "",
@@ -125,6 +129,34 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
       sort_order: 100,
       is_system_doc: false,
       change_note: "ایجاد سند جدید",
+    });
+  };
+
+  const addSection = () => {
+    setDocForm((prev) => ({
+      ...prev,
+      sections_json: [
+        ...prev.sections_json,
+        {
+          id: `sec-${Date.now()}`,
+          title: `بخش ${prev.sections_json.length + 1}`,
+          body_html: "<p>متن بخش...</p>",
+          sort_order: prev.sections_json.length + 1,
+        },
+      ],
+    }));
+  };
+
+  const moveSection = (index: number, delta: number) => {
+    setDocForm((prev) => {
+      const next = [...prev.sections_json];
+      const target = index + delta;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return {
+        ...prev,
+        sections_json: next.map((s, idx) => ({ ...s, sort_order: idx + 1 })),
+      };
     });
   };
 
@@ -136,6 +168,10 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
         body: JSON.stringify({
           ...docForm,
           slug: docForm.slug.trim().toLowerCase(),
+          sections_json: docForm.sections_json.map((s, idx) => ({
+            ...s,
+            sort_order: idx + 1,
+          })),
         }),
       }),
     onSuccess: (res) => {
@@ -382,12 +418,100 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
                 />
 
                 <textarea
-                  rows={6}
-                  placeholder="متن کامل HTML (تگ‌های مجاز؛ اسکریپت‌ها به‌صورت خودکار پاکسازی می‌شوند)"
+                  rows={5}
+                  placeholder="متن کامل HTML (در صورتی که بخش‌بندی ساختاریافته خالی باشد یا به‌عنوان مقدمه استفاده شود)"
                   value={docForm.body_html}
                   onChange={(e) => setDocForm({ ...docForm, body_html: e.target.value })}
                   className="w-full rounded-lg border border-slate-300 bg-white p-2.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
                 />
+
+                {/* Structured Sections Builder */}
+                <div className="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      بخش‌های ساختاریافته سند ({formatNumberFa(docForm.sections_json.length)} بخش)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={addSection}
+                      className="inline-flex h-7 items-center gap-1 rounded-md border border-teal-700 px-2.5 text-[11px] font-semibold text-teal-700 hover:bg-teal-50 dark:text-teal-400"
+                    >
+                      <Plus className="h-3 w-3" />
+                      افزودن بخش جدید
+                    </button>
+                  </div>
+
+                  {docForm.sections_json.length === 0 ? (
+                    <p className="text-[11px] text-slate-400">
+                      بخشی تعریف نشده است؛ در صفحه عمومی متن اصلی HTML بالا نمایش داده می‌شود.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {docForm.sections_json.map((sec, idx) => (
+                        <div
+                          key={sec.id || idx}
+                          className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 space-y-2 dark:border-slate-800 dark:bg-slate-950/60"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[11px] text-slate-500">#{idx + 1}</span>
+                            <input
+                              value={sec.title}
+                              onChange={(e) => {
+                                const next = [...docForm.sections_json];
+                                next[idx] = { ...sec, title: e.target.value };
+                                setDocForm({ ...docForm, sections_json: next });
+                              }}
+                              placeholder="عنوان بخش..."
+                              className="h-8 flex-1 rounded border border-slate-300 bg-white px-2 text-xs font-semibold dark:border-slate-700 dark:bg-slate-900"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => moveSection(idx, -1)}
+                              disabled={idx === 0}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-white disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                              title="انتقال به بالا"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveSection(idx, 1)}
+                              disabled={idx === docForm.sections_json.length - 1}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-300 bg-white disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900"
+                              title="انتقال به پایین"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDocForm({
+                                  ...docForm,
+                                  sections_json: docForm.sections_json.filter((_, i) => i !== idx),
+                                })
+                              }
+                              className="inline-flex h-7 w-7 items-center justify-center rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                              title="حذف بخش"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={sec.body_html}
+                            onChange={(e) => {
+                              const next = [...docForm.sections_json];
+                              next[idx] = { ...sec, body_html: e.target.value };
+                              setDocForm({ ...docForm, sections_json: next });
+                            }}
+                            placeholder="محتوای HTML بخش..."
+                            className="w-full rounded border border-slate-300 bg-white p-2 font-mono text-[11px] dark:border-slate-700 dark:bg-slate-900"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <label className="inline-flex items-center gap-2 text-xs">
@@ -428,8 +552,8 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {(selectedDoc.status === "PUBLISHED"
-                        ? ["ARCHIVED"]
-                        : ["REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"]
+                        ? ["DRAFT", "ARCHIVED"]
+                        : ["DRAFT", "REVIEW", "APPROVED", "PUBLISHED", "ARCHIVED"]
                       )
                         .filter((st) => st !== selectedDoc.status)
                         .map((st) => (
@@ -441,7 +565,9 @@ export function LegalComplianceTab({ onNotice, onError }: Props) {
                             }
                             className="h-7 rounded border border-slate-300 bg-white px-2.5 text-[11px] font-semibold hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
                           >
-                            تغییر به {st}
+                            {st === "DRAFT" && selectedDoc.status === "PUBLISHED"
+                              ? "خروج از انتشار (DRAFT)"
+                              : `تغییر به ${st}`}
                           </button>
                         ))}
                     </div>

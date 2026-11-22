@@ -25,6 +25,7 @@ const CATEGORY_TABS: { code: string; label: string }[] = [
   { code: "SMS", label: "پیامک" },
   { code: "SECURITY", label: "امنیت" },
   { code: "LEGAL", label: "قوانین و انطباق" },
+  { code: "VIRTUAL_TOUR", label: "تور مجازی و سه‌بعدی" },
 ];
 
 export function GeneralSettingsTab({ onNotice, onError }: Props) {
@@ -200,16 +201,22 @@ export function GeneralSettingsTab({ onNotice, onError }: Props) {
       );
     }
 
-    if (s.value_type === "SELECT" && Array.isArray(s.validation_schema?.options)) {
+    const selectOpts = Array.isArray(s.validation_schema?.options)
+      ? s.validation_schema.options
+      : Array.isArray((s.validation_schema as { choices?: unknown[] })?.choices)
+      ? ((s.validation_schema as { choices?: string[] }).choices ?? [])
+      : null;
+
+    if (s.value_type === "SELECT" && selectOpts) {
       return (
         <select
           value={String(rawVal ?? "")}
           onChange={(e) => setDraftValues((p) => ({ ...p, [s.key]: e.target.value }))}
           className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
         >
-          {s.validation_schema.options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
+          {selectOpts.map((opt) => (
+            <option key={String(opt)} value={String(opt)}>
+              {String(opt)}
             </option>
           ))}
         </select>

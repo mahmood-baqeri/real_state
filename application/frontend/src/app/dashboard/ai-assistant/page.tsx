@@ -76,6 +76,42 @@ interface ChatTurn {
   meta?: string;
 }
 
+interface ContentTopicItem {
+  title: string;
+  content_type: string;
+  keywords: string[];
+  audience: string;
+}
+
+interface GeneratedContentDraft {
+  is_draft: boolean;
+  auto_published: boolean;
+  title: string;
+  slug: string;
+  summary: string;
+  content_body: string;
+  meta_title: string;
+  meta_description: string;
+  keywords: string[];
+  content_type: string;
+  language: string;
+  tone: string;
+  target_audience: string;
+  ai_model: string;
+  provider: string;
+  tokens_used: number;
+}
+
+const CONTENT_TYPE_OPTIONS = [
+  { value: "ARTICLE", label: "مقاله تخصصی (ARTICLE)" },
+  { value: "EDUCATIONAL", label: "محتوای آموزشی (EDUCATIONAL)" },
+  { value: "NEWS", label: "خبر و گزارش بازار (NEWS)" },
+  { value: "PROMOTIONAL", label: "متن تبلیغاتی (PROMOTIONAL)" },
+  { value: "SEO", label: "محتوای سئو (SEO)" },
+  { value: "SOCIAL_MEDIA", label: "پست شبکه‌های اجتماعی (SOCIAL_MEDIA)" },
+  { value: "LISTING_DESCRIPTION", label: "توضیحات آگهی ملک (LISTING_DESCRIPTION)" },
+];
+
 export default function AiAssistantPage() {
   const { accessToken, activeAgencyId } = useAuth();
   const qc = useQueryClient();
@@ -85,6 +121,30 @@ export default function AiAssistantPage() {
   const [taskMode, setTaskMode] = useState("GENERAL");
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
+
+  // Content Studio state
+  const [contentForm, setContentForm] = useState({
+    topic: "",
+    content_type: "ARTICLE",
+    language: "fa",
+    tone: "PROFESSIONAL",
+    target_audience: "خریداران و سرمایه‌گذاران املاک",
+    keywordsText: "خرید ملک، مشاوره املاک، سرمایه‌گذاری",
+    focus_city: "تهران",
+    custom_instructions: "",
+  });
+  const [suggestedTopics, setSuggestedTopics] = useState<ContentTopicItem[]>([]);
+  const [contentDraft, setContentDraft] = useState<{
+    title: string;
+    slug: string;
+    summary: string;
+    content_body: string;
+    meta_title: string;
+    meta_description: string;
+    ai_model: string;
+    tokens_used: number;
+  } | null>(null);
+  const [rewriteInstruction, setRewriteInstruction] = useState("بهبود ساختار، خوانایی و جذابیت برای مخاطب");
 
   const [selectedPropId, setSelectedPropId] = useState("");
   const [tone, setTone] = useState("FORMAL");
@@ -187,6 +247,152 @@ export default function AiAssistantPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const topicsMut = useMutation({
+    mutationFn: async () => {
+      const qs = new URLSearchParams({
+        content_type: contentForm.content_type,
+        focus_city: contentForm.focus_city,
+        audience: contentForm.target_audience,
+      });
+      return (
+        await apiFetch<{ topics: ContentTopicItem[] }>(`/api/v1/ai/content/topics?${qs.toString()}`, {
+          token: accessToken,
+          agencyId: activeAgencyId,
+        })
+      ).data;
+    },
+    onSuccess: (d) => {
+      setSuggestedTopics(d.topics || []);
+      toast.success("موضوعات تخصصی املاک پیشنهاد شدند.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const generateContentMut = useMutation({
+    mutationFn: async () => {
+      const keywords = contentForm.keywordsText
+        .split(/[,،]+/)
+        .map((k) => k.trim())
+        .filter(Boolean);
+      return (
+        await apiFetch<GeneratedContentDraft>("/api/v1/ai/content/generate", {
+          method: "POST",
+          token: accessToken,
+          agencyId: activeAgencyId,
+          body: JSON.stringify({
+            topic: contentForm.topic,
+            content_type: contentForm.content_type,
+            language: contentForm.language,
+            tone: contentForm.tone,
+            target_audience: contentForm.target_audience,
+            keywords,
+            custom_instructions: contentForm.custom_instructions,
+            model: selectedModel,
+          }),
+        })
+      ).data;
+    },
+    onSuccess: (d) => {
+      setContentDraft({
+        title: d.title,
+        slug: d.slug,
+        summary: d.summary,
+        content_body: d.content_body,
+        meta_title: d.meta_title,
+        meta_description: d.meta_description,
+        ai_model: d.ai_model || selectedModel,
+        tokens_used: d.tokens_used || 0,
+      });
+      toast.success("پیش‌نویس محتوا تولید شد (بدون انتشار خودکار؛ قابل ویرایش و ذخیره در CMS).");
+      qc.invalidateQueries({ queryKey: ["ai-logs"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rewriteContentMut = useMutation({
+    mutationFn: async () => {
+      if (!contentDraft) throw new Error("ابتدا محتوایی تولید یا وارد کنید.");
+      const keywords = contentForm.keywordsText
+        .split(/[,،]+/)
+        .map((k) => k.trim())
+        .filter(Boolean);
+      return (
+        await apiFetch<{ title: string; summary: string; content_body: string; ai_model?: string; tokens_used?: number }>(
+          "/api/v1/ai/content/rewrite",
+          {
+            method: "POST",
+            token: accessToken,
+            agencyId: activeAgencyId,
+            body: JSON.stringify({
+              title: contentDraft.title,
+              content_body: contentDraft.content_body,
+              instruction: rewriteInstruction,
+              tone: contentForm.tone,
+              language: contentForm.language,
+              keywords,
+              model: selectedModel,
+            }),
+          }
+        )
+      ).data;
+    },
+    onSuccess: (d) => {
+      setContentDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: d.title || prev.title,
+              summary: d.summary || prev.summary,
+              content_body: d.content_body,
+              ai_model: d.ai_model || prev.ai_model,
+              tokens_used: d.tokens_used || prev.tokens_used,
+            }
+          : prev
+      );
+      toast.success("محتوا با دستور جدید بازنویسی شد.");
+      qc.invalidateQueries({ queryKey: ["ai-logs"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const saveContentDraftMut = useMutation({
+    mutationFn: async () => {
+      if (!contentDraft) throw new Error("پیش‌نویسی برای ذخیره وجود ندارد.");
+      const keywords = contentForm.keywordsText
+        .split(/[,،]+/)
+        .map((k) => k.trim())
+        .filter(Boolean);
+      return (
+        await apiFetch<{ id: string; status: string }>("/api/v1/ai/content/save-draft", {
+          method: "POST",
+          token: accessToken,
+          agencyId: activeAgencyId,
+          body: JSON.stringify({
+            title: contentDraft.title,
+            slug: contentDraft.slug,
+            article_type: contentForm.content_type,
+            summary: contentDraft.summary,
+            content_body: contentDraft.content_body,
+            language: contentForm.language,
+            tone: contentForm.tone,
+            target_audience: contentForm.target_audience,
+            keywords,
+            ai_model: contentDraft.ai_model,
+            ai_tokens_used: contentDraft.tokens_used,
+            meta_title: contentDraft.meta_title,
+            meta_description: contentDraft.meta_description,
+            tags: keywords.slice(0, 5),
+          }),
+        })
+      ).data;
+    },
+    onSuccess: () => {
+      toast.success("محتوا به‌عنوان پیش‌نویس (DRAFT) در بخش CMS ذخیره شد و آماده بازبینی و انتشار است.");
+      qc.invalidateQueries({ queryKey: ["cms-articles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const propCopyMut = useMutation({
     mutationFn: async () =>
       (
@@ -259,7 +465,7 @@ export default function AiAssistantPage() {
     <div className="space-y-6">
       <PageHeader
         title="دستیار هوشمند آژانس (متصل به GapGPT)"
-        subtitle="مشاوره تخصصی مبتنی بر داده‌های واقعی و مجاز آژانس، تولید متن آگهی، خلاصه‌سازی پرونده مشتری و تحلیل سئو"
+        subtitle="استودیو تولید محتوای متنی، مشاوره تخصصی مبتنی بر داده‌های مجاز، تولید متن آگهی و تحلیل سئو"
         breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "دستیار هوشمند" }]}
       />
 
@@ -298,6 +504,270 @@ export default function AiAssistantPage() {
           </div>
         )
       )}
+
+      {/* AI Content Generation Studio */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+              <FileText className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+              استودیو تولید و بازنویسی محتوای متنی املاک با هوش مصنوعی
+            </div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              پیشنهاد موضوع، تولید محتوای ساختاریافته (مقاله، آموزشی، خبر، تبلیغاتی، سئو، شبکه اجتماعی، توضیحات آگهی) و ذخیره پیش‌نویس در CMS بدون انتشار خودکار
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={topicsMut.isPending}
+            onClick={() => topicsMut.mutate()}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-teal-700 px-3.5 text-xs font-semibold text-teal-700 hover:bg-teal-50 dark:border-teal-500 dark:text-teal-300 dark:hover:bg-teal-950/40 disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {topicsMut.isPending ? "در حال پیشنهاد..." : "پیشنهاد موضوعات املاک"}
+          </button>
+        </div>
+
+        {suggestedTopics.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              موضوعات پیشنهادی (برای انتخاب کلیک کنید):
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {suggestedTopics.map((t, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() =>
+                    setContentForm((prev) => ({
+                      ...prev,
+                      topic: t.title,
+                      content_type: t.content_type || prev.content_type,
+                      target_audience: t.audience || prev.target_audience,
+                      keywordsText: (t.keywords || []).join("، ") || prev.keywordsText,
+                    }))
+                  }
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-right text-xs text-slate-800 hover:border-teal-600 hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:border-teal-500"
+                >
+                  {t.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              موضوع دلخواه یا انتخاب‌شده
+            </label>
+            <input
+              value={contentForm.topic}
+              onChange={(e) => setContentForm({ ...contentForm, topic: e.target.value })}
+              placeholder="مثال: راهنمای کامل بررسی اصالت سند تک‌برگ پیش از معامله..."
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              نوع محتوا
+            </label>
+            <select
+              value={contentForm.content_type}
+              onChange={(e) => setContentForm({ ...contentForm, content_type: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-xs text-slate-900 dark:text-slate-100"
+            >
+              {CONTENT_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              زبان خروجی
+            </label>
+            <select
+              value={contentForm.language}
+              onChange={(e) => setContentForm({ ...contentForm, language: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-xs text-slate-900 dark:text-slate-100"
+            >
+              <option value="fa">فارسی (fa)</option>
+              <option value="en">انگلیسی (en)</option>
+              <option value="ar">عربی (ar)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              لحن نگارش
+            </label>
+            <select
+              value={contentForm.tone}
+              onChange={(e) => setContentForm({ ...contentForm, tone: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 text-xs text-slate-900 dark:text-slate-100"
+            >
+              <option value="PROFESSIONAL">حرفه‌ای و تخصصی</option>
+              <option value="FORMAL">رسمی و اداری</option>
+              <option value="FRIENDLY">صمیمی و روان</option>
+              <option value="EDUCATIONAL">آموزشی و راهنما</option>
+              <option value="PERSUASIVE">تبلیغاتی و متقاعدکننده</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              مخاطب هدف
+            </label>
+            <input
+              value={contentForm.target_audience}
+              onChange={(e) => setContentForm({ ...contentForm, target_audience: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              شهر / منطقه تمرکز
+            </label>
+            <input
+              value={contentForm.focus_city}
+              onChange={(e) => setContentForm({ ...contentForm, focus_city: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              کلمات کلیدی (جداشده با ویرگول)
+            </label>
+            <input
+              value={contentForm.keywordsText}
+              onChange={(e) => setContentForm({ ...contentForm, keywordsText: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            value={contentForm.custom_instructions}
+            onChange={(e) => setContentForm({ ...contentForm, custom_instructions: e.target.value })}
+            placeholder="دستور تکمیلی اختیاری برای هوش مصنوعی (مثلاً اشاره به تور مجازی و مدارک هویتی)..."
+            className="h-10 flex-1 min-w-[240px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
+          />
+          <button
+            type="button"
+            disabled={contentForm.topic.trim().length < 3 || generateContentMut.isPending}
+            onClick={() => generateContentMut.mutate()}
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-teal-700 px-4 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            {generateContentMut.isPending ? "در حال تولید محتوا..." : "تولید پیش‌نویس محتوا"}
+          </button>
+        </div>
+
+        {contentDraft && (
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                پیش‌نویس قابل ویرایش (وضعیت: DRAFT — بدون انتشار خودکار)
+              </span>
+              <span className="font-mono text-[11px] text-slate-500">
+                {contentDraft.ai_model} · {formatNumberFa(contentDraft.tokens_used)} tokens
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <input
+                value={contentDraft.title}
+                onChange={(e) => setContentDraft({ ...contentDraft, title: e.target.value })}
+                placeholder="عنوان"
+                className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-bold"
+              />
+              <input
+                dir="ltr"
+                value={contentDraft.slug}
+                onChange={(e) =>
+                  setContentDraft({
+                    ...contentDraft,
+                    slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
+                  })
+                }
+                placeholder="url-slug"
+                className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 font-mono text-xs"
+              />
+            </div>
+
+            <input
+              value={contentDraft.summary}
+              onChange={(e) => setContentDraft({ ...contentDraft, summary: e.target.value })}
+              placeholder="چکیده محتوا"
+              className="h-9 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs"
+            />
+
+            <textarea
+              rows={7}
+              value={contentDraft.content_body}
+              onChange={(e) => setContentDraft({ ...contentDraft, content_body: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-xs leading-6"
+            />
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              <input
+                value={contentDraft.meta_title}
+                onChange={(e) => setContentDraft({ ...contentDraft, meta_title: e.target.value })}
+                placeholder="Meta Title"
+                className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs"
+              />
+              <input
+                value={contentDraft.meta_description}
+                onChange={(e) => setContentDraft({ ...contentDraft, meta_description: e.target.value })}
+                placeholder="Meta Description"
+                className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <input
+                value={rewriteInstruction}
+                onChange={(e) => setRewriteInstruction(e.target.value)}
+                placeholder="دستور بازنویسی..."
+                className="h-9 flex-1 min-w-[200px] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs"
+              />
+              <button
+                type="button"
+                disabled={rewriteContentMut.isPending}
+                onClick={() => rewriteContentMut.mutate()}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {rewriteContentMut.isPending ? "در حال بازنویسی..." : "بازنویسی مجدد"}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(`${contentDraft.title}\n\n${contentDraft.content_body}`).catch(() => {});
+                  toast.success("متن محتوا کپی شد.");
+                }}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                کپی
+              </button>
+              <button
+                type="button"
+                disabled={saveContentDraftMut.isPending}
+                onClick={() => saveContentDraftMut.mutate()}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              >
+                <Check className="h-3.5 w-3.5" />
+                {saveContentDraftMut.isPending ? "در حال ذخیره..." : "ذخیره به‌عنوان پیش‌نویس در CMS"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Grounded Agency Chat Workspace */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">

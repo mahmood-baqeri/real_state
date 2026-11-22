@@ -118,3 +118,31 @@ class ContractStatusHistory(models.Model):
 
     class Meta:
         db_table = "contracts_status_history"
+
+
+class ContractAmendment(BaseModel):
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="amendments")
+    amendment_number = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=200)
+    reason = models.TextField()
+    changes_json = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPROVED)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_contract_amendments",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "contracts_amendment"
+        ordering = ["-amendment_number", "-created_at"]
+        unique_together = ("contract", "amendment_number")
+

@@ -502,3 +502,365 @@ def list_ai_logs(*, user: User, agency_id: Optional[UUID]):
     elif not is_super_admin(user):
         qs = qs.filter(user=user)
     return qs.order_by("-created_at")[:30]
+
+
+CONTENT_TYPE_TOPICS: dict[str, list[dict[str, str]]] = {
+    "ARTICLE": [
+        {"title": "راهنمای جامع بررسی حقوقی سند و استعلام ملک پیش از خرید", "keywords": "سند تک برگ، استعلام ثبتی، خرید ملک", "audience": "خریداران"},
+        {"title": "تحلیل ارزش‌گذاری واقعی آپارتمان بر اساس موقعیت، نور و سال ساخت", "keywords": "ارزش گذاری ملک، قیمت هر متر، کارشناسی", "audience": "خریداران و مالکان"},
+        {"title": "مقایسه سرمایه‌گذاری در املاک مسکونی نوساز و کلنگی با قابلیت مشارکت", "keywords": "سرمایه گذاری مسکن، ملک کلنگی، نوساز", "audience": "سرمایه‌گذاران"},
+    ],
+    "EDUCATIONAL": [
+        {"title": "آموزش گام‌به‌گام محاسبه کمیسیون قانونی معاملات املاک و مالیات نقل‌وانتقال", "keywords": "کمیسیون املاک، مالیات نقل و انتقال، قرارداد", "audience": "مشاوران و متعاملین"},
+        {"title": "۱۰ نکته طلایی تنظیم مبایعه‌نامه و اجاره‌نامه بدون ریسک حقوقی", "keywords": "مبایعه نامه، اجاره نامه، کد رهگیری", "audience": "مشاوران املاک"},
+        {"title": "آشنایی با تفاوت قراردادهای مشارکت در ساخت و پیش‌فروش ساختمان", "keywords": "مشارکت در ساخت، پیش فروش، قرارداد", "audience": "سازندگان و خریداران"},
+    ],
+    "NEWS": [
+        {"title": "گزارش تحلیلی روند تقاضای خرید و اجاره در فصول پرتقاضای بازار مسکن", "keywords": "بازار مسکن، روند اجاره، گزارش ماهانه", "audience": "فعالان بازار مسکن"},
+        {"title": "تأثیر توسعه حمل‌ونقل ریلی و دسترسی‌های بزرگراهی بر قیمت محله‌ها", "keywords": "رشد قیمت محله، زیرساخت شهری، مسکن", "audience": "سرمایه‌گذاران"},
+        {"title": "تغییرات جدید مقررات ثبت معاملات رسمی و احراز اصالت آگهی‌های ملکی", "keywords": "ثبت رسمی، احراز اصالت، قوانین املاک", "audience": "مدیران آژانس"},
+    ],
+    "PROMOTIONAL": [
+        {"title": "چرا همکاری با آژانس‌های دارای فرآیند احراز اصالت سه‌مرحله‌ای امنیت معامله را تضمین می‌کند؟", "keywords": "معامله امن، احراز اصالت، آژانس معتبر", "audience": "خریداران و مالکان"},
+        {"title": "معرفی خدمات اختصاصی کارشناسی قیمت و تور مجازی سه‌بعدی برای فروش سریع‌تر ملک", "keywords": "تور مجازی، فروش سریع ملک، کارشناسی", "audience": "فروشندگان ملک"},
+    ],
+    "SEO": [
+        {"title": "بهترین محله‌ها برای خرید آپارتمان خوش‌نقشه با دسترسی عالی و بازدهی پایدار", "keywords": "خرید آپارتمان، محله های برتر، راهنمای خرید", "audience": "جستجوگران اینترنتی"},
+        {"title": "راهنمای کامل رهن و اجاره واحدهای اداری و تجاری با سند موقعیت اداری", "keywords": "اجاره دفتر کار، سند اداری، رهن تجاری", "audience": "کسب‌وکارها"},
+    ],
+    "SOCIAL_MEDIA": [
+        {"title": "۵ اشتباه رایج در بازدید اول ملک که نباید مرتکب شوید", "keywords": "نکات بازدید ملک، چک لیست خریدار، اینستاگرام املاک", "audience": "مخاطبان شبکه‌های اجتماعی"},
+        {"title": "چگونه در ۳ دقیقه اصالت سند و رضایت مالک یک فایل ملکی را تشخیص دهیم؟", "keywords": "اصالت ملک، امنیت خرید، نکات سریع", "audience": "خریداران جوان"},
+    ],
+    "LISTING_DESCRIPTION": [
+        {"title": "توضیحات حرفه‌ای و متقاعدکننده برای معرفی فایل پنت‌هاوس یا آپارتمان لوکس", "keywords": "پنت هاوس، فایل ویژه، آگهی حرفه ای", "audience": "خریداران ملک لوکس"},
+        {"title": "الگوی استاندارد نگارش آگهی اجاره واحد اداری و مستغلات شرکتی", "keywords": "آگهی اداری، اجاره مستغلات، موقعیت تجاری", "audience": "شرکت‌ها و مدیران"},
+    ],
+}
+
+VALID_CONTENT_TYPES = set(CONTENT_TYPE_TOPICS.keys())
+
+
+def suggest_content_topics(
+    *,
+    user: User,
+    agency_id: Optional[UUID],
+    content_type: str = "ARTICLE",
+    focus_city: str = "",
+    audience: str = "",
+) -> dict:
+    _assert_ai_access(user, agency_id)
+    ctype = (content_type or "ARTICLE").upper()
+    if ctype not in VALID_CONTENT_TYPES:
+        ctype = "ARTICLE"
+
+    city_label = (focus_city or "").strip()
+    base_topics = [dict(t) for t in CONTENT_TYPE_TOPICS[ctype]]
+    if city_label:
+        for item in base_topics:
+            item["title"] = f"{item['title']} ({city_label})"
+            item["keywords"] = f"{item['keywords']}، {city_label}"
+    if audience:
+        for item in base_topics:
+            item["audience"] = audience.strip()
+
+    # Enrich with agency's live top property district if agency_id is present
+    if agency_id:
+        top_prop = list_agency_properties(user=user, agency_id=agency_id).first()
+        if top_prop:
+            loc = getattr(top_prop, "location", None)
+            dist = (loc.district or loc.city) if loc else ""
+            if dist:
+                base_topics.insert(
+                    0,
+                    {
+                        "title": f"تحلیل و معرفی فرصت‌های شاخص {top_prop.property_type.name_fa} در {dist}",
+                        "keywords": f"{top_prop.property_type.name_fa}، {dist}، {top_prop.deal_type.name_fa}",
+                        "audience": audience or "متقاضیان فعال منطقه",
+                    },
+                )
+
+    return {
+        "content_type": ctype,
+        "topics": base_topics[:6],
+        "requires_human_approval": True,
+    }
+
+
+def _build_domain_content_draft(
+    *,
+    topic: str,
+    content_type: str,
+    language: str,
+    tone: str,
+    target_audience: str,
+    keywords: list[str],
+) -> dict:
+    kw_list = [k.strip() for k in keywords if k and k.strip()] or ["بنیان ملک", "مشاوره املاک", "تحلیل بازار مسکن"]
+    kw_str = "، ".join(kw_list)
+    aud = target_audience.strip() or "خریداران، مالکان و مشاوران حرفه‌ای املاک"
+    lang_en = language.lower().startswith("en")
+
+    if lang_en:
+        title = topic.strip()
+        summary = f"Structured {content_type.lower()} draft prepared for {aud} focusing on {kw_str}."
+        body_html = (
+            f"<h2>{title}</h2>"
+            f"<p><strong>Target Audience:</strong> {aud} | <strong>Tone:</strong> {tone}</p>"
+            f"<p>In the modern real estate market, verified property records, transparent valuation, and documented legal compliance directly protect transaction outcomes.</p>"
+            f"<h3>Key Takeaways</h3>"
+            f"<ul><li>Verify physical existence, deed status, and owner authorization prior to commitment.</li>"
+            f"<li>Benchmark comparable square-meter rates and payment milestones clearly.</li>"
+            f"<li>Key focus terms: {kw_str}.</li></ul>"
+        )
+    elif content_type == "SOCIAL_MEDIA":
+        title = topic.strip()
+        summary = f"کپشن آماده انتشار در شبکه‌های اجتماعی برای {aud} با تمرکز بر {kw_str}"
+        body_html = (
+            f"<h2>{title}</h2>"
+            f"<p>پیش از هر تصمیم ملکی، بررسی دقیق این ۳ مورد سرمایه شما را حفظ می‌کند:</p>"
+            f"<ul>"
+            f"<li>۱. تطبیق اصالت سند و رضایت ثبت‌شده مالک با مشخصات آگهی</li>"
+            f"<li>۲. مقایسه قیمت هر متر مربع با فایل‌های مشابه هم‌محله</li>"
+            f"<li>۳. ثبت شفاف تعهدات و زمان‌بندی پرداخت در پیش‌نویس قرارداد رسمی</li>"
+            f"</ul>"
+            f"<p><strong>دعوت به اقدام:</strong> برای دریافت مشاوره تخصصی و استعلام فایل‌های تأییدشده با کارشناسان ما در ارتباط باشید.</p>"
+            f"<p>کلیدواژه‌ها: {kw_str}</p>"
+        )
+    elif content_type == "LISTING_DESCRIPTION":
+        title = topic.strip()
+        summary = f"توضیحات استاندارد آگهی ملکی جهت جذب {aud}"
+        body_html = (
+            f"<h2>{title}</h2>"
+            f"<p>یک انتخاب کم‌نظیر با استاندارد معماری مهندسی، نورگیری مطلوب و دسترسی سریع به شریان‌های اصلی شهر. این ملک از نظر مدارک مالکیتی و اصالت فایل به‌طور کامل بررسی شده است.</p>"
+            f"<h3>مشخصات و مزایای کلیدی</h3>"
+            f"<ul>"
+            f"<li>پلان کاربردی بدون فضای پرت و سالن یک‌تکه مناسب چیدمان مدرن</li>"
+            f"<li>وضعیت سند: معتبر و آماده بررسی حقوقی پیش از تنظیم قرارداد</li>"
+            f"<li>شرایط معامله قابل مذاکره با حضور مالک و مشاور پرونده</li>"
+            f"</ul>"
+            f"<p><strong>کلیدواژه‌ها:</strong> {kw_str}</p>"
+        )
+    else:
+        type_headings = {
+            "ARTICLE": "تحلیل تخصصی و نکات اجرایی",
+            "EDUCATIONAL": "گام‌های آموزشی و چک‌لیست عملی",
+            "NEWS": "خلاصه تحولات و تحلیل پیامدهای بازار",
+            "PROMOTIONAL": "ارزش پیشنهادی و مزیت رقابتی",
+            "SEO": "راهنمای جامع سئومحور و پاسخ به پرسش‌های کلیدی",
+        }
+        sec_heading = type_headings.get(content_type, "بررسی تخصصی موضوع")
+        title = topic.strip()
+        summary = f"پیش‌نویس {content_type} ویژه {aud} درباره «{title}» با کلیدواژه‌های {kw_str}."
+        body_html = (
+            f"<h2>{title}</h2>"
+            f"<p>مخاطب هدف این محتوا <strong>{aud}</strong> است و با لحن <strong>{tone}</strong> نگارش شده است تا تصمیم‌گیری ملکی با شفافیت و اطمینان بیشتری انجام شود.</p>"
+            f"<h3>{sec_heading}</h3>"
+            f"<p>در فرآیند ارزیابی و انجام معاملات املاک، اتکا به داده‌های واقعی منطقه، احراز اصالت سه‌مرحله‌ای فایل (وجود فیزیکی، اصالت سند، رضایت مالک) و مستندسازی توافقات نقش کلیدی در پیشگیری از ریسک‌های مالی و حقوقی دارد.</p>"
+            f"<ul>"
+            f"<li><strong>بررسی قیمت معیار:</strong> مقایسه نرخ هر متر مربع با معاملات هم‌تراز در بازه زمانی جاری</li>"
+            f"<li><strong>مدیریت ریسک حقوقی:</strong> استعلام وضعیت رهن، توقیف یا وکالت‌نامه پیش از پرداخت وجه</li>"
+            f"<li><strong>کلمات کلیدی هدف:</strong> {kw_str}</li>"
+            f"</ul>"
+            f"<h3>جمع‌بندی و اقدام پیشنهادی</h3>"
+            f"<p>پیش از نهایی‌سازی هرگونه تعهد، تمامی شروط پرداخت و زمان تحویل را در قالب قرارداد استاندارد ثبت و تأیید کنید.</p>"
+        )
+
+    import re
+
+    slug_clean = re.sub(r"[^a-z0-9-]+", "-", topic.lower()).strip("-")
+    if len(slug_clean) < 4:
+        import secrets
+        slug_clean = f"ai-{content_type.lower()}-{secrets.token_hex(3)}"
+
+    return {
+        "title": title,
+        "summary": summary[:450],
+        "content_body": body_html,
+        "meta_title": f"{title[:55]} | بنیان ملک",
+        "meta_description": summary[:155],
+        "suggested_slug": slug_clean[:120],
+        "keywords": kw_list,
+    }
+
+
+def generate_ai_content(*, user: User, agency_id: Optional[UUID], data: dict) -> dict:
+    _assert_ai_access(user, agency_id)
+    topic = (data.get("topic") or "").strip()
+    if len(topic) < 3:
+        raise ValidationDomainError("موضوع تولید محتوا باید حداقل ۳ کاراکتر باشد.")
+
+    content_type = str(data.get("content_type") or "ARTICLE").upper()
+    if content_type not in VALID_CONTENT_TYPES:
+        raise ValidationDomainError("نوع محتوای انتخاب‌شده معتبر نیست.")
+
+    language = str(data.get("language") or "fa").strip()
+    tone = str(data.get("tone") or "PROFESSIONAL").strip()
+    target_audience = str(data.get("target_audience") or "خریداران و سرمایه‌گذاران املاک").strip()
+    keywords = [str(k).strip() for k in (data.get("keywords") or []) if str(k).strip()]
+    custom_instructions = str(data.get("custom_instructions") or "").strip()
+
+    api_key, base_url, default_model = _resolve_ai_runtime(agency_id)
+    resolved_model = (data.get("model") or default_model or "gpt-4o").strip()
+    adapter = get_ai_provider("gapgpt")
+
+    provider_used = "DOMAIN_ENGINE"
+    tokens_used = 0
+    latency_ms = 0
+    fallback_note = ""
+    draft = _build_domain_content_draft(
+        topic=topic,
+        content_type=content_type,
+        language=language,
+        tone=tone,
+        target_audience=target_audience,
+        keywords=keywords,
+    )
+
+    if api_key:
+        prompt = (
+            f"تولید پیش‌نویس محتوای تخصصی املاک با مشخصات زیر:\n"
+            f"- موضوع: {topic}\n"
+            f"- نوع محتوا: {content_type}\n"
+            f"- زبان: {language}\n"
+            f"- لحن: {tone}\n"
+            f"- مخاطب هدف: {target_audience}\n"
+            f"- کلمات کلیدی: {', '.join(keywords) or 'املاک، بنیان ملک'}\n"
+            + (f"- نکات تکمیلی: {custom_instructions}\n" if custom_instructions else "")
+            + "لطفاً خروجی را با ساختار HTML استاندارد (h2, h3, p, ul, li) و آماده بازبینی تحریریه تولید کن."
+        )
+        try:
+            res = adapter.complete_chat(
+                messages=[
+                    {"role": "system", "content": "تو سردبیر ارشد تولید محتوای املاک هستی. فقط پیش‌نویس دقیق و کاربردی تولید کن."},
+                    {"role": "user", "content": prompt},
+                ],
+                model=resolved_model,
+                api_key=api_key,
+                base_url=base_url,
+            )
+            if res.content and res.content.strip():
+                draft["content_body"] = res.content.strip()
+            resolved_model = res.model
+            tokens_used = res.tokens_used
+            latency_ms = res.latency_ms
+            provider_used = "GAPGPT"
+        except Exception as exc:
+            fallback_note = str(exc)
+
+    result = {
+        **draft,
+        "content_type": content_type,
+        "language": language,
+        "tone": tone,
+        "target_audience": target_audience,
+        "is_draft": True,
+        "status": "DRAFT",
+        "auto_published": False,
+        "requires_human_approval": True,
+        "provider": provider_used,
+        "model": resolved_model,
+        "tokens_used": tokens_used,
+        "latency_ms": latency_ms,
+        "fallback_note": fallback_note,
+    }
+    AiInteractionLog.objects.create(
+        agency_id=agency_id,
+        user=user,
+        tool_type=AiInteractionLog.ToolType.SEO_DRAFT,
+        resource_type="ArticleDraft",
+        prompt_summary=f"[{content_type}/{language}] {topic[:180]}",
+        draft_output=result,
+        provider=provider_used,
+        model_name=resolved_model,
+        tokens_used=tokens_used,
+        latency_ms=latency_ms,
+    )
+    return result
+
+
+def rewrite_ai_content(*, user: User, agency_id: Optional[UUID], data: dict) -> dict:
+    _assert_ai_access(user, agency_id)
+    title = str(data.get("title") or "").strip()
+    body = str(data.get("content_body") or "").strip()
+    instruction = str(data.get("instruction") or "بهبود خوانایی، روانی متن و بهینه‌سازی سئو").strip()
+    tone = str(data.get("tone") or "PROFESSIONAL").strip()
+    language = str(data.get("language") or "fa").strip()
+    keywords = [str(k).strip() for k in (data.get("keywords") or []) if str(k).strip()]
+
+    if not body:
+        raise ValidationDomainError("متن فعلی برای بازنویسی نمی‌تواند خالی باشد.")
+
+    api_key, base_url, default_model = _resolve_ai_runtime(agency_id)
+    resolved_model = (data.get("model") or default_model or "gpt-4o").strip()
+    adapter = get_ai_provider("gapgpt")
+
+    provider_used = "DOMAIN_ENGINE"
+    tokens_used = 0
+    latency_ms = 0
+    rewritten_body = (
+        f"{body}\n"
+        f"<h3>جمع‌بندی بازنویسی‌شده ({tone})</h3>"
+        f"<p>نسخه بازنگری‌شده بر اساس دستور «{instruction}»"
+        + (f" با تمرکز بر کلیدواژه‌های {'، '.join(keywords)}" if keywords else "")
+        + " آماده بررسی و تأیید نهایی تحریریه است.</p>"
+    )
+
+    if api_key:
+        try:
+            res = adapter.complete_chat(
+                messages=[
+                    {"role": "system", "content": "تو ویراستار حرفه‌ای محتوای املاک هستی. متن را طبق دستور کاربر به HTML تمیز بازنویسی کن."},
+                    {
+                        "role": "user",
+                        "content": f"عنوان: {title}\nزبان: {language}\nلحن هدف: {tone}\nدستور بازنویسی: {instruction}\nکلمات کلیدی: {', '.join(keywords)}\n\nمتن فعلی:\n{body[:5000]}",
+                    },
+                ],
+                model=resolved_model,
+                api_key=api_key,
+                base_url=base_url,
+            )
+            if res.content and res.content.strip():
+                rewritten_body = res.content.strip()
+            resolved_model = res.model
+            tokens_used = res.tokens_used
+            latency_ms = res.latency_ms
+            provider_used = "GAPGPT"
+        except Exception:
+            pass
+
+    output = {
+        "title": title,
+        "content_body": rewritten_body,
+        "tone": tone,
+        "language": language,
+        "is_draft": True,
+        "auto_published": False,
+        "provider": provider_used,
+        "model": resolved_model,
+        "tokens_used": tokens_used,
+    }
+    AiInteractionLog.objects.create(
+        agency_id=agency_id,
+        user=user,
+        tool_type=AiInteractionLog.ToolType.SEO_DRAFT,
+        resource_type="ArticleRewrite",
+        prompt_summary=f"Rewrite: {instruction[:180]}",
+        draft_output=output,
+        provider=provider_used,
+        model_name=resolved_model,
+        tokens_used=tokens_used,
+        latency_ms=latency_ms,
+    )
+    return output
+
+
+def save_ai_content_to_cms(*, user: User, agency_id: Optional[UUID], data: dict) -> Article:
+    from apps.cms.services import create_article
+
+    payload = dict(data)
+    payload["agency_id"] = agency_id
+    payload["ai_generated"] = True
+    payload["change_note"] = payload.get("change_note") or "ذخیره پیش‌نویس تولیدشده توسط هوش مصنوعی"
+    return create_article(user=user, data=payload)
+

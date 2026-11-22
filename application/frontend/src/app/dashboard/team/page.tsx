@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ShieldAlert } from "lucide-react";
+import { Edit3, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { BranchItem, PermissionItem, RoleItem, TeamMemberItem } from "@/lib/types";
@@ -16,6 +16,8 @@ export default function TeamMembersPage() {
   const { accessToken, activeAgencyId } = useAuth();
   const qc = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<TeamMemberItem | null>(null);
+  const [editForm, setEditForm] = useState({ role_code: "", branch_id: "", status: "ACTIVE" });
   const [overrideTarget, setOverrideTarget] = useState<TeamMemberItem | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -89,15 +91,42 @@ export default function TeamMembersPage() {
   });
 
   const patchMemberMut = useMutation({
-    mutationFn: async ({ id, status, role_code }: { id: string; status?: string; role_code?: string }) =>
+    mutationFn: async ({
+      id,
+      status,
+      role_code,
+      branch_id,
+      clear_branch,
+    }: {
+      id: string;
+      status?: string;
+      role_code?: string;
+      branch_id?: string | null;
+      clear_branch?: boolean;
+    }) =>
       apiFetch(`/api/v1/team/members/${id}`, {
         method: "PATCH",
         token: accessToken,
         agencyId: activeAgencyId,
-        body: JSON.stringify({ status, role_code }),
+        body: JSON.stringify({ status, role_code, branch_id, clear_branch }),
       }),
     onSuccess: () => {
-      setNotice("نقش یا وضعیت عضو به‌روزرسانی شد.");
+      setEditTarget(null);
+      setNotice("نقش، شعبه یا وضعیت عضو به‌روزرسانی شد.");
+      qc.invalidateQueries({ queryKey: ["team-members", activeAgencyId] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
+  const deleteMemberMut = useMutation({
+    mutationFn: async (id: string) =>
+      apiFetch(`/api/v1/team/members/${id}`, {
+        method: "DELETE",
+        token: accessToken,
+        agencyId: activeAgencyId,
+      }),
+    onSuccess: () => {
+      setNotice("عضویت کاربر از تیم آژانس بایگانی (حذف نرم) شد.");
       qc.invalidateQueries({ queryKey: ["team-members", activeAgencyId] });
     },
     onError: (e: Error) => setErrMsg(e.message),
@@ -187,14 +216,29 @@ export default function TeamMembersPage() {
             key: "actions",
             header: "مجوز و وضعیت",
             render: (m) => (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditTarget(m);
+                    setEditForm({
+                      role_code: m.role_code,
+                      branch_id: m.branch_id || "",
+                      status: m.status,
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Edit3 className="h-3 w-3" />
+                  ویرایش
+                </button>
                 <button
                   type="button"
                   onClick={() => openOverrides(m)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <ShieldAlert className="h-3.5 w-3.5 text-amber-700" />
-                  استثنای دسترسی ({m.overrides?.length || 0})
+                  دسترسی ({m.overrides?.length || 0})
                 </button>
                 <button
                   type="button"
@@ -204,15 +248,92 @@ export default function TeamMembersPage() {
                       status: m.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE",
                     })
                   }
-                  className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   {m.status === "ACTIVE" ? "تعلیق" : "فعال"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteMemberMut.mutate(m.id)}
+                  className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                  title="حذف عضو"
+                >
+                  <Trash2 className="h-3 w-3" />
                 </button>
               </div>
             ),
           },
         ]}
       />
+
+      <ModalDrawer
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title={`ویرایش عضو تیم — ${editTarget?.full_name || ""}`}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!editTarget) return;
+            patchMemberMut.mutate({
+              id: editTarget.id,
+              role_code: editForm.role_code,
+              status: editForm.status,
+              branch_id: editForm.branch_id || null,
+              clear_branch: !editForm.branch_id,
+            });
+          }}
+          className="space-y-3"
+        >
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">نقش عضو</label>
+            <select
+              value={editForm.role_code}
+              onChange={(e) => setEditForm({ ...editForm, role_code: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+            >
+              {(rolesQ.data?.roles || []).map((r) => (
+                <option key={r.code} value={r.code}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">شعبه محل فعالیت</label>
+            <select
+              value={editForm.branch_id}
+              onChange={(e) => setEditForm({ ...editForm, branch_id: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+            >
+              <option value="">بدون شعبه خاص (کل آژانس)</option>
+              {(branchesQ.data || []).map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">وضعیت فعالیت</label>
+            <select
+              value={editForm.status}
+              onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+            >
+              <option value="ACTIVE">فعال (ACTIVE)</option>
+              <option value="SUSPENDED">معلق (SUSPENDED)</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={patchMemberMut.isPending}
+            className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white"
+          >
+            ذخیره تغییرات عضو
+          </button>
+        </form>
+      </ModalDrawer>
 
       <ModalDrawer open={inviteOpen} onClose={() => setInviteOpen(false)} title="افزودن عضو جدید به آژانس">
         <form

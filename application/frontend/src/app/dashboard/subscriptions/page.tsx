@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, CreditCard, ExternalLink, ShieldCheck } from "lucide-react";
+import { CheckCircle2, CreditCard, Edit3, ExternalLink, Plus, Power, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { CurrencyCode, PaymentGatewayItem } from "@/lib/types";
@@ -11,6 +11,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { StatusText } from "@/components/ui/StatusText";
 import { MoneyDisplay } from "@/components/ui/MoneyDisplay";
 import { DateDisplay } from "@/components/ui/DateDisplay";
+import { ModalDrawer } from "@/components/ui/ModalDrawer";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
 import { formatNumberFa } from "@/lib/formatters";
 
@@ -25,6 +26,7 @@ interface PlanItem {
   max_agents: number;
   max_properties: number;
   max_branches: number;
+  is_active?: boolean;
   features: Record<string, unknown>;
 }
 
@@ -75,6 +77,7 @@ const GATEWAY_LABELS: Record<string, string> = {
 export default function SubscriptionsPage() {
   const { accessToken, activeAgencyId, effectiveRole } = useAuth();
   const qc = useQueryClient();
+  const isSuperAdmin = effectiveRole === "SUPER_ADMIN";
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
   const [selectedGateway, setSelectedGateway] = useState<string>("sandbox");
   const [pendingCheckout, setPendingCheckout] = useState<CheckoutResult | null>(null);
@@ -82,9 +85,31 @@ export default function SubscriptionsPage() {
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const callbackHandledRef = useRef(false);
 
+  const [planModal, setPlanModal] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const emptyPlanForm = {
+    code: "",
+    name_fa: "",
+    name_en: "",
+    currency_id: "IRT",
+    monthly_price: "0",
+    annual_price: "0",
+    max_agents: 10,
+    max_branches: 2,
+    max_active_listings: 100,
+    is_active: true,
+  };
+  const [planForm, setPlanForm] = useState(emptyPlanForm);
+
   const plansQ = useQuery({
-    queryKey: ["subscription-plans"],
-    queryFn: async () => (await apiFetch<PlanItem[]>("/api/v1/subscriptions/plans")).data,
+    queryKey: ["subscription-plans", isSuperAdmin],
+    queryFn: async () =>
+      (
+        await apiFetch<PlanItem[]>(
+          `/api/v1/subscriptions/plans?include_inactive=${isSuperAdmin}`,
+          { token: accessToken }
+        )
+      ).data,
   });
 
   const gatewaysQ = useQuery({
@@ -194,6 +219,71 @@ export default function SubscriptionsPage() {
     onError: (e: Error) => setErrMsg(e.message),
   });
 
+  const savePlanMut = useMutation({
+    mutationFn: async () => {
+      if (editingPlanId) {
+        return apiFetch(`/api/v1/subscriptions/plans/${editingPlanId}`, {
+          method: "PATCH",
+          token: accessToken,
+          body: JSON.stringify({
+            name_fa: planForm.name_fa,
+            name_en: planForm.name_en,
+            currency_id: planForm.currency_id,
+            monthly_price: Number(planForm.monthly_price || 0),
+            annual_price: Number(planForm.annual_price || 0),
+            max_agents: Number(planForm.max_agents),
+            max_branches: Number(planForm.max_branches),
+            max_active_listings: Number(planForm.max_active_listings),
+            is_active: planForm.is_active,
+          }),
+        });
+      }
+      return apiFetch("/api/v1/subscriptions/plans", {
+        method: "POST",
+        token: accessToken,
+        body: JSON.stringify({
+          code: planForm.code.trim().toUpperCase(),
+          name_fa: planForm.name_fa,
+          name_en: planForm.name_en,
+          currency_id: planForm.currency_id,
+          monthly_price: Number(planForm.monthly_price || 0),
+          annual_price: Number(planForm.annual_price || 0),
+          max_agents: Number(planForm.max_agents),
+          max_branches: Number(planForm.max_branches),
+          max_active_listings: Number(planForm.max_active_listings),
+          is_active: planForm.is_active,
+        }),
+      });
+    },
+    onSuccess: () => {
+      setPlanModal(false);
+      setEditingPlanId(null);
+      setPlanForm(emptyPlanForm);
+      setNotice(editingPlanId ? "پلن اشتراک ویرایش شد." : "پلن اشتراک جدید ایجاد شد.");
+      qc.invalidateQueries({ queryKey: ["subscription-plans"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
+  const togglePlanMut = useMutation({
+    mutationFn: async ({ plan }: { plan: PlanItem }) =>
+      plan.is_active === false
+        ? apiFetch(`/api/v1/subscriptions/plans/${plan.id}`, {
+            method: "PATCH",
+            token: accessToken,
+            body: JSON.stringify({ is_active: true }),
+          })
+        : apiFetch(`/api/v1/subscriptions/plans/${plan.id}`, {
+            method: "DELETE",
+            token: accessToken,
+          }),
+    onSuccess: () => {
+      setNotice("وضعیت پلن اشتراک به‌روزرسانی شد.");
+      qc.invalidateQueries({ queryKey: ["subscription-plans"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
   // Handle callback return parameters automatically (?Authority=...&Status=... / ?trackId=... / ?id=...)
   useEffect(() => {
     if (callbackHandledRef.current || !accessToken || !activeAgencyId || typeof window === "undefined") {
@@ -228,29 +318,45 @@ export default function SubscriptionsPage() {
         subtitle="انتخاب پلن آژانس، پرداخت امن از طریق درگاه‌های زرین‌پال، زیبال، آیدی‌پی یا سندباکس و پایش تراکنش‌ها"
         breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "اشتراک و پرداخت" }]}
         actions={
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
-            <button
-              type="button"
-              onClick={() => setBillingCycle("MONTHLY")}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                billingCycle === "MONTHLY"
-                  ? "bg-teal-700 text-white dark:bg-teal-600"
-                  : "text-slate-600 dark:text-slate-400"
-              }`}
-            >
-              ماهانه
-            </button>
-            <button
-              type="button"
-              onClick={() => setBillingCycle("ANNUAL")}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                billingCycle === "ANNUAL"
-                  ? "bg-teal-700 text-white dark:bg-teal-600"
-                  : "text-slate-600 dark:text-slate-400"
-              }`}
-            >
-              سالانه (به‌صرفه‌تر)
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingPlanId(null);
+                  setPlanForm(emptyPlanForm);
+                  setPlanModal(true);
+                }}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
+              >
+                <Plus className="h-4 w-4" />
+                ایجاد پلن اشتراک
+              </button>
+            )}
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => setBillingCycle("MONTHLY")}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  billingCycle === "MONTHLY"
+                    ? "bg-teal-700 text-white dark:bg-teal-600"
+                    : "text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                ماهانه
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle("ANNUAL")}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  billingCycle === "ANNUAL"
+                    ? "bg-teal-700 text-white dark:bg-teal-600"
+                    : "text-slate-600 dark:text-slate-400"
+                }`}
+              >
+                سالانه (به‌صرفه‌تر)
+              </button>
+            </div>
           </div>
         }
       />
@@ -418,17 +524,58 @@ export default function SubscriptionsPage() {
                   </ul>
                 </div>
 
-                {canCheckout && (
-                  <button
-                    type="button"
-                    disabled={checkoutMut.isPending}
-                    onClick={() => checkoutMut.mutate(p.code)}
-                    className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-700 text-xs font-semibold text-white transition-colors hover:bg-teal-800 disabled:opacity-50 dark:bg-teal-600 dark:hover:bg-teal-500"
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    پرداخت با {GATEWAY_LABELS[selectedGateway]?.split(" ")[0] || selectedGateway}
-                  </button>
-                )}
+                <div className="mt-5 space-y-2">
+                  {canCheckout && p.is_active !== false && (
+                    <button
+                      type="button"
+                      disabled={checkoutMut.isPending}
+                      onClick={() => checkoutMut.mutate(p.code)}
+                      className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-teal-700 text-xs font-semibold text-white transition-colors hover:bg-teal-800 disabled:opacity-50 dark:bg-teal-600 dark:hover:bg-teal-500"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      پرداخت با {GATEWAY_LABELS[selectedGateway]?.split(" ")[0] || selectedGateway}
+                    </button>
+                  )}
+                  {isSuperAdmin && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPlanId(p.id);
+                          setPlanForm({
+                            code: p.code,
+                            name_fa: p.name_fa,
+                            name_en: p.name_en || "",
+                            currency_id: p.currency,
+                            monthly_price: p.monthly_price,
+                            annual_price: p.annual_price,
+                            max_agents: p.max_agents,
+                            max_branches: p.max_branches,
+                            max_active_listings: p.max_properties,
+                            is_active: p.is_active !== false,
+                          });
+                          setPlanModal(true);
+                        }}
+                        className="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-semibold"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                        ویرایش پلن
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePlanMut.mutate({ plan: p })}
+                        className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold ${
+                          p.is_active === false
+                            ? "bg-emerald-700 text-white"
+                            : "border border-rose-200 bg-rose-50 text-rose-700"
+                        }`}
+                      >
+                        <Power className="h-3 w-3" />
+                        {p.is_active === false ? "فعال" : "غیرفعال"}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -510,6 +657,98 @@ export default function SubscriptionsPage() {
           { key: "dt", header: "تاریخ", render: (t) => <DateDisplay value={t.created_at} withTime /> },
         ]}
       />
+
+      <ModalDrawer
+        open={planModal}
+        onClose={() => {
+          setPlanModal(false);
+          setEditingPlanId(null);
+        }}
+        title={editingPlanId ? "ویرایش پلن اشتراک" : "ایجاد پلن اشتراک جدید"}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            savePlanMut.mutate();
+          }}
+          className="space-y-3"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              required
+              disabled={!!editingPlanId}
+              dir="ltr"
+              placeholder="کد پلن (مثلاً ENTERPRISE)"
+              value={planForm.code}
+              onChange={(e) => setPlanForm({ ...planForm, code: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm disabled:opacity-60"
+            />
+            <input
+              required
+              placeholder="نام فارسی پلن"
+              value={planForm.name_fa}
+              onChange={(e) => setPlanForm({ ...planForm, name_fa: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">قیمت ماهانه</label>
+              <input
+                type="number"
+                value={planForm.monthly_price}
+                onChange={(e) => setPlanForm({ ...planForm, monthly_price: e.target.value })}
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">قیمت سالانه</label>
+              <input
+                type="number"
+                value={planForm.annual_price}
+                onChange={(e) => setPlanForm({ ...planForm, annual_price: e.target.value })}
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">سقف مشاور</label>
+              <input
+                type="number"
+                value={planForm.max_agents}
+                onChange={(e) => setPlanForm({ ...planForm, max_agents: Number(e.target.value) })}
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">سقف ملک</label>
+              <input
+                type="number"
+                value={planForm.max_active_listings}
+                onChange={(e) => setPlanForm({ ...planForm, max_active_listings: Number(e.target.value) })}
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">سقف شعبه</label>
+              <input
+                type="number"
+                value={planForm.max_branches}
+                onChange={(e) => setPlanForm({ ...planForm, max_branches: Number(e.target.value) })}
+                className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={savePlanMut.isPending}
+            className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white"
+          >
+            {editingPlanId ? "ذخیره تغییرات پلن" : "ایجاد پلن اشتراک"}
+          </button>
+        </form>
+      </ModalDrawer>
     </div>
   );
 }

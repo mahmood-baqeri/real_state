@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   BarChart3,
   Columns3,
+  Edit3,
   ExternalLink,
   History,
   Plus,
@@ -59,12 +60,24 @@ const KANBAN_LANES: { id: string; title: string; statuses: string[] }[] = [
   },
 ];
 
+const FILTER_STATUSES = [
+  { value: "", label: "همه مراحل" },
+  { value: "BUYER_OFFERED", label: "پیشنهاد خریدار" },
+  { value: "OWNER_COUNTERED", label: "پیشنهاد متقابل مالک" },
+  { value: "BARGAINING", label: "چانه‌زنی" },
+  { value: "PRE_AGREEMENT", label: "توافق اولیه" },
+  { value: "ACCEPTED", label: "توافق نهایی" },
+  { value: "REJECTED", label: "ردشده" },
+];
+
 export default function NegotiationsPage() {
   const { accessToken, activeAgencyId } = useAuth();
   const qc = useQueryClient();
   const [viewMode, setViewMode] = useState<"table" | "kanban" | "analytics">("table");
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<NegotiationItem | null>(null);
   const [offersTarget, setOffersTarget] = useState<NegotiationItem | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -82,6 +95,13 @@ export default function NegotiationsPage() {
     notes: "",
   });
 
+  const [editForm, setEditForm] = useState({
+    asking_price: "",
+    next_action: "",
+    next_followup_at: "",
+    notes: "",
+  });
+
   const [offerForm, setOfferForm] = useState({
     offered_by: "SELLER",
     proposed_price: "37500000000",
@@ -90,12 +110,14 @@ export default function NegotiationsPage() {
   });
 
   const negsQ = useQuery({
-    queryKey: ["negotiations", activeAgencyId, overdueOnly],
-    enabled: !!accessToken && !!activeAgencyId,
+    queryKey: ["negotiations", activeAgencyId, overdueOnly, statusFilter],
+    enabled: !!accessToken,
     queryFn: async () => {
-      const qs = overdueOnly ? "?overdue_only=true&page_size=100" : "?page_size=100";
+      const params = new URLSearchParams({ page_size: "100" });
+      if (overdueOnly) params.set("overdue_only", "true");
+      if (statusFilter) params.set("status", statusFilter);
       return (
-        await apiFetch<NegotiationItem[]>(`/api/v1/negotiations${qs}`, {
+        await apiFetch<NegotiationItem[]>(`/api/v1/negotiations?${params.toString()}`, {
           token: accessToken,
           agencyId: activeAgencyId,
         })
@@ -105,7 +127,7 @@ export default function NegotiationsPage() {
 
   const analyticsQ = useQuery({
     queryKey: ["negotiations-analytics", activeAgencyId],
-    enabled: !!accessToken && !!activeAgencyId,
+    enabled: !!accessToken,
     queryFn: async () =>
       (
         await apiFetch<NegotiationAnalytics>("/api/v1/negotiations/analytics", {
@@ -170,18 +192,46 @@ export default function NegotiationsPage() {
     onError: (e: Error) => setErrMsg(e.message),
   });
 
+  const editMut = useMutation({
+    mutationFn: async () => {
+      if (!editTarget) return;
+      return apiFetch(`/api/v1/negotiations/${editTarget.id}`, {
+        method: "PATCH",
+        token: accessToken,
+        agencyId: activeAgencyId || editTarget.agency_id,
+        body: JSON.stringify({
+          asking_price: editForm.asking_price || null,
+          next_action: editForm.next_action,
+          next_followup_at: editForm.next_followup_at
+            ? new Date(editForm.next_followup_at).toISOString()
+            : null,
+          notes: editForm.notes,
+        }),
+      });
+    },
+    onSuccess: () => {
+      setEditTarget(null);
+      setErrMsg(null);
+      setNotice("مشخصات پرونده مذاکره با موفقیت ویرایش شد.");
+      qc.invalidateQueries({ queryKey: ["negotiations"] });
+      qc.invalidateQueries({ queryKey: ["negotiations-analytics"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
   const addOfferMut = useMutation({
     mutationFn: async () => {
       if (!offersTarget) return;
       return apiFetch(`/api/v1/negotiations/${offersTarget.id}/offers`, {
         method: "POST",
         token: accessToken,
-        agencyId: activeAgencyId,
+        agencyId: activeAgencyId || offersTarget.agency_id,
         body: JSON.stringify(offerForm),
       });
     },
     onSuccess: () => {
       setOffersTarget(null);
+      setErrMsg(null);
       setNotice("نسخه پیشنهاد متقابل جدید ثبت شد.");
       qc.invalidateQueries({ queryKey: ["negotiations"] });
       qc.invalidateQueries({ queryKey: ["negotiations-analytics"] });
@@ -190,20 +240,39 @@ export default function NegotiationsPage() {
   });
 
   const respondMut = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) =>
+    mutationFn: async ({
+      id,
+      agencyId,
+      status,
+    }: {
+      id: string;
+      agencyId?: string;
+      status: string;
+    }) =>
       apiFetch(`/api/v1/negotiations/${id}/respond`, {
         method: "POST",
         token: accessToken,
-        agencyId: activeAgencyId,
+        agencyId: activeAgencyId || agencyId,
         body: JSON.stringify({ status }),
       }),
     onSuccess: () => {
+      setErrMsg(null);
       setNotice("مرحله مذاکره با موفقیت به‌روزرسانی شد.");
       qc.invalidateQueries({ queryKey: ["negotiations"] });
       qc.invalidateQueries({ queryKey: ["negotiations-analytics"] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
+
+  const openEditModal = (n: NegotiationItem) => {
+    setEditTarget(n);
+    setEditForm({
+      asking_price: n.asking_price || "",
+      next_action: n.next_action || "",
+      next_followup_at: n.next_followup_at ? n.next_followup_at.slice(0, 16) : "",
+      notes: n.notes || "",
+    });
+  };
 
   const negotiations = useMemo(() => negsQ.data || [], [negsQ.data]);
   const analytics = analyticsQ.data;
@@ -220,7 +289,7 @@ export default function NegotiationsPage() {
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-semibold ${
+                className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-semibold whitespace-nowrap ${
                   viewMode === "table"
                     ? "bg-teal-700 text-white"
                     : "text-slate-600 dark:text-slate-300"
@@ -232,7 +301,7 @@ export default function NegotiationsPage() {
               <button
                 type="button"
                 onClick={() => setViewMode("kanban")}
-                className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-semibold ${
+                className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-semibold whitespace-nowrap ${
                   viewMode === "kanban"
                     ? "bg-teal-700 text-white"
                     : "text-slate-600 dark:text-slate-300"
@@ -244,7 +313,7 @@ export default function NegotiationsPage() {
               <button
                 type="button"
                 onClick={() => setViewMode("analytics")}
-                className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-semibold ${
+                className={`inline-flex h-8 items-center gap-1 rounded-md px-2.5 font-semibold whitespace-nowrap ${
                   viewMode === "analytics"
                     ? "bg-teal-700 text-white"
                     : "text-slate-600 dark:text-slate-300"
@@ -258,7 +327,7 @@ export default function NegotiationsPage() {
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800 whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
               شروع مذاکره جدید
@@ -270,7 +339,6 @@ export default function NegotiationsPage() {
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
 
-      {/* Analytics KPI Strip */}
       {analytics && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard
@@ -297,7 +365,24 @@ export default function NegotiationsPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap gap-1.5">
+          {FILTER_STATUSES.map((st) => (
+            <button
+              key={st.value || "all"}
+              type="button"
+              onClick={() => setStatusFilter(st.value)}
+              className={`h-8 rounded-lg border px-3 font-semibold whitespace-nowrap ${
+                statusFilter === st.value
+                  ? "border-teal-700 bg-teal-700 text-white"
+                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+              }`}
+            >
+              {st.label}
+            </button>
+          ))}
+        </div>
+
         <label className="inline-flex cursor-pointer items-center gap-2 font-semibold text-slate-700 dark:text-slate-300">
           <input
             type="checkbox"
@@ -315,6 +400,7 @@ export default function NegotiationsPage() {
           rowKey={(n) => n.id}
           isLoading={negsQ.isLoading}
           error={negsQ.error instanceof Error ? negsQ.error.message : null}
+          onRetry={() => negsQ.refetch()}
           searchPlaceholder="جستجو در ملک، کد فایل یا نام مشتری..."
           columns={[
             {
@@ -369,7 +455,7 @@ export default function NegotiationsPage() {
                       className="text-xs font-bold"
                     />
                     <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                      {last && <span>نسخه {last.version_number}</span>}
+                      {last && <span>نسخه {formatNumberFa(last.version_number)}</span>}
                       {n.price_delta_percent !== undefined && n.price_delta_percent !== 0 && (
                         <span className="font-mono text-amber-700 dark:text-amber-400">
                           ({n.price_delta_percent > 0 ? "+" : ""}
@@ -389,10 +475,13 @@ export default function NegotiationsPage() {
               render: (n) => (
                 <div className="space-y-1">
                   <StatusText status={n.status} />
-                  {n.converted_contract_number && (
-                    <div className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                  {n.converted_contract_id && n.converted_contract_number && (
+                    <Link
+                      href={`/dashboard/contracts/${n.converted_contract_id}`}
+                      className="block font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                    >
                       قرارداد: {n.converted_contract_number}
-                    </div>
+                    </Link>
                   )}
                 </div>
               ),
@@ -404,18 +493,27 @@ export default function NegotiationsPage() {
                 <div className="flex flex-wrap gap-1.5">
                   <Link
                     href={`/dashboard/negotiations/${n.id}`}
-                    className="inline-flex h-7 items-center gap-1 rounded bg-teal-700 px-2.5 text-xs font-semibold text-white hover:bg-teal-800"
+                    className="inline-flex h-7 items-center gap-1 rounded bg-teal-700 px-2.5 text-xs font-semibold text-white hover:bg-teal-800 whitespace-nowrap"
                   >
                     <ExternalLink className="h-3 w-3" />
-                    میز کار پرونده
+                    میز کار
                   </Link>
                   <button
                     type="button"
+                    onClick={() => openEditModal(n)}
+                    title="ویرایش پرونده مذاکره"
+                    className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 whitespace-nowrap"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                    ویرایش
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setOffersTarget(n)}
-                    className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 whitespace-nowrap"
                   >
                     <History className="h-3.5 w-3.5" />
-                    پیشنهادها ({n.offers.length})
+                    پیشنهادها ({formatNumberFa(n.offers.length)})
                   </button>
                 </div>
               ),
@@ -437,7 +535,7 @@ export default function NegotiationsPage() {
                   <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     {lane.title}
                   </h3>
-                  <span className="rounded bg-white px-2 py-0.5 font-mono text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="rounded bg-white px-2 py-0.5 font-mono text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300 tabular-nums">
                     {formatNumberFa(laneItems.length)}
                   </span>
                 </div>
@@ -578,8 +676,15 @@ export default function NegotiationsPage() {
           }}
           className="space-y-3"
         >
+          {!activeAgencyId && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              در حالت مشاهده سراسری هستید. برای شروع پرونده مذاکره جدید، ابتدا آژانس فعال را از منوی بالای صفحه انتخاب کنید.
+            </div>
+          )}
+
           <select
             required
+            disabled={!activeAgencyId}
             value={form.property_id}
             onChange={(e) => {
               const propId = e.target.value;
@@ -591,7 +696,7 @@ export default function NegotiationsPage() {
                 deal_type_id: matched?.deal_type?.code || form.deal_type_id,
               });
             }}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm disabled:opacity-50"
           >
             <option value="">انتخاب ملک...</option>
             {(propsQ.data || []).map((p) => (
@@ -604,9 +709,10 @@ export default function NegotiationsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <select
               required
+              disabled={!activeAgencyId}
               value={form.customer_id}
               onChange={(e) => setForm({ ...form, customer_id: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm disabled:opacity-50"
             >
               <option value="">انتخاب خریدار / مستأجر...</option>
               {(custQ.data || []).map((c) => (
@@ -616,9 +722,10 @@ export default function NegotiationsPage() {
               ))}
             </select>
             <select
+              disabled={!activeAgencyId}
               value={form.owner_customer_id}
               onChange={(e) => setForm({ ...form, owner_customer_id: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm disabled:opacity-50"
             >
               <option value="">مالک (تشخیص خودکار از ملک یا انتخاب)</option>
               {(custQ.data || []).map((c) => (
@@ -635,14 +742,14 @@ export default function NegotiationsPage() {
               placeholder="قیمت پایه ملک (Asking Price)"
               value={form.asking_price}
               onChange={(e) => setForm({ ...form, asking_price: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm tabular-nums"
             />
             <input
               type="number"
               placeholder="قیمت پیشنهادی اولیه"
               value={form.initial_price}
               onChange={(e) => setForm({ ...form, initial_price: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm tabular-nums"
             />
           </div>
 
@@ -651,13 +758,13 @@ export default function NegotiationsPage() {
               placeholder="اقدام بعدی (مثلاً تماس با مالک)"
               value={form.next_action}
               onChange={(e) => setForm({ ...form, next_action: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
             />
             <input
               type="datetime-local"
               value={form.next_followup_at}
               onChange={(e) => setForm({ ...form, next_followup_at: e.target.value })}
-              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
             />
           </div>
 
@@ -666,15 +773,81 @@ export default function NegotiationsPage() {
             placeholder="یادداشت و شرایط پرداخت پیشنهادی..."
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 p-3 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3 text-sm"
           />
 
           <button
             type="submit"
-            disabled={createMut.isPending}
+            disabled={createMut.isPending || !activeAgencyId}
             className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
           >
             {createMut.isPending ? "در حال ثبت..." : "ثبت پرونده مذاکره"}
+          </button>
+        </form>
+      </ModalDrawer>
+
+      {/* Edit Negotiation Modal */}
+      <ModalDrawer
+        open={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title={`ویرایش پرونده مذاکره — ${editTarget?.property_title || ""}`}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            editMut.mutate();
+          }}
+          className="space-y-3"
+        >
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              قیمت پایه ملک (تومان)
+            </label>
+            <input
+              type="number"
+              value={editForm.asking_price}
+              onChange={(e) => setEditForm({ ...editForm, asking_price: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              اقدام بعدی
+            </label>
+            <input
+              value={editForm.next_action}
+              onChange={(e) => setEditForm({ ...editForm, next_action: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              موعد پیگیری بعدی
+            </label>
+            <input
+              type="datetime-local"
+              value={editForm.next_followup_at}
+              onChange={(e) => setEditForm({ ...editForm, next_followup_at: e.target.value })}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              یادداشت و شرایط
+            </label>
+            <textarea
+              rows={3}
+              value={editForm.notes}
+              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3 text-xs"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={editMut.isPending}
+            className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+          >
+            {editMut.isPending ? "در حال ذخیره..." : "ذخیره تغییرات مذاکره"}
           </button>
         </form>
       </ModalDrawer>
@@ -691,7 +864,7 @@ export default function NegotiationsPage() {
               <div key={o.id} className="flex items-center justify-between p-3 text-xs">
                 <div>
                   <div className="font-bold text-slate-900 dark:text-slate-100">
-                    نسخه {o.version_number} — طرف پیشنهاد: {o.offered_by}
+                    نسخه {formatNumberFa(o.version_number)} — طرف پیشنهاد: {o.offered_by}
                   </div>
                   <div className="text-slate-500 dark:text-slate-400">
                     <DateDisplay value={o.created_at} withTime />
@@ -711,47 +884,63 @@ export default function NegotiationsPage() {
             ))}
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              addOfferMut.mutate();
-            }}
-            className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4"
-          >
-            <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
-              ثبت پیشنهاد متقابل جدید
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={offerForm.offered_by}
-                onChange={(e) => setOfferForm({ ...offerForm, offered_by: e.target.value })}
-                className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+          {offersTarget &&
+            !["ACCEPTED", "REJECTED", "CANCELLED", "WITHDRAWN", "EXPIRED"].includes(offersTarget.status) && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addOfferMut.mutate();
+                }}
+                className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4"
               >
-                <option value="BUYER">خریدار</option>
-                <option value="SELLER">مالک / فروشنده</option>
-              </select>
-              <input
-                type="number"
-                value={offerForm.proposed_price}
-                onChange={(e) => setOfferForm({ ...offerForm, proposed_price: e.target.value })}
-                placeholder="مبلغ پیشنهادی"
-                className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm tabular-nums"
-              />
-            </div>
-            <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
-              ثبت نسخه پیشنهاد متقابل
-            </button>
-          </form>
+                <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                  ثبت پیشنهاد متقابل جدید
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={offerForm.offered_by}
+                    onChange={(e) => setOfferForm({ ...offerForm, offered_by: e.target.value })}
+                    className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm"
+                  >
+                    <option value="BUYER">خریدار</option>
+                    <option value="SELLER">مالک / فروشنده</option>
+                  </select>
+                  <input
+                    type="number"
+                    value={offerForm.proposed_price}
+                    onChange={(e) => setOfferForm({ ...offerForm, proposed_price: e.target.value })}
+                    placeholder="مبلغ پیشنهادی"
+                    className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm tabular-nums"
+                  />
+                </div>
+                <button type="submit" className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
+                  ثبت نسخه پیشنهاد متقابل
+                </button>
+              </form>
+            )}
 
           {offersTarget &&
-            ["OPEN", "COUNTER_OFFERED", "BUYER_OFFERED", "OWNER_COUNTERED", "BARGAINING", "PRE_AGREEMENT"].includes(
-              offersTarget.status
-            ) && (
+            [
+              "CREATED",
+              "AWAITING_BUYER_OFFER",
+              "OPEN",
+              "COUNTER_OFFERED",
+              "BUYER_OFFERED",
+              "AWAITING_OWNER_RESPONSE",
+              "OWNER_COUNTERED",
+              "BARGAINING",
+              "PRE_AGREEMENT",
+              "AWAITING_FINAL_APPROVAL",
+            ].includes(offersTarget.status) && (
               <div className="flex gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
-                    respondMut.mutate({ id: offersTarget.id, status: "ACCEPTED" });
+                    respondMut.mutate({
+                      id: offersTarget.id,
+                      agencyId: offersTarget.agency_id,
+                      status: "ACCEPTED",
+                    });
                     setOffersTarget(null);
                   }}
                   className="h-9 flex-1 rounded-lg bg-emerald-700 text-xs font-semibold text-white"
@@ -761,7 +950,11 @@ export default function NegotiationsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    respondMut.mutate({ id: offersTarget.id, status: "REJECTED" });
+                    respondMut.mutate({
+                      id: offersTarget.id,
+                      agencyId: offersTarget.agency_id,
+                      status: "REJECTED",
+                    });
                     setOffersTarget(null);
                   }}
                   className="h-9 flex-1 rounded-lg border border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700"

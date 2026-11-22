@@ -29,6 +29,16 @@ class NegotiationCreateBody(BaseModel):
     payment_terms: dict[str, Any] = {}
 
 
+class NegotiationPatchBody(BaseModel):
+    owner_customer_id: Optional[UUID] = None
+    agent_membership_id: Optional[UUID] = None
+    deal_type_id: Optional[str] = None
+    asking_price: Optional[Decimal] = None
+    next_followup_at: Optional[datetime] = None
+    next_action: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class OfferVersionCreateBody(BaseModel):
     offered_by: str
     recipient_role: Optional[str] = None
@@ -80,6 +90,7 @@ def _ser_neg(n, include_activities: bool = False) -> dict:
 
     payload = {
         "id": str(n.id),
+        "agency_id": str(n.agency_id),
         "property_id": str(n.property_id),
         "property_code": n.property.property_code,
         "property_title": n.property.title,
@@ -88,7 +99,8 @@ def _ser_neg(n, include_activities: bool = False) -> dict:
         "customer_name": n.customer.full_name,
         "owner_customer_id": str(n.owner_customer_id) if n.owner_customer_id else None,
         "owner_name": n.owner_customer.full_name if n.owner_customer else "",
-        "agent_name": n.agent_membership.user.full_name,
+        "agent_membership_id": str(n.agent_membership_id) if n.agent_membership_id else None,
+        "agent_name": n.agent_membership.user.full_name if n.agent_membership else "",
         "deal_type": n.deal_type_id,
         "deal_type_name": n.deal_type.name_fa,
         "status": n.status,
@@ -206,6 +218,26 @@ async def create_negotiation_endpoint(
         from apps.negotiations.services import create_negotiation
 
         n = create_negotiation(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
+        return _ser_neg(n, include_activities=True)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.patch("/{negotiation_id}")
+async def update_negotiation_endpoint(
+    negotiation_id: UUID,
+    body: NegotiationPatchBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.negotiations.services import update_negotiation
+
+        n = update_negotiation(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            negotiation_id=negotiation_id,
+            data=body.model_dump(exclude_unset=True),
+        )
         return _ser_neg(n, include_activities=True)
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))

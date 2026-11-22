@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
@@ -68,6 +68,7 @@ export function PropertyForm({
   initialData?: PropertyItem;
 }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const { accessToken, activeAgencyId } = useAuth();
   const { currencies } = usePublicConfig();
   const activeCurrencies =
@@ -304,6 +305,11 @@ export function PropertyForm({
         });
       }
       setSavedOk(true);
+      qc.invalidateQueries({ queryKey: ["agency-properties"] });
+      if (propertyId) {
+        qc.invalidateQueries({ queryKey: ["dashboard-property-detail", propertyId] });
+        qc.invalidateQueries({ queryKey: ["property-edit", propertyId] });
+      }
       toast.success(propertyId ? "ملک به‌روزرسانی شد" : "ملک جدید ثبت شد");
       setTimeout(() => router.push("/dashboard/properties"), 700);
     } catch (err) {

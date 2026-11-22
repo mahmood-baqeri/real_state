@@ -12,12 +12,33 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
+if [ "$(id -u)" -eq 0 ] && command -v apt-get >/dev/null 2>&1; then
+  NEED_APT=0
+  python3 -m ensurepip --version >/dev/null 2>&1 || NEED_APT=1
+  command -v redis-server >/dev/null 2>&1 || NEED_APT=1
+  [ -d /usr/lib/postgresql ] || NEED_APT=1
+  if [ "$NEED_APT" -eq 1 ]; then
+    apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--path-exclude=/var/log/*" \
+      postgresql postgresql-contrib redis-server python3-venv python3-pip libpq-dev >/dev/null
+  fi
+fi
+
 if [ -x "$ROOT_DIR/.venv/bin/python" ]; then
   PY_BIN="$ROOT_DIR/.venv/bin/python"
 elif [ -x "/opt/pyvenv/bin/python" ]; then
   PY_BIN="/opt/pyvenv/bin/python"
 else
   PY_BIN="$(command -v python3)"
+fi
+
+if ! "$PY_BIN" -c "import django, fastapi, pydantic_settings, uvicorn, psycopg2, redis" >/dev/null 2>&1; then
+  if [ ! -x "$ROOT_DIR/.venv/bin/pip" ]; then
+    rm -rf "$ROOT_DIR/.venv"
+    python3 -m venv "$ROOT_DIR/.venv"
+  fi
+  "$ROOT_DIR/.venv/bin/pip" install --no-cache-dir --quiet -r "$ROOT_DIR/backend/requirements.txt"
+  PY_BIN="$ROOT_DIR/.venv/bin/python"
 fi
 
 PG_CTL_BIN=""
@@ -79,12 +100,17 @@ else
 fi
 
 pkill -f "uvicorn .* --host 127.0.0.1 --port 8020" >/dev/null 2>&1 || true
+pkill -f "celery -A config worker" >/dev/null 2>&1 || true
+
+(cd "$DJANGO_DIR" && exec "$PY_BIN" -m celery -A config worker -l info --concurrency=2 --logfile=/tmp/celery-worker.log) &
+CELERY_PID=$!
 
 (cd "$FASTAPI_DIR" && exec "$PY_BIN" -m uvicorn main:app --host 127.0.0.1 --port 8020) &
 FASTAPI_PID=$!
 
 cleanup() {
   kill "$FASTAPI_PID" >/dev/null 2>&1 || true
+  kill "$CELERY_PID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
 

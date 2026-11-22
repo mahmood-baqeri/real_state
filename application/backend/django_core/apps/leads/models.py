@@ -1,8 +1,8 @@
 from django.db import models
-from common.models import TenantScopedModel
+from common.models import BaseModel, SoftDeleteMixin, TenantScopedModel
 
 
-class Lead(TenantScopedModel):
+class Lead(TenantScopedModel, SoftDeleteMixin):
     class Status(models.TextChoices):
         NEW = "NEW", "New"
         CONTACTED = "CONTACTED", "Contacted"
@@ -29,3 +29,14 @@ class Lead(TenantScopedModel):
     class Meta:
         db_table = "leads_lead"
         ordering = ["-created_at"]
+
+
+class LeadActivity(BaseModel):
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name="activities")
+    activity_type = models.CharField(max_length=32, default="NOTE")
+    note = models.TextField()
+
+    class Meta:
+        db_table = "leads_activity"
+        ordering = ["-created_at"]
+

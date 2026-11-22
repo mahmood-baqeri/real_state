@@ -26,6 +26,13 @@ class ArticleCreateBody(BaseModel):
     summary: str = ""
     content_body: str = Field(min_length=10)
     cover_image_url: str = ""
+    language: str = "fa"
+    tone: str = "PROFESSIONAL"
+    target_audience: str = ""
+    keywords: list[str] = []
+    ai_generated: bool = False
+    ai_model: str = ""
+    ai_tokens_used: int = 0
     meta_title: str = ""
     meta_description: str = ""
     canonical_url: str = ""
@@ -39,6 +46,10 @@ class ArticlePatchBody(BaseModel):
     summary: Optional[str] = None
     content_body: Optional[str] = None
     cover_image_url: Optional[str] = None
+    language: Optional[str] = None
+    tone: Optional[str] = None
+    target_audience: Optional[str] = None
+    keywords: Optional[list[str]] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     canonical_url: Optional[str] = None
@@ -97,6 +108,13 @@ def _ser_article(a, include_versions: bool = False) -> dict:
         "content_body": a.content_body,
         "cover_image_url": a.cover_image_url,
         "status": a.status,
+        "language": getattr(a, "language", "fa"),
+        "tone": getattr(a, "tone", ""),
+        "target_audience": getattr(a, "target_audience", ""),
+        "keywords": getattr(a, "keywords", []) or [],
+        "ai_generated": bool(getattr(a, "ai_generated", False)),
+        "ai_model": getattr(a, "ai_model", ""),
+        "ai_tokens_used": int(getattr(a, "ai_tokens_used", 0) or 0),
         "scheduled_for": a.scheduled_for.isoformat() if a.scheduled_for else None,
         "published_at": a.published_at.isoformat() if a.published_at else None,
         "meta_title": a.meta_title,
@@ -112,6 +130,7 @@ def _ser_article(a, include_versions: bool = False) -> dict:
             {
                 "version_number": v.version_number,
                 "title": v.title,
+                "content_body": v.content_body,
                 "change_note": v.change_note,
                 "edited_by": v.edited_by.full_name if v.edited_by else "سیستم",
                 "created_at": v.created_at.isoformat(),
@@ -258,6 +277,18 @@ async def transition_cms_article_endpoint(
             ),
             include_versions=True,
         )
+
+    return ok(await run_django(_op))
+
+
+@router.delete("/cms/articles/{article_id}")
+async def delete_cms_article_endpoint(
+    article_id: UUID, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.cms.services import delete_article
+
+        return delete_article(user=ctx.user, article_id=article_id)
 
     return ok(await run_django(_op))
 
@@ -427,6 +458,13 @@ async def review_cooperation_request_endpoint(
 # ==============================================================================
 
 
+class LegalSectionBody(BaseModel):
+    id: Optional[str] = None
+    title: str
+    body_html: str = ""
+    sort_order: int = 1
+
+
 class LegalDocumentUpsertBody(BaseModel):
     slug: str = Field(min_length=2, max_length=120)
     doc_type: str = "LEGAL"
@@ -434,6 +472,7 @@ class LegalDocumentUpsertBody(BaseModel):
     title_en: str = ""
     summary: str = ""
     body_html: str = ""
+    sections_json: Optional[list[LegalSectionBody]] = None
     status: str = "DRAFT"
     requires_acceptance: bool = False
     effective_at: Optional[datetime] = None
@@ -457,6 +496,7 @@ def _ser_legal_doc(doc, include_versions: bool = False, accepted_by_user: Option
         "title_en": doc.title_en,
         "summary": doc.summary,
         "body_html": doc.body_html,
+        "sections_json": doc.sections_json or [],
         "status": doc.status,
         "version_number": doc.version_number,
         "requires_acceptance": doc.requires_acceptance,
@@ -477,6 +517,7 @@ def _ser_legal_doc(doc, include_versions: bool = False, accepted_by_user: Option
                 "version_number": v.version_number,
                 "title_fa": v.title_fa,
                 "summary": v.summary,
+                "sections_json": v.sections_json or [],
                 "change_note": v.change_note,
                 "edited_by_name": v.edited_by.full_name if v.edited_by else "سیستم",
                 "created_at": v.created_at.isoformat(),

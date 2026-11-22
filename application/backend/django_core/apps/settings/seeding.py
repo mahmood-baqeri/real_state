@@ -57,6 +57,7 @@ from apps.commissions.services import calculate_deal_commission
 from apps.complaints.models import Complaint, ComplaintNote
 from apps.contracts.models import (
     Contract,
+    ContractAmendment,
     ContractParty,
     ContractStatusHistory,
     ContractTemplate,
@@ -70,7 +71,7 @@ from apps.crm.models import (
 from apps.customers.models import Customer, CustomerRequirement, CustomerShare
 from apps.documents.models import Document, DocumentDownloadLog, DocumentVersion
 from apps.employees.models import CompensationPlan, EmployeeProfile
-from apps.leads.models import Lead
+from apps.leads.models import Lead, LeadActivity
 from apps.negotiations.models import Negotiation, NegotiationActivity, NegotiationOfferVersion
 from apps.notifications.models import (
     NotificationMessage,
@@ -127,6 +128,31 @@ from apps.support.models import (
 )
 from apps.surveys.models import Survey, SurveyAnswer, SurveyQuestion, SurveyResponse
 from apps.transactions.models import Deal
+from apps.virtual_tours.models import (
+    BuildingGeometry,
+    CaptureGuideStep,
+    CaptureImage,
+    CaptureSession,
+    Floor,
+    FloorPlanAsset,
+    GeneratedModelAsset,
+    Hotspot,
+    ModelReview,
+    PanoramaVersion,
+    ProcessingJob,
+    RoomGeometry,
+    RoomMeasurement,
+    ScanAsset,
+    ScanProcessingResult,
+    Scene,
+    SceneLink,
+    TourAnalyticsEvent,
+    TourPublication,
+    TourQualityReport,
+    VirtualTour,
+    WallOpening,
+    WallSegment,
+)
 
 
 DEMO_PHONES = [
@@ -549,6 +575,12 @@ def seed_all_platform_data(
         ("accounting.view", "accounting", "مشاهده دفاتر حسابداری"),
         ("accounting.post", "accounting", "ثبت و قطعی‌سازی اسناد حسابداری"),
         ("audit.view", "audit", "مشاهده لاگ ممیزی آژانس"),
+        ("virtual_tour.view", "virtual_tours", "مشاهده تورهای مجازی املاک آژانس"),
+        ("virtual_tour.create", "virtual_tours", "ایجاد تور مجازی و شروع جلسه عکاسی"),
+        ("virtual_tour.edit", "virtual_tours", "ویرایش اتاق‌ها، لینک‌ها و هات‌اسپات‌ها"),
+        ("virtual_tour.approve", "virtual_tours", "تأیید یا رد کیفیت پانوراما"),
+        ("virtual_tour.publish", "virtual_tours", "انتشار و لغو انتشار عمومی تور مجازی"),
+        ("virtual_tour.delete", "virtual_tours", "حذف یا آرشیو تور مجازی"),
     ]
     for code, mod, desc in perm_codes:
         Permission.objects.get_or_create(
@@ -601,6 +633,11 @@ def seed_all_platform_data(
             "appointment.view_all_agency",
             "deal.view_all_agency",
             "commission.view_all_agency",
+            "virtual_tour.view",
+            "virtual_tour.create",
+            "virtual_tour.edit",
+            "virtual_tour.approve",
+            "virtual_tour.publish",
         ]
     ):
         RolePermission.objects.get_or_create(role=branch_mgr_role, permission=p)
@@ -617,11 +654,17 @@ def seed_all_platform_data(
             "appointment.view_all_agency",
             "deal.view_all_agency",
             "commission.view_all_agency",
+            "virtual_tour.view",
+            "virtual_tour.create",
+            "virtual_tour.edit",
+            "virtual_tour.approve",
         ]
     ):
         RolePermission.objects.get_or_create(role=sales_mgr_role, permission=p)
 
-    for p in Permission.objects.filter(code__in=["property.create"]):
+    for p in Permission.objects.filter(
+        code__in=["property.create", "virtual_tour.view", "virtual_tour.create", "virtual_tour.edit"]
+    ):
         RolePermission.objects.get_or_create(role=agent_role, permission=p)
 
     for p in Permission.objects.filter(
@@ -1379,6 +1422,18 @@ def seed_all_platform_data(
             reason="تأیید و امضای طرفین معامله",
             changed_by=mgr_a,
         )
+    if not ContractAmendment.objects.filter(contract=contract).exists():
+        ContractAmendment.objects.create(
+            contract=contract,
+            amendment_number=1,
+            title="الحاقیه شماره ۱ — زمان تحویل سند و تسویه نهایی",
+            reason="تمدید ۵ روزه مهلت ارائه مفاصاحساب دارایی توسط مالک با توافق طرفین",
+            changes_json={"delivery_grace_days": 5, "tax_clearance_deadline": "1405-02-20"},
+            status=ContractAmendment.Status.APPROVED,
+            approved_by=mgr_a,
+            approved_at=now - timedelta(days=3),
+            created_by=mgr_a,
+        )
 
     deal, _ = Deal.objects.all_tenants().get_or_create(
         agency=agency_a,
@@ -1581,17 +1636,25 @@ def seed_all_platform_data(
         )
 
     # 10. Leads, Negotiations, Documents, Payments, Cooperation, SavedSearch, Notifications & Audit
-    if not Lead.objects.all_tenants().filter(agency=agency_a, phone_number="09127778899").exists():
-        Lead.objects.all_tenants().create(
-            agency=agency_a,
-            phone_number="09127778899",
-            full_name="مهندس کاوه تهرانی",
-            request_type="BUY",
-            property=created_props[0],
-            source="PORTAL",
-            assigned_membership=mem_agent_a1,
-            status=Lead.Status.QUALIFIED,
-            notes="متقاضی خرید پنت‌هاوس بالای ۱۸۰ متر در زعفرانیه",
+    lead_1, _ = Lead.objects.all_tenants().get_or_create(
+        agency=agency_a,
+        phone_number="09127778899",
+        defaults={
+            "full_name": "مهندس کاوه تهرانی",
+            "request_type": "BUY",
+            "property": created_props[0],
+            "source": "PORTAL",
+            "assigned_membership": mem_agent_a1,
+            "status": Lead.Status.QUALIFIED,
+            "notes": "متقاضی خرید پنت‌هاوس بالای ۱۸۰ متر در زعفرانیه",
+        },
+    )
+    if not LeadActivity.objects.filter(lead=lead_1).exists():
+        LeadActivity.objects.create(
+            lead=lead_1,
+            activity_type="CALL",
+            note="تماس اولیه و هماهنگی بازدید حضوری برای فردا ساعت ۱۶",
+            created_by=agent_a1,
         )
     if not Lead.objects.all_tenants().filter(agency=agency_a, phone_number="09126665544").exists():
         Lead.objects.all_tenants().create(
@@ -2260,6 +2323,31 @@ def seed_all_platform_data(
         ("notifications.enable_web_push", "فعال‌سازی اعلان‌های لحظه‌ای مرورگر (Web Push)", "Enable Web Push", "ارسال پوش نوتیفیکیشن برای رویدادهای فوری", "NOTIFICATIONS", "CHANNELS", "BOOLEAN", True, "PUBLIC", {}, 100),
         ("ai.enable_assistant", "فعال‌سازی دستیار هوشمند تولید متن و تحلیل آژانس", "Enable AI Assistant", "فعال‌سازی ابزارهای هوشمند در داشبورد آژانس", "AI", "FEATURES", "BOOLEAN", True, "PUBLIC", {}, 110),
         ("ai.default_model", "مدل پیش‌فرض هوش مصنوعی", "Default AI Model", "شناسه مدل انتخابی در Gateway هوش مصنوعی", "AI", "MODELS", "STRING", "gpt-4o", "INTERNAL", {}, 111),
+        # VIRTUAL TOUR & 3D EXPERIENCE
+        ("virtual_tour.enabled", "فعال‌سازی سراسری ماژول تور مجازی و سه‌بعدی", "Enable Virtual Tour Module", "روشن یا خاموش‌کردن قابلیت ساخت و نمایش تور ۳۶۰ درجه و مدل سه‌بعدی", "VIRTUAL_TOUR", "GENERAL", "BOOLEAN", True, "PUBLIC", {}, 120),
+        ("virtual_tour.max_floors_per_tour", "حداکثر تعداد طبقه در هر تور مجازی", "Max Floors Per Tour", "سقف مجاز تعریف طبقه برای یک تور مجازی ملک", "VIRTUAL_TOUR", "QUOTAS", "INTEGER", 10, "INTERNAL", {"min": 1, "max": 50}, 121),
+        ("virtual_tour.max_scenes_per_tour", "حداکثر تعداد اتاق در هر تور مجازی", "Max Scenes Per Tour", "سقف مجاز ثبت اتاق و نقطه دید در هر تور", "VIRTUAL_TOUR", "QUOTAS", "INTEGER", 40, "INTERNAL", {"min": 1, "max": 200}, 122),
+        ("virtual_tour.capture_horizontal_steps", "تعداد گام افقی عکاسی ۳۶۰ درجه", "Capture Horizontal Steps", "تعداد عکس‌های حلقه افقی راهنمای دوربین گوشی (مثال: ۱۲ گام ۳۰ درجه)", "VIRTUAL_TOUR", "CAPTURE", "INTEGER", 12, "PUBLIC", {"min": 6, "max": 24}, 123),
+        ("virtual_tour.capture_require_ceiling_floor", "الزام عکس‌برداری از سقف و کف در راهنما", "Capture Ceiling & Floor Steps", "اضافه‌کردن گام‌های سقف و کف برای تکمیل کروی ۳۶۰ درجه", "VIRTUAL_TOUR", "CAPTURE", "BOOLEAN", True, "PUBLIC", {}, 124),
+        ("virtual_tour.capture_target_overlap_percent", "هم‌پوشانی استاندارد بین عکس‌ها (%)", "Target Overlap Percent", "درصد هم‌پوشانی پیشنهادی در راهنمای عکاسی موبایل", "VIRTUAL_TOUR", "CAPTURE", "INTEGER", 35, "PUBLIC", {"min": 15, "max": 60}, 125),
+        ("virtual_tour.min_usable_images_for_stitch", "حداقل فریم سالم برای دوخت پانوراما", "Min Usable Images", "حداقل تعداد عکس قابل قبول برای شروع دوخت خودکار", "VIRTUAL_TOUR", "CAPTURE", "INTEGER", 8, "INTERNAL", {"min": 4, "max": 36}, 126),
+        ("virtual_tour.min_image_width_px", "حداقل عرض تصویر خام (پیکسل)", "Min Image Width", "آستانه عرض تصویر در بررسی کیفیت عکاسی", "VIRTUAL_TOUR", "QC", "INTEGER", 800, "INTERNAL", {"min": 320, "max": 4096}, 127),
+        ("virtual_tour.min_image_height_px", "حداقل ارتفاع تصویر خام (پیکسل)", "Min Image Height", "آستانه ارتفاع تصویر در بررسی کیفیت عکاسی", "VIRTUAL_TOUR", "QC", "INTEGER", 600, "INTERNAL", {"min": 240, "max": 4096}, 128),
+        ("virtual_tour.max_upload_file_mb", "حداکثر حجم هر فایل عکاسی/پانوراما (MB)", "Max Upload File MB", "محدودیت حجم فایل تصویر ارسالی", "VIRTUAL_TOUR", "CAPTURE", "INTEGER", 25, "INTERNAL", {"min": 2, "max": 150}, 129),
+        ("virtual_tour.qc_min_blur_score", "حداقل شاخص وضوح تصویر (Laplacian)", "Min Blur Score", "آستانه تشخیص تاری تصویر خام هنگام آپلود", "VIRTUAL_TOUR", "QC", "DECIMAL", "45.0", "INTERNAL", {"min": "5", "max": "500"}, 130),
+        ("virtual_tour.qc_min_brightness", "حداقل روشنایی قابل قبول تصویر", "Min Brightness", "تشخیص خودکار عکس‌های بسیار تاریک", "VIRTUAL_TOUR", "QC", "DECIMAL", "35.0", "INTERNAL", {"min": "5", "max": "120"}, 131),
+        ("virtual_tour.qc_max_brightness", "حداکثر روشنایی قابل قبول تصویر", "Max Brightness", "تشخیص خودکار نورزدگی بیش از حد (Overexposure)", "VIRTUAL_TOUR", "QC", "DECIMAL", "225.0", "INTERNAL", {"min": "150", "max": "255"}, 132),
+        ("virtual_tour.qc_min_contrast", "حداقل کنتراست تصویر", "Min Contrast", "حداقل انحراف معیار روشنایی برای تشخیص جزئیات معماری", "VIRTUAL_TOUR", "QC", "DECIMAL", "18.0", "INTERNAL", {"min": "2", "max": "100"}, 133),
+        ("virtual_tour.stitching_engine", "موتور دوخت پانوراما", "Stitching Engine", "موتور فعال پردازش و دوخت تصاویر کروی در Backend", "VIRTUAL_TOUR", "PROCESSING", "SELECT", "opencv", "INTERNAL", {"choices": ["opencv"]}, 134),
+        ("virtual_tour.panorama_output_width_px", "عرض خروجی پانورامای Equirectangular (پیکسل)", "Panorama Output Width", "عرض تصویر خروجی ۲ به ۱ (مثال: 2048 یا 4096)", "VIRTUAL_TOUR", "PROCESSING", "SELECT", "2048", "INTERNAL", {"choices": ["1024", "2048", "4096"]}, 135),
+        ("virtual_tour.require_manager_approval", "الزام تأیید مدیر پیش از انتشار پانوراما", "Require Manager Approval", "قفل انتشار عمومی تور تا تأیید انسانی نسخه پانوراما", "VIRTUAL_TOUR", "GOVERNANCE", "BOOLEAN", True, "INTERNAL", {}, 136),
+        ("virtual_tour.require_property_verification", "الزام انطباق با احراز اصالت ملک", "Require Verified Property", "انتشار عمومی تور فقط برای املاک منتشرشده و مجاز پورتال", "VIRTUAL_TOUR", "GOVERNANCE", "BOOLEAN", True, "INTERNAL", {}, 137),
+        ("virtual_tour.job_timeout_seconds", "مهلت زمانی پردازش (ثانیه)", "Job Timeout Seconds", "حداکثر زمان مجاز اجرای پردازش در Celery", "VIRTUAL_TOUR", "PROCESSING", "INTEGER", 300, "INTERNAL", {"min": 30, "max": 3600}, 138),
+        ("virtual_tour.max_job_retries", "حداکثر تعداد تلاش مجدد پردازش ناموفق", "Max Job Retries", "سقف دکمه اجرای مجدد برای پردازش‌های خطادار", "VIRTUAL_TOUR", "PROCESSING", "INTEGER", 2, "INTERNAL", {"min": 0, "max": 10}, 139),
+        ("virtual_tour.default_wall_height_m", "ارتفاع پیش‌فرض دیوارها در مدل سه‌بعدی (متر)", "Default Wall Height (m)", "ارتفاع استاندارد اکستروژن دیوارها در Dollhouse سه‌بعدی", "VIRTUAL_TOUR", "GEOMETRY_3D", "DECIMAL", "2.90", "PUBLIC", {"min": "2.0", "max": "8.0"}, 140),
+        ("virtual_tour.default_wall_thickness_m", "ضخامت پیش‌فرض دیوارها (متر)", "Default Wall Thickness (m)", "ضخامت استاندارد دیوارهای داخلی در نقشه و مدل سه‌بعدی", "VIRTUAL_TOUR", "GEOMETRY_3D", "DECIMAL", "0.18", "PUBLIC", {"min": "0.05", "max": "1.0"}, 141),
+        ("virtual_tour.dollhouse_default_opacity", "شفافیت پیش‌فرض نمای Dollhouse", "Dollhouse Opacity", "میزان شفافیت دیوارها در نمای پیش‌فرض مدل سه‌بعدی", "VIRTUAL_TOUR", "GEOMETRY_3D", "DECIMAL", "0.92", "PUBLIC", {"min": "0.2", "max": "1.0"}, 142),
+        ("virtual_tour.analytics_enabled", "ثبت آمار بازدید و تعامل تور مجازی", "Virtual Tour Analytics Enabled", "ثبت رویدادهای ناشناس‌سازی‌شده تعامل کاربران در پورتال", "VIRTUAL_TOUR", "ANALYTICS", "BOOLEAN", True, "INTERNAL", {}, 143),
     ]
 
     for key, tfa, ten, desc, cat, subcat, vtype, val, sens, schema, sord in settings_catalog:
@@ -2301,9 +2389,11 @@ def seed_all_platform_data(
     for slot_key, cat, title_fa, desc, img_url, dark_url, alt_txt, sord in [
         ("site_logo_light", "LOGO", "لوگوی اصلی پلتفرم (تم روشن)", "تصویر لوگوی نمایش‌داده‌شده در هدر و صفحات روشن", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی بنیان ملک", 1),
         ("site_logo_dark", "LOGO", "لوگوی پلتفرم (تم تیره)", "تصویر لوگوی بهینه‌شده برای پس‌زمینه تیره", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی بنیان ملک در حالت تیره", 2),
-        ("hero_banner", "BANNER", "تصویر شاخص صفحه اصلی (Hero)", "بنر معماری نمایش‌داده‌شده در بخش اول پورتال عمومی", "/images/hero-penthouse-tehran.jpg", "/images/hero-penthouse-tehran.jpg", "پنت‌هاوس لوکس معماری در شمال تهران", 3),
-        ("auth_banner", "BANNER", "تصویر جانبی صفحات ورود و ثبت‌نام", "تصویر معماری نمایش‌داده‌شده در کنار فرم‌های احراز هویت", "/images/modern-villa-facade.jpg", "/images/modern-villa-facade.jpg", "نمای ویلای مدرن بنیان ملک", 4),
-        ("about_banner", "BANNER", "تصویر معرفی پلتفرم (درباره ما)", "تصویر دفتر مدیریت آژانس در صفحه درباره بنیان ملک", "/images/studio-agency-office.jpg", "/images/studio-agency-office.jpg", "دفتر مدرن آژانس املاک بنیان ملک", 5),
+        ("mobile_logo", "LOGO", "لوگوی نسخه موبایل", "تصویر لوگوی فشرده نمایش‌داده‌شده در هدر موبایل", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی موبایل بنیان ملک", 3),
+        ("favicon", "FAVICON", "آیکون تب مرورگر (Favicon)", "فایل آیکون `.ico` یا `.png` نمایش‌داده‌شده در تب مرورگر", "/images/brand-mark.svg", "/images/brand-mark.svg", "آیکون بنیان ملک", 4),
+        ("hero_banner", "BANNER", "تصویر شاخص صفحه اصلی (Hero)", "بنر معماری نمایش‌داده‌شده در بخش اول پورتال عمومی", "/images/hero-penthouse-tehran.jpg", "/images/hero-penthouse-tehran.jpg", "پنت‌هاوس لوکس معماری در شمال تهران", 5),
+        ("auth_banner", "BANNER", "تصویر جانبی صفحات ورود و ثبت‌نام", "تصویر معماری نمایش‌داده‌شده در کنار فرم‌های احراز هویت", "/images/modern-villa-facade.jpg", "/images/modern-villa-facade.jpg", "نمای ویلای مدرن بنیان ملک", 6),
+        ("about_banner", "BANNER", "تصویر معرفی پلتفرم (درباره ما)", "تصویر دفتر مدیریت آژانس در صفحه درباره بنیان ملک", "/images/studio-agency-office.jpg", "/images/studio-agency-office.jpg", "دفتر مدرن آژانس املاک بنیان ملک", 7),
     ]:
         BrandMediaSlot.objects.get_or_create(
             slot_key=slot_key,
@@ -2616,6 +2706,14 @@ def seed_all_platform_data(
 
     first_legal_doc = None
     for slug, dtype, tfa, ten, summary, body_html, req_acc, sord in legal_docs_seed:
+        default_sections = [
+            {
+                "id": f"{slug}-sec-1",
+                "title": tfa,
+                "body_html": body_html,
+                "sort_order": 1,
+            }
+        ]
         ldoc, lnew = LegalDocument.objects.get_or_create(
             slug=slug,
             defaults={
@@ -2624,6 +2722,7 @@ def seed_all_platform_data(
                 "title_en": ten,
                 "summary": summary,
                 "body_html": body_html,
+                "sections_json": default_sections,
                 "status": LegalDocument.Status.PUBLISHED,
                 "version_number": 1,
                 "requires_acceptance": req_acc,
@@ -2636,6 +2735,9 @@ def seed_all_platform_data(
                 "created_by": super_admin,
             },
         )
+        if not ldoc.sections_json:
+            ldoc.sections_json = default_sections
+            ldoc.save(update_fields=["sections_json", "updated_at"])
         if first_legal_doc is None:
             first_legal_doc = ldoc
         if lnew or not ldoc.versions.exists():
@@ -2646,6 +2748,7 @@ def seed_all_platform_data(
                     "title_fa": ldoc.title_fa,
                     "summary": ldoc.summary,
                     "body_html": ldoc.body_html,
+                    "sections_json": ldoc.sections_json or default_sections,
                     "change_note": "انتشار نسخه اولیه رسمی",
                     "edited_by": super_admin,
                     "created_by": super_admin,
@@ -2659,6 +2762,527 @@ def seed_all_platform_data(
             user=customer_user,
             defaults={"ip_address": "127.0.0.1", "user_agent": "Mozilla/5.0 BonyanMelk-Client"},
         )
+
+    # 19. Demo Virtual Tour Showcase attached to PN-1001 (P0 End-to-End Populated)
+    if created_props:
+        showcase_prop = created_props[0]
+        demo_tour, tour_new = VirtualTour.objects.all_tenants().get_or_create(
+            property=showcase_prop,
+            archived_at__isnull=True,
+            defaults={
+                "agency": agency_a,
+                "branch": showcase_prop.branch,
+                "title": f"تور مجازی ۳۶۰ درجه {showcase_prop.title}",
+                "description": "بازدید کروی تعاملی فضاهای پذیرایی و آشپزخانه پنت‌هاوس زعفرانیه",
+                "status": VirtualTour.Status.PUBLISHED,
+                "published_at": now - timedelta(days=1),
+                "created_by": mgr_a,
+                "updated_by": mgr_a,
+            },
+        )
+        if tour_new or not demo_tour.floors.exists():
+            import numpy as np
+            import cv2
+            from integrations.registry import get_storage_provider
+
+            storage = get_storage_provider()
+            f_ground, _ = Floor.objects.get_or_create(
+                tour=demo_tour,
+                order=0,
+                defaults={
+                    "title": "همکف (پذیرایی و آشپزخانه)",
+                    "elevation_m": Decimal("0.00"),
+                    "description": "فضای اصلی واحد پنت‌هاوس",
+                    "created_by": mgr_a,
+                },
+            )
+            sc_living, _ = Scene.objects.get_or_create(
+                tour=demo_tour,
+                floor=f_ground,
+                title="سالن پذیرایی و تراس",
+                defaults={
+                    "room_type": "living_room",
+                    "description": "سالن دلباز با نورگیر جنوبی و چشم‌انداز کوهستان",
+                    "order": 0,
+                    "is_start_scene": True,
+                    "active": True,
+                    "initial_yaw": 15.0,
+                    "initial_pitch": 0.0,
+                    "created_by": mgr_a,
+                },
+            )
+            sc_kitchen, _ = Scene.objects.get_or_create(
+                tour=demo_tour,
+                floor=f_ground,
+                title="آشپزخانه مدرن و جزیره",
+                defaults={
+                    "room_type": "kitchen",
+                    "description": "آشپزخانه فرنیش با کابینت چوب طبیعی و جزیره سنگی",
+                    "order": 1,
+                    "is_start_scene": False,
+                    "active": True,
+                    "initial_yaw": 180.0,
+                    "initial_pitch": 0.0,
+                    "created_by": mgr_a,
+                },
+            )
+
+            def _make_demo_equirect(warm_tint: tuple[int, int, int], label: str) -> tuple[bytes, bytes, bytes]:
+                w, h = 1024, 512
+                y_grid = np.linspace(-1.0, 1.0, h)[:, None]
+                x_grid = np.linspace(0.0, 1.0, w)[None, :]
+                canvas = np.zeros((h, w, 3), dtype=np.uint8)
+                # Ceiling
+                ceil_mask = y_grid < -0.25
+                canvas[np.broadcast_to(ceil_mask, (h, w))] = (232, 236, 240)
+                # Walls gradient with architectural columns & window highlight
+                wall_mask = (y_grid >= -0.25) & (y_grid <= 0.35)
+                base_b, base_g, base_r = warm_tint
+                wall_b = np.clip(base_b + (np.sin(x_grid * np.pi * 6) * 22), 30, 250).astype(np.uint8)
+                wall_g = np.clip(base_g + (np.sin(x_grid * np.pi * 6) * 18), 30, 250).astype(np.uint8)
+                wall_r = np.clip(base_r + (np.cos(x_grid * np.pi * 4) * 20), 30, 250).astype(np.uint8)
+                wall_rgb = np.stack([np.broadcast_to(wall_b, (h, w)), np.broadcast_to(wall_g, (h, w)), np.broadcast_to(wall_r, (h, w))], axis=-1)
+                canvas = np.where(wall_mask[..., None], wall_rgb, canvas)
+                # Floor warm oak tone
+                floor_mask = y_grid > 0.35
+                canvas[np.broadcast_to(floor_mask, (h, w))] = (96, 128, 162)
+                # Architectural grid lines for realistic depth cue in 360 viewer
+                for deg_col in range(0, w, w // 12):
+                    cv2.line(canvas, (deg_col, 100), (deg_col, 390), (210, 205, 195), 2)
+                cv2.line(canvas, (0, int(h * 0.38)), (w, int(h * 0.38)), (185, 180, 175), 2)
+                cv2.line(canvas, (0, int(h * 0.68)), (w, int(h * 0.68)), (140, 118, 95), 3)
+                # Bright window frame
+                cv2.rectangle(canvas, (380, 155), (610, 320), (242, 248, 255), -1)
+                cv2.rectangle(canvas, (380, 155), (610, 320), (80, 90, 100), 4)
+                cv2.line(canvas, (495, 155), (495, 320), (80, 90, 100), 3)
+                cv2.putText(canvas, label, (395, 355), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 55, 65), 2)
+                ok_p, pbuf = cv2.imencode(".jpg", canvas, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+                thumb = cv2.resize(canvas, (800, 400), interpolation=cv2.INTER_AREA)
+                ok_t, tbuf = cv2.imencode(".jpg", thumb, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
+                frame = canvas[:, 280:680]
+                ok_f, fbuf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                return pbuf.tobytes(), tbuf.tobytes(), fbuf.tobytes()
+
+            for sc_obj, tint, lbl in [
+                (sc_living, (186, 202, 218), "LIVING HALL 360"),
+                (sc_kitchen, (198, 212, 202), "MODERN KITCHEN 360"),
+            ]:
+                p_bytes, t_bytes, f_bytes = _make_demo_equirect(tint, lbl)
+                p_store = storage.put_bytes(
+                    key_prefix=f"private/virtual_tours/{agency_a.id}/{demo_tour.id}/panoramas/{sc_obj.id}/v1",
+                    safe_filename="demo-pano-v1.jpg",
+                    content=p_bytes,
+                    mime_type="image/jpeg",
+                )
+                t_store = storage.put_bytes(
+                    key_prefix=f"private/virtual_tours/{agency_a.id}/{demo_tour.id}/panoramas/{sc_obj.id}/v1",
+                    safe_filename="demo-thumb-v1.jpg",
+                    content=t_bytes,
+                    mime_type="image/jpeg",
+                )
+                f_store = storage.put_bytes(
+                    key_prefix=f"private/virtual_tours/{agency_a.id}/{demo_tour.id}/captures/{sc_obj.id}",
+                    safe_filename="demo-frame-1.jpg",
+                    content=f_bytes,
+                    mime_type="image/jpeg",
+                )
+                sess, _ = CaptureSession.objects.get_or_create(
+                    scene=sc_obj,
+                    status=CaptureSession.Status.COMPLETED,
+                    defaults={
+                        "tour": demo_tour,
+                        "capture_config": {"horizontal_steps": 12, "require_ceiling_floor": True},
+                        "completed_at": now - timedelta(days=1),
+                        "created_by": mgr_a,
+                    },
+                )
+                cap_img, _ = CaptureImage.objects.get_or_create(
+                    session=sess,
+                    sequence=1,
+                    defaults={
+                        "scene": sc_obj,
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "storage_key": f_store.file_key,
+                        "filename": "demo-frame-1.jpg",
+                        "mime_type": "image/jpeg",
+                        "size_bytes": f_store.size_bytes,
+                        "width": 400,
+                        "height": 512,
+                        "status": CaptureImage.Status.PASSED,
+                        "analysis": {"blur_score": 145.0, "brightness": 172.0, "contrast": 42.0},
+                        "created_by": mgr_a,
+                    },
+                )
+                CaptureGuideStep.objects.get_or_create(
+                    session=sess,
+                    sequence=1,
+                    defaults={
+                        "yaw": 0.0,
+                        "pitch": 0.0,
+                        "label": "نمای افقی 0°",
+                        "required": True,
+                        "expected_overlap_percent": 35.0,
+                        "state": CaptureGuideStep.State.PASSED,
+                        "image": cap_img,
+                        "guidance": "دوربین را در ارتفاع چشم به سمت زاویه ۰ درجه بچرخانید.",
+                    },
+                )
+                pv, _ = PanoramaVersion.objects.get_or_create(
+                    scene=sc_obj,
+                    version=1,
+                    defaults={
+                        "capture_session": sess,
+                        "state": PanoramaVersion.State.APPROVED,
+                        "storage_key": p_store.file_key,
+                        "thumbnail_key": t_store.file_key,
+                        "projection": "equirectangular",
+                        "width_px": 1024,
+                        "height_px": 512,
+                        "source_image_count": 14,
+                        "engine": "opencv_stitcher",
+                        "quality_report": {"aspect_ratio": 2.0, "is_2_to_1": True, "seam_score": 92.5},
+                        "is_current": True,
+                        "approved_by": mgr_a,
+                        "approved_at": now - timedelta(days=1),
+                        "created_by": mgr_a,
+                    },
+                )
+                sc_obj.thumbnail_storage_key = pv.thumbnail_key
+                sc_obj.save(update_fields=["thumbnail_storage_key", "updated_at"])
+                ProcessingJob.objects.get_or_create(
+                    tour=demo_tour,
+                    scene=sc_obj,
+                    job_type=ProcessingJob.JobType.PANORAMA_STITCH,
+                    defaults={
+                        "state": ProcessingJob.State.SUCCEEDED,
+                        "progress": 100,
+                        "current_step": "پانوراما آماده و تأیید شده است",
+                        "completed_at": now - timedelta(days=1),
+                        "result": {"panorama_version_id": str(pv.id), "version": 1},
+                        "created_by": mgr_a,
+                    },
+                )
+
+            SceneLink.objects.get_or_create(
+                source_scene=sc_living,
+                target_scene=sc_kitchen,
+                defaults={"tour": demo_tour, "yaw": 68.0, "pitch": -6.0, "title": "ورود به آشپزخانه", "created_by": mgr_a},
+            )
+            SceneLink.objects.get_or_create(
+                source_scene=sc_kitchen,
+                target_scene=sc_living,
+                defaults={"tour": demo_tour, "yaw": 248.0, "pitch": -6.0, "title": "بازگشت به سالن پذیرایی", "created_by": mgr_a},
+            )
+            Hotspot.objects.get_or_create(
+                scene=sc_living,
+                title="پنجره‌های قدی ترمال‌بریک",
+                defaults={
+                    "kind": Hotspot.Kind.FEATURE,
+                    "body": "نورگیری مستقیم جنوب با شیشه دوجداره عایق صوتی",
+                    "yaw": 12.0,
+                    "pitch": 4.0,
+                    "created_by": mgr_a,
+                },
+            )
+            from apps.virtual_tours.services.quality_service import generate_tour_quality_report
+            from apps.virtual_tours.services.publication_service import _build_publication_snapshot
+
+            if not demo_tour.quality_reports.exists():
+                generate_tour_quality_report(demo_tour, actor=mgr_a)
+            if not demo_tour.publications.exists():
+                snap = _build_publication_snapshot(demo_tour)
+                TourPublication.objects.create(
+                    tour=demo_tour,
+                    version=1,
+                    is_active=True,
+                    snapshot_json=snap,
+                    published_by=mgr_a,
+                    published_at=now - timedelta(days=1),
+                    created_by=mgr_a,
+                )
+            if not demo_tour.analytics_events.exists():
+                TourAnalyticsEvent.objects.create(
+                    tour=demo_tour,
+                    property=showcase_prop,
+                    agency=agency_a,
+                    scene=sc_living,
+                    event_type=TourAnalyticsEvent.EventType.TOUR_OPEN,
+                    visitor_hash="seed-demo-visitor-01",
+                    session_key="seed-demo-session-01",
+                    device_type="desktop",
+                    duration_sec=42,
+                )
+
+        # P1 Demo Floorplan + Rooms + Walls + Openings + Parametric 3D Dollhouse GLB
+        if not demo_tour.floorplans.exists() or not demo_tour.generated_models.exists():
+            import cv2
+            import numpy as np
+            from integrations.registry import get_storage_provider
+            from apps.virtual_tours.services.geometry_service import (
+                build_parametric_dollhouse_glb,
+                create_or_update_room_geometry,
+            )
+
+            f_ground = demo_tour.floors.order_by("order").first()
+            sc_living = demo_tour.scenes.filter(room_type="living_room").first() or demo_tour.scenes.order_by("order").first()
+            sc_kitchen = demo_tour.scenes.filter(room_type="kitchen").first() or demo_tour.scenes.order_by("order").last()
+
+            if f_ground and not demo_tour.floorplans.exists():
+                bp_w, bp_h = 1000, 700
+                bp = np.full((bp_h, bp_w, 3), 250, dtype=np.uint8)
+                for gx in range(50, bp_w, 50):
+                    cv2.line(bp, (gx, 30), (gx, bp_h - 30), (234, 240, 245), 1)
+                for gy in range(50, bp_h, 50):
+                    cv2.line(bp, (30, gy), (bp_w - 30, gy), (234, 240, 245), 1)
+                # Living Hall 0..8m x 0..6m -> px: 100..580 x 120..480 (scale 60 px/m => 0.016667 m/px)
+                cv2.rectangle(bp, (100, 120), (580, 480), (15, 118, 110), 4)
+                # Kitchen 8..13m x 0..4.5m -> px: 580..880 x 120..390
+                cv2.rectangle(bp, (580, 120), (880, 390), (217, 119, 6), 4)
+                cv2.putText(bp, "LIVING HALL (8.0m x 6.0m)", (160, 300), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (15, 23, 42), 2)
+                cv2.putText(bp, "KITCHEN (5.0m x 4.5m)", (605, 260), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (15, 23, 42), 2)
+                cv2.line(bp, (100, 560), (580, 560), (220, 38, 38), 2)
+                cv2.putText(bp, "8.00 m", (310, 550), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (220, 38, 38), 2)
+                ok_bp, bp_buf = cv2.imencode(".png", bp)
+                storage = get_storage_provider()
+                fp_store = storage.put_bytes(
+                    key_prefix=f"private/virtual_tours/{agency_a.id}/{demo_tour.id}/floorplans/{f_ground.id}",
+                    safe_filename="demo-ground-floorplan.png",
+                    content=bp_buf.tobytes(),
+                    mime_type="image/png",
+                )
+                fp_asset = FloorPlanAsset.objects.create(
+                    tour=demo_tour,
+                    floor=f_ground,
+                    file_type="png",
+                    storage_key=fp_store.file_key,
+                    preview_storage_key=fp_store.file_key,
+                    filename="demo-ground-floorplan.png",
+                    mime_type="image/png",
+                    size_bytes=fp_store.size_bytes,
+                    width_px=bp_w,
+                    height_px=bp_h,
+                    scale_m_per_px=round(8.0 / 480.0, 6),
+                    calibration_data={
+                        "point_a": [100, 560],
+                        "point_b": [580, 560],
+                        "pixel_distance": 480.0,
+                        "real_distance_m": 8.0,
+                        "scale_m_per_px": round(8.0 / 480.0, 6),
+                    },
+                    is_active=True,
+                    created_by=mgr_a,
+                )
+
+                if not demo_tour.room_geometries.exists():
+                    r1 = create_or_update_room_geometry(
+                        user=mgr_a,
+                        agency_id=agency_a.id,
+                        tour_id=demo_tour.id,
+                        data={
+                            "floor_id": f_ground.id,
+                            "scene_id": sc_living.id if sc_living else None,
+                            "floorplan_id": fp_asset.id,
+                            "label": "سالن پذیرایی و تراس",
+                            "room_type": "living_room",
+                            "polygon_points": [[0.0, 0.0], [8.0, 0.0], [8.0, 6.0], [0.0, 6.0]],
+                            "height_m": 3.1,
+                            "color_hex": "#0F766E",
+                        },
+                    )
+                    r2 = create_or_update_room_geometry(
+                        user=mgr_a,
+                        agency_id=agency_a.id,
+                        tour_id=demo_tour.id,
+                        data={
+                            "floor_id": f_ground.id,
+                            "scene_id": sc_kitchen.id if sc_kitchen else None,
+                            "floorplan_id": fp_asset.id,
+                            "label": "آشپزخانه مدرن و جزیره",
+                            "room_type": "kitchen",
+                            "polygon_points": [[8.0, 0.0], [13.0, 0.0], [13.0, 4.5], [8.0, 4.5]],
+                            "height_m": 3.1,
+                            "color_hex": "#D97706",
+                        },
+                    )
+                    RoomMeasurement.objects.get_or_create(
+                        room=r1,
+                        label="عرض دهانه سالن پذیرایی",
+                        defaults={
+                            "start_point": [0.0, 3.0],
+                            "end_point": [8.0, 3.0],
+                            "distance_m": Decimal("8.000"),
+                            "source": "calibrated_floorplan",
+                            "created_by": mgr_a,
+                        },
+                    )
+
+                    if not demo_tour.wall_segments.exists():
+                        wall_coords = [
+                            (0.0, 0.0, 8.0, 0.0, True),
+                            (0.0, 6.0, 8.0, 6.0, True),
+                            (0.0, 0.0, 0.0, 6.0, True),
+                            (8.0, 0.0, 8.0, 4.5, False),
+                            (8.0, 4.5, 8.0, 6.0, True),
+                            (8.0, 0.0, 13.0, 0.0, True),
+                            (13.0, 0.0, 13.0, 4.5, True),
+                            (8.0, 4.5, 13.0, 4.5, True),
+                        ]
+                        created_walls = []
+                        for sx, sy, ex, ey, is_ext in wall_coords:
+                            created_walls.append(
+                                WallSegment.objects.create(
+                                    tour=demo_tour,
+                                    floor=f_ground,
+                                    floorplan=fp_asset,
+                                    start_x=sx,
+                                    start_y=sy,
+                                    end_x=ex,
+                                    end_y=ey,
+                                    thickness_m=0.20 if is_ext else 0.14,
+                                    height_m=3.1,
+                                    is_exterior=is_ext,
+                                    created_by=mgr_a,
+                                )
+                            )
+                        # South panoramic window + interior arch between living & kitchen
+                        WallOpening.objects.create(
+                            wall=created_walls[1],
+                            kind=WallOpening.Kind.WINDOW,
+                            offset_ratio=0.5,
+                            width_m=3.2,
+                            height_m=1.9,
+                            sill_height_m=0.6,
+                            created_by=mgr_a,
+                        )
+                        WallOpening.objects.create(
+                            wall=created_walls[3],
+                            kind=WallOpening.Kind.ARCH,
+                            offset_ratio=0.5,
+                            width_m=2.0,
+                            height_m=2.4,
+                            sill_height_m=0.0,
+                            created_by=mgr_a,
+                        )
+
+            if not demo_tour.generated_models.exists() and demo_tour.room_geometries.exists():
+                glb_asset = build_parametric_dollhouse_glb(tour=demo_tour, actor=mgr_a)
+                glb_asset.state = GeneratedModelAsset.State.APPROVED
+                glb_asset.is_current = True
+                glb_asset.save(update_fields=["state", "is_current", "updated_at"])
+                ModelReview.objects.get_or_create(
+                    model_asset=glb_asset,
+                    decision=ModelReview.Decision.APPROVED,
+                    defaults={"reviewer": mgr_a, "reason": "تأیید هندسه پلان کالیبره‌شده و مدل سه‌بعدی Dollhouse", "created_by": mgr_a},
+                )
+                ProcessingJob.objects.get_or_create(
+                    tour=demo_tour,
+                    job_type=ProcessingJob.JobType.MODEL_BUILD,
+                    defaults={
+                        "state": ProcessingJob.State.SUCCEEDED,
+                        "progress": 100,
+                        "current_step": "مدل سه‌بعدی Dollhouse (GLB) ساخته و تأیید شد",
+                        "completed_at": now - timedelta(days=1),
+                        "result": {"model_asset_id": str(glb_asset.id), "version": glb_asset.version},
+                        "created_by": mgr_a,
+                    },
+                )
+
+        from apps.virtual_tours.services.publication_service import _build_publication_snapshot
+        from apps.virtual_tours.services.quality_service import generate_tour_quality_report
+        from apps.virtual_tours.services.scan_service import execute_scan_process_job, upload_scan_asset
+
+        if not demo_tour.scans.exists():
+            f_ground_seed = demo_tour.floors.order_by("order").first()
+            sc_living_seed = demo_tour.scenes.filter(room_type="living_room").first() or demo_tour.scenes.order_by("order").first()
+            # Generate realistic indoor room box ASCII PLY (walls + ceiling + floor ~ 720 points)
+            pts_xyz = []
+            for ix in range(0, 17):
+                xm = ix * 0.5
+                for iz in range(0, 13):
+                    zm = iz * 0.5
+                    pts_xyz.append((xm, 0.0, zm, 132, 108, 88))  # floor
+                    pts_xyz.append((xm, 3.1, zm, 228, 232, 238))  # ceiling
+            for iy in range(1, 7):
+                ym = iy * 0.45
+                for ix in range(0, 17):
+                    xm = ix * 0.5
+                    pts_xyz.append((xm, ym, 0.0, 210, 218, 226))
+                    pts_xyz.append((xm, ym, 6.0, 200, 210, 220))
+                for iz in range(0, 13):
+                    zm = iz * 0.5
+                    pts_xyz.append((0.0, ym, zm, 198, 208, 218))
+                    pts_xyz.append((8.0, ym, zm, 198, 208, 218))
+            ply_header = [
+                "ply",
+                "format ascii 1.0",
+                f"element vertex {len(pts_xyz)}",
+                "property float x",
+                "property float y",
+                "property float z",
+                "property uchar red",
+                "property uchar green",
+                "property uchar blue",
+                "end_header",
+            ]
+            ply_body = "\n".join(f"{x:.3f} {y:.3f} {z:.3f} {r} {g} {b}" for x, y, z, r, g, b in pts_xyz)
+            ply_bytes = ("\n".join(ply_header) + "\n" + ply_body + "\n").encode("utf-8")
+
+            demo_scan = upload_scan_asset(
+                user=mgr_a,
+                agency_id=agency_a.id,
+                tour_id=demo_tour.id,
+                filename="living-hall-lidar.ply",
+                content_type="application/octet-stream",
+                content=ply_bytes,
+                source_device=ScanAsset.SourceDevice.LIDAR_IOS,
+                floor_id=f_ground_seed.id if f_ground_seed else None,
+                scene_id=sc_living_seed.id if sc_living_seed else None,
+            )
+            scan_job = ProcessingJob.objects.create(
+                tour=demo_tour,
+                scene=sc_living_seed,
+                job_type=ProcessingJob.JobType.SCAN_PROCESS,
+                state=ProcessingJob.State.QUEUED,
+                progress=0,
+                current_step="پردازش اسکن نمونه LiDAR",
+                input_params={"scan_id": str(demo_scan.id)},
+                created_by=mgr_a,
+                updated_by=mgr_a,
+            )
+            execute_scan_process_job(job_id=scan_job.id)
+
+        if not demo_tour.analytics_events.filter(event_type=TourAnalyticsEvent.EventType.DOLLHOUSE_OPEN).exists():
+            TourAnalyticsEvent.objects.create(
+                tour=demo_tour,
+                property=showcase_prop,
+                agency=agency_a,
+                event_type=TourAnalyticsEvent.EventType.DOLLHOUSE_OPEN,
+                visitor_hash="seed-demo-visitor-01",
+                session_key="seed-demo-session-01",
+                device_type="desktop",
+                duration_sec=25,
+            )
+            TourAnalyticsEvent.objects.create(
+                tour=demo_tour,
+                property=showcase_prop,
+                agency=agency_a,
+                event_type=TourAnalyticsEvent.EventType.FLOORPLAN_OPEN,
+                visitor_hash="seed-demo-visitor-01",
+                session_key="seed-demo-session-01",
+                device_type="desktop",
+                duration_sec=14,
+            )
+
+        active_pub = demo_tour.publications.filter(is_active=True).order_by("-version").first()
+        if active_pub:
+            snap_now = _build_publication_snapshot(demo_tour)
+            if (active_pub.snapshot_json or {}).get("dollhouse") is None or not (
+                active_pub.snapshot_json or {}
+            ).get("floorplans"):
+                active_pub.snapshot_json = snap_now
+                active_pub.save(update_fields=["snapshot_json", "updated_at"])
+        generate_tour_quality_report(demo_tour, actor=mgr_a)
 
     counts = collect_domain_model_counts()
     empty_models = [name for name, cnt in counts.items() if cnt == 0]
@@ -2696,6 +3320,7 @@ def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) 
             DocumentDownloadLog,
             Document,
             Negotiation,
+            LeadActivity,
             Lead,
             Payslip,
             PayrollCycle,
@@ -2712,6 +3337,7 @@ def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) 
             FiscalPeriod,
             FiscalYear,
             Deal,
+            ContractAmendment,
             ContractStatusHistory,
             ContractParty,
             Contract,
@@ -2734,6 +3360,7 @@ def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) 
             PropertyAgentAssignment,
             PropertyOwner,
             PropertyLocation,
+            VirtualTour,
             Property,
             AgencySubscription,
             Branch,

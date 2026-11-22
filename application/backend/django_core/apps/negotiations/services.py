@@ -27,15 +27,15 @@ TERMINAL_STATUSES = {
 def list_negotiations(
     *,
     user: User,
-    agency_id: UUID,
+    agency_id: Optional[UUID],
     status_filter: Optional[str] = None,
     q: Optional[str] = None,
     overdue_only: bool = False,
 ):
     qs = (
         Negotiation.objects.all_tenants()
-        .filter(agency_id=agency_id)
         .select_related(
+            "agency",
             "property",
             "property__location",
             "customer",
@@ -46,7 +46,12 @@ def list_negotiations(
         )
         .prefetch_related("offer_versions__currency", "activities__assigned_membership__user", "activities__created_by")
     )
-    if not (is_super_admin(user) or has_agency_permission(user, agency_id, "deal.view_all_agency")):
+    if agency_id:
+        qs = qs.filter(agency_id=agency_id)
+    elif not is_super_admin(user):
+        raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
+
+    if not is_super_admin(user) and agency_id and not has_agency_permission(user, agency_id, "deal.view_all_agency"):
         membership = get_active_membership(user, agency_id)
         if not membership:
             return Negotiation.objects.none()
@@ -75,7 +80,7 @@ def list_negotiations(
     return qs.order_by("-last_activity_at", "-created_at")
 
 
-def get_negotiation_detail(*, user: User, agency_id: UUID, negotiation_id: UUID) -> Negotiation:
+def get_negotiation_detail(*, user: User, agency_id: Optional[UUID], negotiation_id: UUID) -> Negotiation:
     neg = list_negotiations(user=user, agency_id=agency_id).filter(id=negotiation_id).first()
     if not neg:
         raise NotFoundDomainError("مذاکره یافت نشد.")
@@ -83,7 +88,43 @@ def get_negotiation_detail(*, user: User, agency_id: UUID, negotiation_id: UUID)
 
 
 @transaction.atomic
-def create_negotiation(*, user: User, agency_id: UUID, data: dict) -> Negotiation:
+def update_negotiation(*, user: User, agency_id: Optional[UUID], negotiation_id: UUID, data: dict) -> Negotiation:
+    neg = get_negotiation_detail(user=user, agency_id=agency_id, negotiation_id=negotiation_id)
+    for field in ("owner_customer_id", "agent_membership_id", "deal_type_id", "next_action", "next_followup_at", "notes"):
+        if field in data:
+            val = data[field]
+            if field == "next_action" and isinstance(val, str):
+                val = val[:200]
+            setattr(neg, field, val)
+    if "asking_price" in data and data["asking_price"] is not None:
+        neg.asking_price = Decimal(data["asking_price"])
+    neg.last_activity_at = timezone.now()
+    neg.updated_by = user
+    neg.save()
+    NegotiationActivity.objects.create(
+        negotiation=neg,
+        activity_type=NegotiationActivity.ActivityType.INTERNAL_NOTE,
+        title="ویرایش مشخصات پرونده مذاکره",
+        description="اطلاعات پایه، مسئول پیگیری یا برنامه اقدام بعدی به‌روزرسانی شد.",
+        next_action=neg.next_action,
+        next_action_due_at=neg.next_followup_at,
+        assigned_membership=neg.agent_membership,
+        created_by=user,
+    )
+    record_audit_event(
+        action="NEGOTIATION_UPDATED",
+        resource_type="Negotiation",
+        resource_id=str(neg.id),
+        actor=user,
+        agency_id=neg.agency_id,
+    )
+    return neg
+
+
+@transaction.atomic
+def create_negotiation(*, user: User, agency_id: Optional[UUID], data: dict) -> Negotiation:
+    if not agency_id:
+        raise ValidationDomainError("ابتدا آژانس فعال را انتخاب کنید.")
     membership = get_active_membership(user, agency_id)
     if not membership and not is_super_admin(user):
         raise PermissionDeniedDomainError("عضو فعال آژانس نیستید.")
@@ -175,7 +216,7 @@ def create_negotiation(*, user: User, agency_id: UUID, data: dict) -> Negotiatio
 
 
 @transaction.atomic
-def add_offer_version(*, user: User, agency_id: UUID, negotiation_id: UUID, data: dict) -> NegotiationOfferVersion:
+def add_offer_version(*, user: User, agency_id: Optional[UUID], negotiation_id: UUID, data: dict) -> NegotiationOfferVersion:
     neg = get_negotiation_detail(user=user, agency_id=agency_id, negotiation_id=negotiation_id)
     if neg.status in TERMINAL_STATUSES:
         raise ValidationDomainError("امکان ثبت پیشنهاد جدید در مذاکره مختومه‌شده وجود ندارد.")
@@ -243,7 +284,7 @@ def add_offer_version(*, user: User, agency_id: UUID, negotiation_id: UUID, data
         resource_type="Negotiation",
         resource_id=str(neg.id),
         actor=user,
-        agency_id=agency_id,
+        agency_id=neg.agency_id,
         after_state={"version": next_num, "proposed_price": str(proposed_price)},
     )
     return offer
@@ -253,7 +294,7 @@ def add_offer_version(*, user: User, agency_id: UUID, negotiation_id: UUID, data
 def respond_to_negotiation(
     *,
     user: User,
-    agency_id: UUID,
+    agency_id: Optional[UUID],
     negotiation_id: UUID,
     status_value: str,
     reason: str = "",
@@ -311,7 +352,7 @@ def respond_to_negotiation(
                 title=f"به‌روزرسانی وضعیت مذاکره {neg.property.property_code}",
                 body=f"وضعیت مذاکره با {neg.customer.full_name} به «{status_value}» تغییر یافت.",
                 channel=NotificationMessage.Channel.IN_APP,
-                agency_id=agency_id,
+                agency_id=neg.agency_id,
                 actor=user,
             )
         except Exception:
@@ -322,7 +363,7 @@ def respond_to_negotiation(
         resource_type="Negotiation",
         resource_id=str(neg.id),
         actor=user,
-        agency_id=agency_id,
+        agency_id=neg.agency_id,
         before_state={"status": prev_status},
         after_state={"status": status_value, "agreed_price": str(neg.agreed_price or "")},
     )
@@ -331,7 +372,7 @@ def respond_to_negotiation(
 
 @transaction.atomic
 def add_negotiation_activity(
-    *, user: User, agency_id: UUID, negotiation_id: UUID, data: dict
+    *, user: User, agency_id: Optional[UUID], negotiation_id: UUID, data: dict
 ) -> NegotiationActivity:
     neg = get_negotiation_detail(user=user, agency_id=agency_id, negotiation_id=negotiation_id)
     now = timezone.now()
@@ -359,9 +400,10 @@ def add_negotiation_activity(
 
 @transaction.atomic
 def convert_negotiation_to_contract(
-    *, user: User, agency_id: UUID, negotiation_id: UUID, contract_number: Optional[str] = None
+    *, user: User, agency_id: Optional[UUID], negotiation_id: UUID, contract_number: Optional[str] = None
 ) -> Contract:
     neg = get_negotiation_detail(user=user, agency_id=agency_id, negotiation_id=negotiation_id)
+    eff_agency_id = neg.agency_id
     if neg.converted_contract_id:
         raise ConflictDomainError("این مذاکره قبلاً به قرارداد تبدیل شده است.")
     if neg.status not in (
@@ -375,14 +417,14 @@ def convert_negotiation_to_contract(
 
     now = timezone.now()
     resolved_number = contract_number or f"CNT-NEG-{now.strftime('%y%m%d')}-{str(neg.id)[:6].upper()}"
-    if Contract.objects.all_tenants().filter(agency_id=agency_id, contract_number=resolved_number).exists():
+    if Contract.objects.all_tenants().filter(agency_id=eff_agency_id, contract_number=resolved_number).exists():
         resolved_number = f"{resolved_number}-{now.strftime('%H%M')}"
 
     final_amount = neg.agreed_price or neg.latest_proposed_price or neg.asking_price or neg.property.total_price
     latest_offer = neg.offer_versions.order_by("-version_number").first()
 
     contract = Contract.objects.all_tenants().create(
-        agency_id=agency_id,
+        agency_id=eff_agency_id,
         contract_number=resolved_number,
         internal_tracking_code=f"TRK-{resolved_number}",
         contract_type=Contract.ContractType.MORTGAGE_RENT if neg.deal_type.is_rental else Contract.ContractType.SALE,
@@ -433,13 +475,13 @@ def convert_negotiation_to_contract(
         resource_type="Contract",
         resource_id=str(contract.id),
         actor=user,
-        agency_id=agency_id,
+        agency_id=eff_agency_id,
         after_state={"negotiation_id": str(neg.id), "contract_number": contract.contract_number},
     )
     return contract
 
 
-def get_negotiation_analytics(*, user: User, agency_id: UUID) -> dict:
+def get_negotiation_analytics(*, user: User, agency_id: Optional[UUID]) -> dict:
     qs = list(list_negotiations(user=user, agency_id=agency_id))
     now = timezone.now()
     total = len(qs)

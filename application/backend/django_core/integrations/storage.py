@@ -13,6 +13,8 @@ ALLOWED_MIME_SIGNATURES: dict[str, tuple[str, ...]] = {
     "image/jpeg": (".jpg", ".jpeg"),
     "image/png": (".png",),
     "image/webp": (".webp",),
+    "image/x-icon": (".ico",),
+    "image/vnd.microsoft.icon": (".ico",),
     "text/csv": (".csv",),
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (".xlsx",),
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": (".docx",),
@@ -41,6 +43,8 @@ def validate_uploaded_file(*, filename: str, content_type: str, content: bytes, 
         raise ValidationDomainError("پسوند فایل مجاز نیست یا در فهرست فرمت‌های ناامن قرار دارد.")
 
     mime = (content_type or "").split(";")[0].strip().lower()
+    if suffix == ".ico" and mime in ("", "application/octet-stream"):
+        mime = "image/x-icon"
     allowed_exts = ALLOWED_MIME_SIGNATURES.get(mime)
     if not allowed_exts or suffix not in allowed_exts:
         raise ValidationDomainError("نوع محتوای فایل (MIME) با پسوند یا فرمت‌های مجاز سامانه مطابقت ندارد.")
@@ -55,6 +59,10 @@ def validate_uploaded_file(*, filename: str, content_type: str, content: bytes, 
         raise ValidationDomainError("محتوای فایل با تصویر JPEG معتبر مطابقت ندارد.")
     if mime == "image/webp" and not (header.startswith(b"RIFF") and content[8:12] == b"WEBP"):
         raise ValidationDomainError("محتوای فایل با تصویر WebP معتبر مطابقت ندارد.")
+    if mime in ("image/x-icon", "image/vnd.microsoft.icon") and not (
+        header.startswith(b"\x00\x00\x01\x00") or header.startswith(b"\x00\x00\x02\x00")
+    ):
+        raise ValidationDomainError("محتوای فایل با تصویر آیکن (ICO) معتبر مطابقت ندارد.")
     if mime in (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

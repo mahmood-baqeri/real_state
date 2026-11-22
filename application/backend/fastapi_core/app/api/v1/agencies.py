@@ -29,6 +29,21 @@ class AgencyStatusBody(BaseModel):
     status: str
 
 
+class AgencyPatchBody(BaseModel):
+    name: Optional[str] = None
+    registration_number: Optional[str] = None
+    tax_id: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    description: Optional[str] = None
+    country_id: Optional[str] = None
+    default_currency_id: Optional[str] = None
+    default_calendar: Optional[str] = None
+    timezone: Optional[str] = None
+    area_unit: Optional[str] = None
+    status: Optional[str] = None
+
+
 class AccessPolicyPatchBody(BaseModel):
     property_view_scope: Optional[str] = None
     property_edit_scope: Optional[str] = None
@@ -51,6 +66,18 @@ class BranchCreateBody(BaseModel):
     address: str = ""
     phone: str = ""
     is_main: bool = False
+
+
+class BranchPatchBody(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    country_id: Optional[str] = None
+    province: Optional[str] = None
+    city: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    is_main: Optional[bool] = None
+    is_active: Optional[bool] = None
 
 
 class CooperationCreateBody(BaseModel):
@@ -140,6 +167,29 @@ async def get_agency(agency_id: UUID, ctx: RequestContext = Depends(get_optional
     return ok(await run_django(_op))
 
 
+@router.patch("/{agency_id}")
+async def patch_agency_endpoint(
+    agency_id: UUID, body: AgencyPatchBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.agencies.services import update_agency
+
+        return _ser_agency(update_agency(actor=ctx.user, agency_id=agency_id, data=body.model_dump(exclude_none=True)))
+
+    return ok(await run_django(_op, agency_id=agency_id))
+
+
+@router.delete("/{agency_id}")
+async def delete_agency_endpoint(agency_id: UUID, ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.agencies.services import soft_delete_agency
+
+        a = soft_delete_agency(actor=ctx.user, agency_id=agency_id)
+        return {"id": str(a.id), "archived": True}
+
+    return ok(await run_django(_op))
+
+
 @router.post("/{agency_id}/status")
 async def update_agency_status_endpoint(
     agency_id: UUID, body: AgencyStatusBody, ctx: RequestContext = Depends(get_current_context)
@@ -177,7 +227,11 @@ async def patch_policy(
 
 
 @router.get("/{agency_id}/branches")
-async def list_branches_endpoint(agency_id: UUID, ctx: RequestContext = Depends(get_optional_context)):
+async def list_branches_endpoint(
+    agency_id: UUID,
+    include_inactive: bool = Query(default=False),
+    ctx: RequestContext = Depends(get_optional_context),
+):
     def _op():
         from apps.agencies.services import list_branches
 
@@ -186,6 +240,7 @@ async def list_branches_endpoint(agency_id: UUID, ctx: RequestContext = Depends(
                 "id": str(b.id),
                 "name": b.name,
                 "code": b.code,
+                "country": b.country_id,
                 "province": b.province,
                 "city": b.city,
                 "address": b.address,
@@ -193,7 +248,7 @@ async def list_branches_endpoint(agency_id: UUID, ctx: RequestContext = Depends(
                 "is_main": b.is_main,
                 "is_active": b.is_active,
             }
-            for b in list_branches(actor=ctx.user, agency_id=agency_id)
+            for b in list_branches(actor=ctx.user, agency_id=agency_id, include_inactive=include_inactive)
         ]
 
     return ok(await run_django(_op, agency_id=agency_id))
@@ -213,8 +268,46 @@ async def create_branch_endpoint(
             "code": b.code,
             "city": b.city,
             "address": b.address,
+            "phone": b.phone,
             "is_main": b.is_main,
+            "is_active": b.is_active,
         }
+
+    return ok(await run_django(_op, agency_id=agency_id))
+
+
+@router.patch("/{agency_id}/branches/{branch_id}")
+async def patch_branch_endpoint(
+    agency_id: UUID, branch_id: UUID, body: BranchPatchBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.agencies.services import update_branch
+
+        b = update_branch(actor=ctx.user, agency_id=agency_id, branch_id=branch_id, data=body.model_dump(exclude_none=True))
+        return {
+            "id": str(b.id),
+            "name": b.name,
+            "code": b.code,
+            "province": b.province,
+            "city": b.city,
+            "address": b.address,
+            "phone": b.phone,
+            "is_main": b.is_main,
+            "is_active": b.is_active,
+        }
+
+    return ok(await run_django(_op, agency_id=agency_id))
+
+
+@router.delete("/{agency_id}/branches/{branch_id}")
+async def delete_branch_endpoint(
+    agency_id: UUID, branch_id: UUID, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.agencies.services import soft_delete_branch
+
+        b = soft_delete_branch(actor=ctx.user, agency_id=agency_id, branch_id=branch_id)
+        return {"id": str(b.id), "is_active": b.is_active}
 
     return ok(await run_django(_op, agency_id=agency_id))
 

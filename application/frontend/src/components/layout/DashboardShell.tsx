@@ -51,7 +51,7 @@ import {
   NAV_GROUP_LABELS,
   type NavItemConfig,
 } from "@/lib/role-navigation";
-import type { GlobalSearchResult, NotificationItem } from "@/lib/types";
+import type { AgencyItem, GlobalSearchResult, NotificationItem } from "@/lib/types";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -213,6 +213,32 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     },
     staleTime: 10_000,
   });
+
+  const { data: superAdminAgencies = [] } = useQuery({
+    queryKey: ["shell-superadmin-agencies", user?.id],
+    enabled: !!accessToken && user?.platform_role === "SUPER_ADMIN",
+    queryFn: async () => {
+      const env = await apiFetch<AgencyItem[]>("/api/v1/agencies?page_size=100", {
+        token: accessToken,
+      });
+      return env.data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const agencySwitcherOptions = useMemo(() => {
+    if (user?.platform_role === "SUPER_ADMIN" && superAdminAgencies.length > 0) {
+      const memMap = new Map((user.memberships || []).map((m) => [m.agency_id, m.role_name]));
+      return superAdminAgencies.map((ag) => ({
+        agency_id: ag.id,
+        label: memMap.has(ag.id) ? `${ag.name} — ${memMap.get(ag.id)}` : ag.name,
+      }));
+    }
+    return (user?.memberships || []).map((m) => ({
+      agency_id: m.agency_id,
+      label: `${m.agency_name} — ${m.role_name}`,
+    }));
+  }, [user, superAdminAgencies]);
 
   const activeMembership = useMemo(
     () => user?.memberships?.find((m) => m.agency_id === activeAgencyId) || user?.memberships?.[0],
@@ -529,20 +555,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
 
-            {user.memberships && user.memberships.length > 0 ? (
+            {agencySwitcherOptions.length > 0 || user.platform_role === "SUPER_ADMIN" ? (
               <div className="relative flex min-w-0 items-center">
                 <select
                   aria-label="انتخاب آژانس فعال"
                   value={activeAgencyId || ""}
                   onChange={(e) => setActiveAgencyId(e.target.value || null)}
-                  className="h-9 w-full max-w-[180px] truncate appearance-none rounded-lg border border-slate-300 bg-white pr-3 pl-7 text-xs font-semibold text-slate-800 focus:border-teal-600 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 sm:max-w-xs"
+                  className="h-9 w-full max-w-[190px] truncate appearance-none rounded-lg border border-slate-300 bg-white pr-3 pl-7 text-xs font-semibold text-slate-800 focus:border-teal-600 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 sm:max-w-xs"
                 >
                   {user.platform_role === "SUPER_ADMIN" && (
                     <option value="">نمای کل پلتفرم (سراسری)</option>
                   )}
-                  {user.memberships.map((m) => (
-                    <option key={m.agency_id} value={m.agency_id}>
-                      {m.agency_name} — {m.role_name}
+                  {agencySwitcherOptions.map((opt) => (
+                    <option key={opt.agency_id} value={opt.agency_id}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>
@@ -550,9 +576,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : (
               <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
-                {user.platform_role === "SUPER_ADMIN"
-                  ? "مدیر کل پلتفرم"
-                  : "حساب کاربری متقاضی / مشتری"}
+                حساب کاربری متقاضی / مشتری
               </span>
             )}
 

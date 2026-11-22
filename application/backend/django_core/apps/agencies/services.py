@@ -119,6 +119,70 @@ def update_agency_status(*, actor: User, agency_id: UUID, new_status: str) -> Ag
     return agency
 
 
+@transaction.atomic
+def update_agency(*, actor: User, agency_id: UUID, data: dict) -> Agency:
+    if not (is_super_admin(actor) or has_agency_permission(actor, agency_id, "agency.manage_policy")):
+        raise PermissionDeniedDomainError("فقط مدیر کل یا مدیر آژانس مجاز به ویرایش اطلاعات آژانس است.")
+    agency = Agency.objects.filter(id=agency_id, is_deleted=False).first()
+    if not agency:
+        raise NotFoundDomainError("آژانس یافت نشد.")
+
+    editable = [
+        "name",
+        "registration_number",
+        "tax_id",
+        "phone",
+        "email",
+        "description",
+        "country_id",
+        "default_currency_id",
+        "default_calendar",
+        "timezone",
+        "area_unit",
+    ]
+    for field in editable:
+        if field in data and data[field] is not None:
+            val = data[field]
+            if isinstance(val, str):
+                val = val.strip()
+            setattr(agency, field, val)
+    if "status" in data and data["status"] is not None:
+        if not is_super_admin(actor):
+            raise PermissionDeniedDomainError("تغییر وضعیت آژانس فقط برای مدیر کل مجاز است.")
+        agency.status = data["status"]
+    agency.updated_by = actor
+    agency.save()
+    record_audit_event(
+        action="AGENCY_UPDATED",
+        resource_type="Agency",
+        resource_id=str(agency.id),
+        actor=actor,
+        agency_id=agency.id,
+    )
+    return agency
+
+
+@transaction.atomic
+def soft_delete_agency(*, actor: User, agency_id: UUID) -> Agency:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به بایگانی یا حذف نرم آژانس است.")
+    agency = Agency.objects.filter(id=agency_id, is_deleted=False).first()
+    if not agency:
+        raise NotFoundDomainError("آژانس یافت نشد.")
+    agency.status = Agency.Status.SUSPENDED
+    agency.updated_by = actor
+    agency.save(update_fields=["status", "updated_by", "updated_at"])
+    agency.soft_delete(actor)
+    record_audit_event(
+        action="AGENCY_ARCHIVED",
+        resource_type="Agency",
+        resource_id=str(agency.id),
+        actor=actor,
+        agency_id=agency.id,
+    )
+    return agency
+
+
 def get_access_policy(*, actor: User, agency_id: UUID) -> AgencyAccessPolicy:
     if not (is_super_admin(actor) or get_active_membership(actor, agency_id)):
         raise PermissionDeniedDomainError("شما عضو این آژانس نیستید.")
@@ -162,8 +226,11 @@ def update_access_policy(*, actor: User, agency_id: UUID, updates: dict) -> Agen
     return policy
 
 
-def list_branches(*, actor: Optional[User], agency_id: UUID) -> list[Branch]:
-    return list(Branch.objects.all_tenants().filter(agency_id=agency_id, is_active=True).order_by("-is_main", "name"))
+def list_branches(*, actor: Optional[User], agency_id: UUID, include_inactive: bool = False) -> list[Branch]:
+    qs = Branch.objects.all_tenants().filter(agency_id=agency_id)
+    if not include_inactive:
+        qs = qs.filter(is_active=True)
+    return list(qs.order_by("-is_main", "name"))
 
 
 @transaction.atomic
@@ -195,6 +262,58 @@ def create_branch(*, actor: User, agency_id: UUID, data: dict) -> Branch:
         phone=data.get("phone", ""),
         is_main=bool(data.get("is_main", False)),
         created_by=actor,
+    )
+    return branch
+
+
+@transaction.atomic
+def update_branch(*, actor: User, agency_id: UUID, branch_id: UUID, data: dict) -> Branch:
+    if not (is_super_admin(actor) or has_agency_permission(actor, agency_id, "agency.manage_branches")):
+        raise PermissionDeniedDomainError("عدم دسترسی ویرایش شعبه.")
+    branch = Branch.objects.all_tenants().filter(id=branch_id, agency_id=agency_id).first()
+    if not branch:
+        raise NotFoundDomainError("شعبه یافت نشد.")
+
+    if "code" in data and data["code"] is not None:
+        clean_code = str(data["code"]).strip()
+        if Branch.objects.all_tenants().filter(agency_id=agency_id, code=clean_code).exclude(id=branch.id).exists():
+            raise ConflictDomainError("کد شعبه تکراری است.")
+        branch.code = clean_code
+
+    for field in ("name", "country_id", "province", "city", "address", "phone"):
+        if field in data and data[field] is not None:
+            setattr(branch, field, str(data[field]).strip())
+    if "is_main" in data and data["is_main"] is not None:
+        if bool(data["is_main"]):
+            Branch.objects.all_tenants().filter(agency_id=agency_id, is_main=True).exclude(id=branch.id).update(is_main=False)
+        branch.is_main = bool(data["is_main"])
+    if "is_active" in data and data["is_active"] is not None:
+        branch.is_active = bool(data["is_active"])
+    branch.updated_by = actor
+    branch.save()
+    return branch
+
+
+@transaction.atomic
+def soft_delete_branch(*, actor: User, agency_id: UUID, branch_id: UUID) -> Branch:
+    if not (is_super_admin(actor) or has_agency_permission(actor, agency_id, "agency.manage_branches")):
+        raise PermissionDeniedDomainError("عدم دسترسی حذف یا غیرفعال‌سازی شعبه.")
+    branch = Branch.objects.all_tenants().filter(id=branch_id, agency_id=agency_id).first()
+    if not branch:
+        raise NotFoundDomainError("شعبه یافت نشد.")
+    if branch.is_main:
+        other_active = Branch.objects.all_tenants().filter(agency_id=agency_id, is_active=True).exclude(id=branch.id).exists()
+        if other_active:
+            raise ConflictDomainError("ابتدا یکی دیگر از شعبه‌ها را به‌عنوان شعبه مرکزی انتخاب کنید.")
+    branch.is_active = False
+    branch.updated_by = actor
+    branch.save(update_fields=["is_active", "updated_by", "updated_at"])
+    record_audit_event(
+        action="BRANCH_DEACTIVATED",
+        resource_type="Branch",
+        resource_id=str(branch.id),
+        actor=actor,
+        agency_id=agency_id,
     )
     return branch
 

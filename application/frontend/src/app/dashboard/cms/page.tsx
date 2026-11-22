@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Building2, CheckCircle2, FileText, Globe, Mail, Plus, Rss, Sparkles } from "lucide-react";
+import { ArrowUpRight, Building2, CheckCircle2, Edit3, FileText, Globe, Mail, Plus, Rss, Sparkles, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { RssTopicsResult } from "@/lib/types";
@@ -29,7 +29,13 @@ interface CmsArticle {
   category: CmsCategory | null;
   summary: string;
   content_body: string;
+  cover_image_url?: string;
+  language?: string;
+  tone?: string;
+  target_audience?: string;
+  ai_generated?: boolean;
   status: string;
+  scheduled_for?: string | null;
   meta_title: string;
   meta_description: string;
   reading_time_minutes: number;
@@ -82,13 +88,16 @@ export default function CmsDashboardPage() {
 
   const [tab, setTab] = useState<"articles" | "redirects" | "cooperation" | "inquiries">("articles");
   const [articleOpen, setArticleOpen] = useState(false);
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<CmsArticle | null>(null);
+  const [scheduledFor, setScheduledFor] = useState("");
   const [redirectOpen, setRedirectOpen] = useState(false);
   const [activeInquiry, setActiveInquiry] = useState<ContactInquiry | null>(null);
   const [inquiryReply, setInquiryReply] = useState("");
   const [rssUrl, setRssUrl] = useState("");
   const [rssResult, setRssResult] = useState<RssTopicsResult | null>(null);
 
-  const [artForm, setArtForm] = useState({
+  const emptyArtForm = {
     title: "",
     slug: "",
     article_type: "ARTICLE",
@@ -96,9 +105,13 @@ export default function CmsDashboardPage() {
     summary: "",
     content_body: "",
     cover_image_url: "/images/prop-zafaranieh.jpg",
+    language: "fa",
+    tone: "PROFESSIONAL",
+    target_audience: "",
     meta_title: "",
     meta_description: "",
-  });
+  };
+  const [artForm, setArtForm] = useState(emptyArtForm);
 
   const [redirForm, setRedirForm] = useState({ from_path: "", to_path: "/properties", status_code: 301 });
 
@@ -134,43 +147,98 @@ export default function CmsDashboardPage() {
       (await apiFetch<ContactInquiry[]>("/api/v1/cms/contact-inquiries", { token: accessToken })).data,
   });
 
-  const createArtMut = useMutation({
-    mutationFn: async () =>
-      apiFetch("/api/v1/cms/articles", {
+  const saveArtMut = useMutation({
+    mutationFn: async () => {
+      if (editingArticleId) {
+        return apiFetch(`/api/v1/cms/articles/${editingArticleId}`, {
+          method: "PATCH",
+          token: accessToken,
+          body: JSON.stringify({
+            title: artForm.title,
+            article_type: artForm.article_type,
+            category_id: artForm.category_id || null,
+            summary: artForm.summary,
+            content_body: artForm.content_body,
+            cover_image_url: artForm.cover_image_url,
+            language: artForm.language,
+            tone: artForm.tone,
+            target_audience: artForm.target_audience,
+            meta_title: artForm.meta_title,
+            meta_description: artForm.meta_description,
+            change_note: "ویرایش محتوا از پنل CMS",
+          }),
+        });
+      }
+      return apiFetch("/api/v1/cms/articles", {
         method: "POST",
         token: accessToken,
         body: JSON.stringify({
           ...artForm,
           category_id: artForm.category_id || null,
         }),
-      }),
+      });
+    },
     onSuccess: () => {
       setArticleOpen(false);
-      setArtForm({
-        title: "",
-        slug: "",
-        article_type: "ARTICLE",
-        category_id: "",
-        summary: "",
-        content_body: "",
-        cover_image_url: "/images/prop-zafaranieh.jpg",
-        meta_title: "",
-        meta_description: "",
-      });
-      toast.success("مقاله در وضعیت پیش‌نویس ثبت شد.");
+      setEditingArticleId(null);
+      setArtForm(emptyArtForm);
+      toast.success(editingArticleId ? "تغییرات مقاله ذخیره شد." : "مقاله در وضعیت پیش‌نویس ثبت شد.");
       qc.invalidateQueries({ queryKey: ["cms-articles"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteArtMut = useMutation({
+    mutationFn: async (id: string) =>
+      apiFetch(`/api/v1/cms/articles/${id}`, {
+        method: "DELETE",
+        token: accessToken,
+      }),
+    onSuccess: () => {
+      toast.success("محتوا با موفقیت حذف شد.");
+      qc.invalidateQueries({ queryKey: ["cms-articles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rewriteArtMut = useMutation({
+    mutationFn: async () =>
+      (
+        await apiFetch<{ title: string; summary: string; content_body: string }>("/api/v1/ai/content/rewrite", {
+          method: "POST",
+          token: accessToken,
+          agencyId: activeAgencyId,
+          body: JSON.stringify({
+            title: artForm.title,
+            content_body: artForm.content_body || artForm.summary || artForm.title,
+            instruction: "بازنویسی حرفه‌ای، خوانا و بهینه برای سئو",
+            tone: artForm.tone || "PROFESSIONAL",
+            language: artForm.language || "fa",
+          }),
+        })
+      ).data,
+    onSuccess: (d) => {
+      setArtForm((prev) => ({
+        ...prev,
+        title: d.title || prev.title,
+        summary: d.summary || prev.summary,
+        content_body: d.content_body || prev.content_body,
+      }));
+      toast.success("متن با هوش مصنوعی بازنویسی شد.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const statusArtMut = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) =>
+    mutationFn: async ({ id, status, scheduled_for }: { id: string; status: string; scheduled_for?: string }) =>
       apiFetch(`/api/v1/cms/articles/${id}/status`, {
         method: "POST",
         token: accessToken,
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, scheduled_for: scheduled_for || null }),
       }),
     onSuccess: () => {
+      setScheduleTarget(null);
+      setScheduledFor("");
       toast.success("وضعیت گردش کار مقاله به‌روزرسانی شد.");
       qc.invalidateQueries({ queryKey: ["cms-articles"] });
     },
@@ -290,11 +358,15 @@ export default function CmsDashboardPage() {
             )}
             <button
               type="button"
-              onClick={() => setArticleOpen(true)}
+              onClick={() => {
+                setEditingArticleId(null);
+                setArtForm(emptyArtForm);
+                setArticleOpen(true);
+              }}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
             >
               <Plus className="h-4 w-4" />
-              مقاله / خبر جدید
+              مقاله / محتوای جدید
             </button>
           </div>
         }
@@ -417,9 +489,34 @@ export default function CmsDashboardPage() {
             { key: "dt", header: "ایجاد", render: (a) => <DateDisplay value={a.created_at} /> },
             {
               key: "act",
-              header: "گردش کار",
+              header: "گردش کار و عملیات",
               render: (a) => (
                 <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingArticleId(a.id);
+                      setArtForm({
+                        title: a.title,
+                        slug: a.slug,
+                        article_type: a.article_type,
+                        category_id: a.category?.id || "",
+                        summary: a.summary || "",
+                        content_body: a.content_body || "",
+                        cover_image_url: a.cover_image_url || "/images/prop-zafaranieh.jpg",
+                        language: a.language || "fa",
+                        tone: a.tone || "PROFESSIONAL",
+                        target_audience: a.target_audience || "",
+                        meta_title: a.meta_title || "",
+                        meta_description: a.meta_description || "",
+                      });
+                      setArticleOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs font-semibold"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                    ویرایش
+                  </button>
                   {a.status === "DRAFT" && (
                     <button
                       type="button"
@@ -427,6 +524,15 @@ export default function CmsDashboardPage() {
                       className="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white"
                     >
                       ارسال به بازبینی
+                    </button>
+                  )}
+                  {a.status === "REVIEW" && (
+                    <button
+                      type="button"
+                      onClick={() => statusArtMut.mutate({ id: a.id, status: "DRAFT" })}
+                      className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs font-semibold"
+                    >
+                      بازگشت به پیش‌نویس
                     </button>
                   )}
                   {isSuper && a.status === "REVIEW" && (
@@ -438,13 +544,31 @@ export default function CmsDashboardPage() {
                       تایید نهایی
                     </button>
                   )}
-                  {isSuper && a.status === "APPROVED" && (
+                  {isSuper && (a.status === "APPROVED" || a.status === "SCHEDULED") && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => statusArtMut.mutate({ id: a.id, status: "PUBLISHED" })}
+                        className="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white"
+                      >
+                        انتشار در پورتال
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScheduleTarget(a)}
+                        className="rounded-md border border-teal-700 px-2 py-1 text-xs font-semibold text-teal-700 dark:text-teal-400"
+                      >
+                        زمان‌بندی
+                      </button>
+                    </>
+                  )}
+                  {isSuper && a.status === "PUBLISHED" && (
                     <button
                       type="button"
-                      onClick={() => statusArtMut.mutate({ id: a.id, status: "PUBLISHED" })}
-                      className="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white"
+                      onClick={() => statusArtMut.mutate({ id: a.id, status: "ARCHIVED" })}
+                      className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs font-semibold"
                     >
-                      انتشار در پورتال
+                      بایگانی
                     </button>
                   )}
                   {a.status === "PUBLISHED" && (
@@ -455,6 +579,16 @@ export default function CmsDashboardPage() {
                       مشاهده
                       <ArrowUpRight className="h-3.5 w-3.5" />
                     </Link>
+                  )}
+                  {(a.status !== "PUBLISHED" || isSuper) && (
+                    <button
+                      type="button"
+                      onClick={() => deleteArtMut.mutate(a.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                      title="حذف"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   )}
                 </div>
               ),
@@ -556,11 +690,19 @@ export default function CmsDashboardPage() {
         />
       )}
 
-      <ModalDrawer open={articleOpen} onClose={() => setArticleOpen(false)} title="ایجاد مقاله یا خبر جدید" widthClass="max-w-2xl">
+      <ModalDrawer
+        open={articleOpen}
+        onClose={() => {
+          setArticleOpen(false);
+          setEditingArticleId(null);
+        }}
+        title={editingArticleId ? "ویرایش مقاله / محتوا" : "ایجاد مقاله یا محتوای جدید"}
+        widthClass="max-w-2xl"
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            createArtMut.mutate();
+            saveArtMut.mutate();
           }}
           className="space-y-3"
         >
@@ -574,22 +716,37 @@ export default function CmsDashboardPage() {
             />
             <input
               required
+              disabled={!!editingArticleId}
               dir="ltr"
               placeholder="article-slug-en"
               value={artForm.slug}
               onChange={(e) => setArtForm({ ...artForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
-              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm text-slate-900 dark:text-slate-100"
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm text-slate-900 dark:text-slate-100 disabled:opacity-60"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <select
               value={artForm.article_type}
               onChange={(e) => setArtForm({ ...artForm, article_type: e.target.value })}
               className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
             >
-              <option value="ARTICLE">مقاله تخصصی و راهنما</option>
+              <option value="ARTICLE">مقاله تخصصی</option>
+              <option value="EDUCATIONAL">محتوای آموزشی</option>
               <option value="NEWS">خبر و گزارش بازار</option>
+              <option value="PROMOTIONAL">تبلیغاتی</option>
+              <option value="SEO">سئو</option>
+              <option value="SOCIAL_MEDIA">شبکه‌های اجتماعی</option>
+              <option value="LISTING_DESCRIPTION">توضیحات آگهی</option>
+            </select>
+            <select
+              value={artForm.language}
+              onChange={(e) => setArtForm({ ...artForm, language: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
+            >
+              <option value="fa">فارسی</option>
+              <option value="en">انگلیسی</option>
+              <option value="ar">عربی</option>
             </select>
             <select
               value={artForm.category_id}
@@ -612,14 +769,28 @@ export default function CmsDashboardPage() {
             className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100"
           />
 
-          <textarea
-            required
-            rows={5}
-            placeholder="متن کامل مقاله یا گزارش تحلیلی..."
-            value={artForm.content_body}
-            onChange={(e) => setArtForm({ ...artForm, content_body: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3 text-xs leading-relaxed text-slate-900 dark:text-slate-100"
-          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">متن کامل محتوا</span>
+              <button
+                type="button"
+                disabled={rewriteArtMut.isPending || (!artForm.content_body.trim() && !artForm.title.trim())}
+                onClick={() => rewriteArtMut.mutate()}
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-teal-700 px-2.5 text-[11px] font-semibold text-teal-700 dark:text-teal-400 disabled:opacity-50"
+              >
+                <Sparkles className="h-3 w-3" />
+                {rewriteArtMut.isPending ? "در حال بازنویسی..." : "بازنویسی با AI"}
+              </button>
+            </div>
+            <textarea
+              required
+              rows={6}
+              placeholder="متن کامل مقاله یا گزارش تحلیلی..."
+              value={artForm.content_body}
+              onChange={(e) => setArtForm({ ...artForm, content_body: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3 text-xs leading-relaxed text-slate-900 dark:text-slate-100"
+            />
+          </div>
 
           <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-3 space-y-2.5">
             <div className="flex items-center justify-between">
@@ -649,10 +820,39 @@ export default function CmsDashboardPage() {
             />
           </div>
 
-          <button type="submit" disabled={createArtMut.isPending} className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
-            ثبت پیش‌نویس مقاله
+          <button type="submit" disabled={saveArtMut.isPending} className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white">
+            {editingArticleId ? "ذخیره تغییرات مقاله" : "ثبت پیش‌نویس مقاله"}
           </button>
         </form>
+      </ModalDrawer>
+
+      <ModalDrawer open={!!scheduleTarget} onClose={() => setScheduleTarget(null)} title="زمان‌بندی انتشار مقاله">
+        {scheduleTarget && (
+          <div className="space-y-3 text-xs">
+            <div className="font-bold">{scheduleTarget.title}</div>
+            <input
+              type="datetime-local"
+              dir="ltr"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-xs"
+            />
+            <button
+              type="button"
+              disabled={!scheduledFor || statusArtMut.isPending}
+              onClick={() =>
+                statusArtMut.mutate({
+                  id: scheduleTarget.id,
+                  status: "SCHEDULED",
+                  scheduled_for: new Date(scheduledFor).toISOString(),
+                })
+              }
+              className="h-10 w-full rounded-lg bg-teal-700 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              تثبیت زمان انتشار
+            </button>
+          </div>
+        )}
       </ModalDrawer>
 
       <ModalDrawer open={redirectOpen} onClose={() => setRedirectOpen(false)} title="ثبت ریدایرکت ۳۰۱/۳۰۲">

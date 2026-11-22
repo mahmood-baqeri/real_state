@@ -30,6 +30,7 @@ import { DateDisplay } from "@/components/ui/DateDisplay";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildResidenceJsonLd } from "@/lib/seo";
+import { PublicPropertyVirtualTour } from "@/components/virtual-tour/PublicPropertyVirtualTour";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -160,6 +161,8 @@ export default function PropertyDetailPage() {
                 title={property.title}
                 mediaItems={property.media_items || []}
               />
+
+              <PublicPropertyVirtualTour propertyId={property.id} />
 
               <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">

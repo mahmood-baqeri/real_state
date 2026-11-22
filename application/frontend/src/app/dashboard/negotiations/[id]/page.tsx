@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Bot,
   CheckCircle2,
+  Edit3,
   FileSignature,
   History,
   MessageSquarePlus,
@@ -21,6 +22,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusText } from "@/components/ui/StatusText";
 import { MoneyDisplay } from "@/components/ui/MoneyDisplay";
 import { DateDisplay } from "@/components/ui/DateDisplay";
+import { ModalDrawer } from "@/components/ui/ModalDrawer";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
 import { formatNumberFa, translateStatus } from "@/lib/formatters";
 
@@ -39,6 +41,8 @@ const WORKFLOW_STAGES = [
   "CANCELLED",
 ];
 
+const TERMINAL_STATUSES = ["ACCEPTED", "REJECTED", "CANCELLED", "WITHDRAWN", "EXPIRED"];
+
 export default function NegotiationDetailWorkspacePage() {
   const params = useParams<{ id: string }>();
   const qc = useQueryClient();
@@ -47,6 +51,14 @@ export default function NegotiationDetailWorkspacePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<AiChatMessageResult | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const [editForm, setEditForm] = useState({
+    asking_price: "",
+    next_action: "",
+    next_followup_at: "",
+    notes: "",
+  });
 
   const [offerForm, setOfferForm] = useState({
     offered_by: "BUYER",
@@ -76,7 +88,7 @@ export default function NegotiationDetailWorkspacePage() {
 
   const negQ = useQuery({
     queryKey: ["negotiation-detail", params.id, activeAgencyId],
-    enabled: !!accessToken && !!activeAgencyId,
+    enabled: !!accessToken && !!params.id,
     queryFn: async () =>
       (
         await apiFetch<NegotiationItem>(`/api/v1/negotiations/${params.id}`, {
@@ -86,12 +98,40 @@ export default function NegotiationDetailWorkspacePage() {
       ).data,
   });
 
+  const neg = negQ.data;
+  const effAgencyId = activeAgencyId || neg?.agency_id;
+
+  const editMut = useMutation({
+    mutationFn: async () =>
+      apiFetch(`/api/v1/negotiations/${params.id}`, {
+        method: "PATCH",
+        token: accessToken,
+        agencyId: effAgencyId,
+        body: JSON.stringify({
+          asking_price: editForm.asking_price || null,
+          next_action: editForm.next_action,
+          next_followup_at: editForm.next_followup_at
+            ? new Date(editForm.next_followup_at).toISOString()
+            : null,
+          notes: editForm.notes,
+        }),
+      }),
+    onSuccess: () => {
+      setEditOpen(false);
+      setErrMsg(null);
+      setNotice("مشخصات پرونده مذاکره به‌روزرسانی شد.");
+      qc.invalidateQueries({ queryKey: ["negotiation-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["negotiations"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
   const addOfferMut = useMutation({
     mutationFn: async () =>
       apiFetch(`/api/v1/negotiations/${params.id}/offers`, {
         method: "POST",
         token: accessToken,
-        agencyId: activeAgencyId,
+        agencyId: effAgencyId,
         body: JSON.stringify(offerForm),
       }),
     onSuccess: () => {
@@ -99,6 +139,7 @@ export default function NegotiationDetailWorkspacePage() {
       setNotice("نسخه جدید پیشنهاد ثبت و در جدول تاریخچه مقایسه قرار گرفت.");
       setOfferForm((p) => ({ ...p, proposed_price: "", notes: "" }));
       qc.invalidateQueries({ queryKey: ["negotiation-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["negotiations"] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
@@ -108,7 +149,7 @@ export default function NegotiationDetailWorkspacePage() {
       apiFetch(`/api/v1/negotiations/${params.id}/respond`, {
         method: "POST",
         token: accessToken,
-        agencyId: activeAgencyId,
+        agencyId: effAgencyId,
         body: JSON.stringify({
           status: stageForm.status,
           reason: stageForm.reason,
@@ -123,6 +164,7 @@ export default function NegotiationDetailWorkspacePage() {
       setErrMsg(null);
       setNotice("مرحله مذاکره و زمان‌بندی پیگیری با موفقیت به‌روزرسانی شد.");
       qc.invalidateQueries({ queryKey: ["negotiation-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["negotiations"] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
@@ -132,7 +174,7 @@ export default function NegotiationDetailWorkspacePage() {
       apiFetch(`/api/v1/negotiations/${params.id}/activities`, {
         method: "POST",
         token: accessToken,
-        agencyId: activeAgencyId,
+        agencyId: effAgencyId,
         body: JSON.stringify({
           ...activityForm,
           next_action_due_at: activityForm.next_action_due_at
@@ -163,7 +205,7 @@ export default function NegotiationDetailWorkspacePage() {
         {
           method: "POST",
           token: accessToken,
-          agencyId: activeAgencyId,
+          agencyId: effAgencyId,
           body: JSON.stringify({}),
         }
       ),
@@ -171,6 +213,8 @@ export default function NegotiationDetailWorkspacePage() {
       setErrMsg(null);
       setNotice(`قرارداد ${env.data.contract_number} به‌صورت خودکار ایجاد و به این پرونده متصل شد.`);
       qc.invalidateQueries({ queryKey: ["negotiation-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["negotiations"] });
+      qc.invalidateQueries({ queryKey: ["contracts"] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
@@ -181,7 +225,7 @@ export default function NegotiationDetailWorkspacePage() {
         await apiFetch<AiChatMessageResult>("/api/v1/ai/negotiation-summary", {
           method: "POST",
           token: accessToken,
-          agencyId: activeAgencyId,
+          agencyId: effAgencyId,
           body: JSON.stringify({ negotiation_id: params.id }),
         })
       ).data,
@@ -192,11 +236,23 @@ export default function NegotiationDetailWorkspacePage() {
     onError: (e: Error) => setErrMsg(e.message),
   });
 
-  const neg = negQ.data;
+  const openEdit = () => {
+    if (!neg) return;
+    setEditForm({
+      asking_price: neg.asking_price || "",
+      next_action: neg.next_action || "",
+      next_followup_at: neg.next_followup_at ? neg.next_followup_at.slice(0, 16) : "",
+      notes: neg.notes || "",
+    });
+    setEditOpen(true);
+  };
+
   const canConvert =
     neg &&
     !neg.converted_contract_id &&
     ["PRE_AGREEMENT", "AWAITING_FINAL_APPROVAL", "ACCEPTED"].includes(neg.status);
+
+  const isTerminal = neg ? TERMINAL_STATUSES.includes(neg.status) : false;
 
   return (
     <div className="space-y-6">
@@ -206,7 +262,7 @@ export default function NegotiationDetailWorkspacePage() {
           neg
             ? `کد ملک ${neg.property_code} · خریدار: ${neg.customer_name}${
                 neg.owner_name ? ` · مالک: ${neg.owner_name}` : ""
-              } · مشاور: ${neg.agent_name}`
+              }${neg.agent_name ? ` · مشاور: ${neg.agent_name}` : ""}`
             : undefined
         }
         breadcrumbs={[
@@ -219,12 +275,21 @@ export default function NegotiationDetailWorkspacePage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
+                onClick={openEdit}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                ویرایش پرونده
+              </button>
+
+              <button
+                type="button"
                 disabled={aiSummaryMut.isPending}
                 onClick={() => aiSummaryMut.mutate()}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300 whitespace-nowrap"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                {aiSummaryMut.isPending ? "در حال تحلیل..." : "تحلیل هوشمند GapGPT"}
+                {aiSummaryMut.isPending ? "در حال تحلیل..." : "تحلیل هوشمند"}
               </button>
 
               {canConvert && (
@@ -232,17 +297,17 @@ export default function NegotiationDetailWorkspacePage() {
                   type="button"
                   disabled={convertMut.isPending}
                   onClick={() => convertMut.mutate()}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-semibold text-white hover:bg-emerald-800"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 text-xs font-semibold text-white hover:bg-emerald-800 whitespace-nowrap"
                 >
                   <FileSignature className="h-4 w-4" />
                   تبدیل یک‌کلیکی به قرارداد
                 </button>
               )}
 
-              {neg.converted_contract_number && (
+              {neg.converted_contract_id && neg.converted_contract_number && (
                 <Link
-                  href="/dashboard/contracts"
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white"
+                  href={`/dashboard/contracts/${neg.converted_contract_id}`}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white whitespace-nowrap"
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   مشاهده قرارداد {neg.converted_contract_number}
@@ -262,7 +327,6 @@ export default function NegotiationDetailWorkspacePage() {
         <ErrorState message={negQ.error.message} onRetry={() => negQ.refetch()} />
       ) : neg ? (
         <>
-          {/* Overdue Warning + Price Telemetry Strip */}
           {neg.is_followup_overdue && (
             <div className="flex items-center gap-2.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
@@ -308,6 +372,13 @@ export default function NegotiationDetailWorkspacePage() {
               </div>
             </div>
           </div>
+
+          {neg.notes && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-xs text-slate-700 dark:text-slate-300">
+              <span className="font-bold text-slate-900 dark:text-slate-100">یادداشت پرونده: </span>
+              {neg.notes}
+            </div>
+          )}
 
           {aiAdvice && (
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-5 text-xs space-y-2 dark:border-indigo-900/60 dark:bg-indigo-950/30">
@@ -374,45 +445,51 @@ export default function NegotiationDetailWorkspacePage() {
                   </div>
                 )}
 
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    addOfferMut.mutate();
-                  }}
-                  className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:grid-cols-4"
-                >
-                  <select
-                    value={offerForm.offered_by}
-                    onChange={(e) => setOfferForm({ ...offerForm, offered_by: e.target.value })}
-                    className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                {isTerminal ? (
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 p-3 text-xs text-slate-600 dark:text-slate-400">
+                    این پرونده مذاکره در مرحله نهایی است و امکان ثبت نسخه پیشنهاد جدید وجود ندارد.
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      addOfferMut.mutate();
+                    }}
+                    className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:grid-cols-4"
                   >
-                    <option value="BUYER">پیشنهاد خریدار</option>
-                    <option value="SELLER">پیشنهاد متقابل مالک</option>
-                    <option value="AGENT">جمع‌بندی مشاور</option>
-                  </select>
-                  <input
-                    required
-                    type="number"
-                    placeholder="مبلغ جدید (تومان)"
-                    value={offerForm.proposed_price}
-                    onChange={(e) => setOfferForm({ ...offerForm, proposed_price: e.target.value })}
-                    className="h-9 rounded-lg border border-slate-300 px-2.5 text-xs tabular-nums dark:border-slate-700 dark:bg-slate-950"
-                  />
-                  <input
-                    placeholder="شرایط پرداخت / یادداشت"
-                    value={offerForm.notes}
-                    onChange={(e) => setOfferForm({ ...offerForm, notes: e.target.value })}
-                    className="h-9 rounded-lg border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
-                  />
-                  <button
-                    type="submit"
-                    disabled={addOfferMut.isPending}
-                    className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-teal-700 px-3 text-xs font-semibold text-white hover:bg-teal-800"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    ثبت پیشنهاد متقابل
-                  </button>
-                </form>
+                    <select
+                      value={offerForm.offered_by}
+                      onChange={(e) => setOfferForm({ ...offerForm, offered_by: e.target.value })}
+                      className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    >
+                      <option value="BUYER">پیشنهاد خریدار</option>
+                      <option value="SELLER">پیشنهاد متقابل مالک</option>
+                      <option value="AGENT">جمع‌بندی مشاور</option>
+                    </select>
+                    <input
+                      required
+                      type="number"
+                      placeholder="مبلغ جدید (تومان)"
+                      value={offerForm.proposed_price}
+                      onChange={(e) => setOfferForm({ ...offerForm, proposed_price: e.target.value })}
+                      className="h-9 rounded-lg border border-slate-300 px-2.5 text-xs tabular-nums dark:border-slate-700 dark:bg-slate-950"
+                    />
+                    <input
+                      placeholder="شرایط پرداخت / یادداشت"
+                      value={offerForm.notes}
+                      onChange={(e) => setOfferForm({ ...offerForm, notes: e.target.value })}
+                      className="h-9 rounded-lg border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    />
+                    <button
+                      type="submit"
+                      disabled={addOfferMut.isPending}
+                      className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-teal-700 px-3 text-xs font-semibold text-white hover:bg-teal-800"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      ثبت پیشنهاد متقابل
+                    </button>
+                  </form>
+                )}
               </div>
 
               {/* Log New Activity */}
@@ -573,6 +650,71 @@ export default function NegotiationDetailWorkspacePage() {
               </div>
             </div>
           </div>
+
+          <ModalDrawer
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            title="ویرایش مشخصات پرونده مذاکره"
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                editMut.mutate();
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  قیمت پایه ملک (تومان)
+                </label>
+                <input
+                  type="number"
+                  value={editForm.asking_price}
+                  onChange={(e) => setEditForm({ ...editForm, asking_price: e.target.value })}
+                  className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  اقدام بعدی
+                </label>
+                <input
+                  value={editForm.next_action}
+                  onChange={(e) => setEditForm({ ...editForm, next_action: e.target.value })}
+                  className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  موعد پیگیری بعدی
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editForm.next_followup_at}
+                  onChange={(e) => setEditForm({ ...editForm, next_followup_at: e.target.value })}
+                  className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  یادداشت و شرایط
+                </label>
+                <textarea
+                  rows={3}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-3 text-xs"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={editMut.isPending}
+                className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
+              >
+                {editMut.isPending ? "در حال ذخیره..." : "ذخیره تغییرات"}
+              </button>
+            </form>
+          </ModalDrawer>
         </>
       ) : null}
     </div>

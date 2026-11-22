@@ -40,12 +40,14 @@ class Survey(BaseModel):
 
 class SurveyQuestion(BaseModel):
     class QuestionType(models.TextChoices):
-        RATING = "RATING", "Numeric Rating (1-5)"
-        STARS = "STARS", "Star Rating (1-5)"
+        SHORT_TEXT = "SHORT_TEXT", "Short Text"
+        LONG_TEXT = "LONG_TEXT", "Long Text"
+        TEXT = "TEXT", "Free Text"
         SINGLE_SELECT = "SINGLE_SELECT", "Single Choice"
         MULTI_SELECT = "MULTI_SELECT", "Multiple Choice"
-        TEXT = "TEXT", "Free Text"
         YES_NO = "YES_NO", "Yes / No"
+        RATING = "RATING", "Numeric Rating (1-5)"
+        STARS = "STARS", "Star Rating (1-5)"
         SCALE = "SCALE", "Linear Scale (1-10)"
         NPS = "NPS", "Net Promoter Score (0-10)"
 

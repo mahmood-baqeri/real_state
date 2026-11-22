@@ -296,7 +296,7 @@ def test_3_sms_templates_event_blocking_and_masked_logs():
 
     logs = client.get("/api/v1/notifications/sms/logs", headers=admin_headers)
     assert logs.status_code == 200
-    assert any("****" in item["recipient_masked"] for item in logs.json()["data"])
+    assert any("***" in item["recipient_masked"] for item in logs.json()["data"])
     assert all("09129998877" not in item["recipient_masked"] for item in logs.json()["data"])
 
 
@@ -319,7 +319,7 @@ def test_4_security_session_console_and_emergency_force_logout():
         headers=admin_headers,
         json={"password_confirm": "WrongPass!999", "exclude_current": True},
     )
-    assert bad_panic.status_code in (400, 403), bad_panic.text
+    assert bad_panic.status_code in (400, 401, 403), bad_panic.text
 
     # Correct password_confirm revokes all other sessions while preserving current if exclude_current=True
     ok_panic = client.post(

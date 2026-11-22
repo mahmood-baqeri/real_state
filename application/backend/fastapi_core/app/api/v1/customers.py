@@ -26,8 +26,11 @@ class CustomerCreateBody(BaseModel):
 class CustomerPatchBody(BaseModel):
     customer_type: Optional[str] = None
     full_name: Optional[str] = None
+    primary_phone: Optional[str] = None
     secondary_phone: Optional[str] = None
     email: Optional[str] = None
+    source: Optional[str] = None
+    assigned_membership_id: Optional[UUID] = None
     lead_score: Optional[int] = None
     readiness_level: Optional[str] = None
     is_active: Optional[bool] = None
@@ -52,24 +55,43 @@ class CustomerRequirementBody(BaseModel):
     priority: str = "NORMAL"
 
 
+class CustomerInteractionBody(BaseModel):
+    channel: str = "NOTE"
+    summary: str
+    is_private: bool = False
+
+
 class LeadCreateBody(BaseModel):
     full_name: str
     phone_number: str
     request_type: str = "BUY"
     property_id: Optional[UUID] = None
+    assigned_membership_id: Optional[UUID] = None
     source: str = "PORTAL"
     notes: str = ""
 
 
 class LeadPatchBody(BaseModel):
-    status: str
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    request_type: Optional[str] = None
+    property_id: Optional[UUID] = None
+    assigned_membership_id: Optional[UUID] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
     notes: Optional[str] = None
+
+
+class LeadActivityBody(BaseModel):
+    activity_type: str = "NOTE"
+    note: str
 
 
 def _ser_customer(c) -> dict:
     return {
         "id": str(c.id),
         "agency": str(c.agency_id),
+        "agency_name": c.agency.name if c.agency else None,
         "customer_type": c.customer_type,
         "full_name": c.full_name,
         "primary_phone": c.primary_phone,
@@ -113,16 +135,29 @@ def _ser_customer(c) -> dict:
 def _ser_lead(l) -> dict:
     return {
         "id": str(l.id),
+        "agency_id": str(l.agency_id),
+        "agency_name": l.agency.name if l.agency else None,
         "full_name": l.full_name,
         "phone_number": l.phone_number,
         "request_type": l.request_type,
         "property_id": str(l.property_id) if l.property_id else None,
         "property_title": l.property.title if l.property else None,
         "source": l.source,
+        "assigned_membership_id": str(l.assigned_membership_id) if l.assigned_membership_id else None,
         "assigned_agent_name": l.assigned_membership.user.full_name if l.assigned_membership else None,
         "converted_customer_id": str(l.converted_customer_id) if l.converted_customer_id else None,
         "status": l.status,
         "notes": l.notes,
+        "activities": [
+            {
+                "id": str(a.id),
+                "activity_type": a.activity_type,
+                "note": a.note,
+                "created_by_name": a.created_by.full_name if a.created_by else "سیستم",
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in l.activities.all()
+        ],
         "created_at": l.created_at.isoformat(),
     }
 
@@ -144,6 +179,85 @@ async def get_customers(
 
     items, meta = await run_django(_op, agency_id=ctx.agency_id)
     return ok(items, meta=meta)
+
+
+@router.get("/customers/{customer_id}")
+async def get_customer_detail_endpoint(
+    customer_id: UUID,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.customers.services import get_customer_detail
+
+        res = get_customer_detail(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id)
+        data = _ser_customer(res["customer"])
+        data["interactions"] = [
+            {
+                "id": str(i.id),
+                "channel": i.channel,
+                "summary": i.summary,
+                "is_private": i.is_private,
+                "author_name": (
+                    i.membership.user.full_name
+                    if i.membership and i.membership.user
+                    else (i.created_by.full_name if i.created_by else "سیستم")
+                ),
+                "created_at": i.created_at.isoformat(),
+            }
+            for i in res["interactions"]
+        ]
+        data["tasks"] = [
+            {
+                "id": str(t.id),
+                "title": t.title,
+                "status": t.status,
+                "due_at": t.due_at.isoformat(),
+                "assigned_name": t.assigned_membership.user.full_name if t.assigned_membership else None,
+            }
+            for t in res["tasks"]
+        ]
+        data["contracts"] = [
+            {
+                "id": str(c.id),
+                "contract_number": c.contract_number,
+                "status": c.status,
+                "amount": str(c.amount),
+                "property_title": c.property.title if c.property else None,
+                "created_at": c.created_at.isoformat(),
+            }
+            for c in res["contracts"]
+        ]
+        data["negotiations"] = [
+            {
+                "id": str(n.id),
+                "status": n.status,
+                "property_title": n.property.title if n.property else None,
+                "latest_proposed_price": str(n.latest_proposed_price),
+                "created_at": n.created_at.isoformat(),
+            }
+            for n in res["negotiations"]
+        ]
+        data["appointments"] = [
+            {
+                "id": str(a.id),
+                "status": a.status,
+                "property_title": a.property.title if a.property else None,
+                "scheduled_start": a.scheduled_start.isoformat(),
+            }
+            for a in res["appointments"]
+        ]
+        data["documents"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "category": d.category,
+                "created_at": d.created_at.isoformat(),
+            }
+            for d in res["documents"]
+        ]
+        return data
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
 
 
 @router.post("/customers", status_code=201)
@@ -168,6 +282,46 @@ async def patch_customer(
             user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, data=body.model_dump(exclude_none=True)
         )
         return _ser_customer(c)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.delete("/customers/{customer_id}")
+async def delete_customer_endpoint(
+    customer_id: UUID, ctx: RequestContext = Depends(require_agency_context)
+):
+    def _op():
+        from apps.customers.services import soft_delete_customer
+
+        c = soft_delete_customer(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id)
+        return {"id": str(c.id), "archived": True}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/customers/{customer_id}/interactions", status_code=201)
+async def post_customer_interaction(
+    customer_id: UUID,
+    body: CustomerInteractionBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.customers.services import add_customer_interaction
+
+        item = add_customer_interaction(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            customer_id=customer_id,
+            channel=body.channel,
+            summary=body.summary,
+            is_private=body.is_private,
+        )
+        return {
+            "id": str(item.id),
+            "channel": item.channel,
+            "summary": item.summary,
+            "created_at": item.created_at.isoformat(),
+        }
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
@@ -209,6 +363,7 @@ async def post_customer_req(
 @router.get("/leads")
 async def get_leads(
     status: Optional[str] = None,
+    assigned_membership_id: Optional[UUID] = None,
     q: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
@@ -218,7 +373,13 @@ async def get_leads(
         from apps.customers.services import list_leads
         from common.pagination import paginate_queryset
 
-        qs = list_leads(user=ctx.user, agency_id=ctx.agency_id, status_filter=status, q=q)
+        qs = list_leads(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            status_filter=status,
+            assigned_membership_id=assigned_membership_id,
+            q=q,
+        )
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_lead)
 
     items, meta = await run_django(_op, agency_id=ctx.agency_id)
@@ -238,13 +399,54 @@ async def post_lead(body: LeadCreateBody, ctx: RequestContext = Depends(require_
 @router.patch("/leads/{lead_id}")
 async def patch_lead(lead_id: UUID, body: LeadPatchBody, ctx: RequestContext = Depends(require_agency_context)):
     def _op():
-        from apps.customers.services import update_lead_status
+        from apps.customers.services import update_lead
 
         return _ser_lead(
-            update_lead_status(
-                user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id, status_value=body.status, notes=body.notes
+            update_lead(
+                user=ctx.user,
+                agency_id=ctx.agency_id,
+                lead_id=lead_id,
+                data=body.model_dump(exclude_none=True),
             )
         )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/leads/{lead_id}/activities", status_code=201)
+async def post_lead_activity(
+    lead_id: UUID,
+    body: LeadActivityBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.customers.services import add_lead_activity
+
+        act = add_lead_activity(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            lead_id=lead_id,
+            activity_type=body.activity_type,
+            note=body.note,
+        )
+        return {
+            "id": str(act.id),
+            "activity_type": act.activity_type,
+            "note": act.note,
+            "created_by_name": act.created_by.full_name if act.created_by else "سیستم",
+            "created_at": act.created_at.isoformat(),
+        }
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.delete("/leads/{lead_id}")
+async def delete_lead_endpoint(lead_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import soft_delete_lead
+
+        l = soft_delete_lead(user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id)
+        return {"id": str(l.id), "archived": True}
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 

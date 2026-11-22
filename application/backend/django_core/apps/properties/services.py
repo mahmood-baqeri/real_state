@@ -545,8 +545,22 @@ def _sync_property_amenities(*, prop: Property, amenity_codes: Optional[list[str
                 )
 
 
+def _resolve_editable_property(*, user: User, agency_id: Optional[UUID], property_id: UUID) -> Property:
+    qs = Property.objects.all_tenants().filter(id=property_id, is_deleted=False)
+    if agency_id:
+        qs = qs.filter(agency_id=agency_id)
+    elif not is_super_admin(user):
+        raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
+    prop = qs.first()
+    if not prop:
+        raise NotFoundDomainError("ملک یافت نشد.")
+    return prop
+
+
 @transaction.atomic
-def create_property(*, user: User, agency_id: UUID, data: dict) -> Property:
+def create_property(*, user: User, agency_id: Optional[UUID], data: dict) -> Property:
+    if not agency_id:
+        raise ValidationDomainError("ابتدا آژانس فعال را انتخاب کنید.")
     membership = get_active_membership(user, agency_id)
     if not membership and not is_super_admin(user):
         raise PermissionDeniedDomainError("برای ثبت ملک باید عضو فعال یک آژانس باشید.")
@@ -654,10 +668,8 @@ def create_property(*, user: User, agency_id: UUID, data: dict) -> Property:
 
 
 @transaction.atomic
-def update_property(*, user: User, agency_id: UUID, property_id: UUID, data: dict) -> Property:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID, data: dict) -> Property:
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("شما مجوز ویرایش این ملک را ندارید.")
 
@@ -707,16 +719,14 @@ def update_property(*, user: User, agency_id: UUID, property_id: UUID, data: dic
         resource_type="Property",
         resource_id=str(prop.id),
         actor=user,
-        agency_id=agency_id,
+        agency_id=prop.agency_id,
     )
     return prop
 
 
 @transaction.atomic
-def soft_delete_property(*, user: User, agency_id: UUID, property_id: UUID) -> None:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+def soft_delete_property(*, user: User, agency_id: Optional[UUID], property_id: UUID) -> None:
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("شما مجوز حذف این ملک را ندارید.")
     prop.soft_delete(user=user)
@@ -725,7 +735,7 @@ def soft_delete_property(*, user: User, agency_id: UUID, property_id: UUID) -> N
         resource_type="Property",
         resource_id=str(prop.id),
         actor=user,
-        agency_id=agency_id,
+        agency_id=prop.agency_id,
     )
 
 
@@ -752,17 +762,22 @@ def _assert_property_verified_for_public_publish(prop: Property) -> None:
 
 @transaction.atomic
 def transition_property_status(
-    *, user: User, agency_id: UUID, property_id: UUID, to_status: str, reason: str = ""
+    *, user: User, agency_id: Optional[UUID], property_id: UUID, to_status: str, reason: str = ""
 ) -> Property:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+    valid_statuses = {c[0] for c in Property.Status.choices}
+    if to_status not in valid_statuses:
+        raise ValidationDomainError(f"وضعیت «{to_status}» برای ملک معتبر نیست.")
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
+    eff_agency_id = prop.agency_id
     if to_status == Property.Status.PUBLISHED and not (
-        is_super_admin(user) or has_agency_permission(user, agency_id, "property.publish")
+        is_super_admin(user) or has_agency_permission(user, eff_agency_id, "property.publish")
     ):
         raise PermissionDeniedDomainError("عدم مجوز انتشار عمومی ملک.")
-    elif not can_edit_property(user, prop) and not has_agency_permission(user, agency_id, "property.publish"):
+    elif not can_edit_property(user, prop) and not has_agency_permission(user, eff_agency_id, "property.publish"):
         raise PermissionDeniedDomainError("عدم مجوز تغییر وضعیت ملک.")
+
+    if to_status == Property.Status.REJECTED and not (reason or "").strip():
+        raise ValidationDomainError("برای رد ملک، درج دلیل رد الزامی است.")
 
     if to_status == Property.Status.PUBLISHED:
         _assert_property_verified_for_public_publish(prop)
@@ -771,13 +786,20 @@ def transition_property_status(
     prop.status = to_status
     if to_status == Property.Status.PUBLISHED:
         prop.visibility = Property.Visibility.PUBLIC_PORTAL
+    elif to_status in (
+        Property.Status.DRAFT,
+        Property.Status.INACTIVE,
+        Property.Status.REJECTED,
+        Property.Status.ARCHIVED,
+    ):
+        prop.visibility = Property.Visibility.PRIVATE_AGENCY
     prop.updated_by = user
     prop.save(update_fields=["status", "visibility", "updated_by", "updated_at"])
     PropertyStatusHistory.objects.create(
         property=prop,
         from_status=prev,
         to_status=to_status,
-        reason=reason,
+        reason=(reason or "").strip(),
         changed_by=user,
     )
     record_audit_event(
@@ -785,20 +807,18 @@ def transition_property_status(
         resource_type="Property",
         resource_id=str(prop.id),
         actor=user,
-        agency_id=agency_id,
+        agency_id=eff_agency_id,
         before_state={"status": prev},
-        after_state={"status": to_status},
+        after_state={"status": to_status, "reason": (reason or "").strip()},
     )
     return prop
 
 
 @transaction.atomic
 def add_property_media(
-    *, user: User, agency_id: UUID, property_id: UUID, media_type: str, url: str, title: str = "", is_cover: bool = False, is_public: bool = True
+    *, user: User, agency_id: Optional[UUID], property_id: UUID, media_type: str, url: str, title: str = "", is_cover: bool = False, is_public: bool = True
 ) -> PropertyMedia:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("عدم مجوز افزودن رسانه به این ملک.")
     if is_cover:
@@ -821,7 +841,7 @@ def add_property_media(
 def upload_property_media_file(
     *,
     user: User,
-    agency_id: UUID,
+    agency_id: Optional[UUID],
     property_id: UUID,
     filename: str,
     content_type: str,
@@ -830,9 +850,7 @@ def upload_property_media_file(
     is_cover: bool = False,
     is_public: bool = True,
 ) -> PropertyMedia:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("عدم مجوز بارگذاری تصویر برای این ملک.")
     safe_name, verified_mime = validate_uploaded_file(
@@ -840,7 +858,7 @@ def upload_property_media_file(
     )
     storage = get_storage_provider()
     stored = storage.put_bytes(
-        key_prefix=f"agencies/{agency_id}/properties/{property_id}",
+        key_prefix=f"agencies/{prop.agency_id}/properties/{property_id}",
         safe_filename=safe_name,
         content=content,
         mime_type=verified_mime,
@@ -863,11 +881,9 @@ def upload_property_media_file(
 
 @transaction.atomic
 def reorder_property_media(
-    *, user: User, agency_id: UUID, property_id: UUID, ordered_media_ids: list[UUID], cover_media_id: Optional[UUID] = None
+    *, user: User, agency_id: Optional[UUID], property_id: UUID, ordered_media_ids: list[UUID], cover_media_id: Optional[UUID] = None
 ) -> list[PropertyMedia]:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("عدم مجوز مرتب‌سازی رسانه‌های ملک.")
     for idx, mid in enumerate(ordered_media_ids, start=1):
@@ -879,10 +895,8 @@ def reorder_property_media(
 
 
 @transaction.atomic
-def delete_property_media(*, user: User, agency_id: UUID, property_id: UUID, media_id: UUID) -> None:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
-    if not prop:
-        raise NotFoundDomainError("ملک یافت نشد.")
+def delete_property_media(*, user: User, agency_id: Optional[UUID], property_id: UUID, media_id: UUID) -> None:
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("عدم مجوز حذف رسانه.")
     deleted, _ = PropertyMedia.objects.filter(id=media_id, property=prop).delete()

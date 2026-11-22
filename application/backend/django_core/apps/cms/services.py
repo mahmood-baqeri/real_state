@@ -44,9 +44,41 @@ LEGAL_TRANSITIONS = {
     LegalDocument.Status.DRAFT: {LegalDocument.Status.REVIEW, LegalDocument.Status.PUBLISHED, LegalDocument.Status.ARCHIVED},
     LegalDocument.Status.REVIEW: {LegalDocument.Status.APPROVED, LegalDocument.Status.DRAFT, LegalDocument.Status.ARCHIVED},
     LegalDocument.Status.APPROVED: {LegalDocument.Status.PUBLISHED, LegalDocument.Status.DRAFT, LegalDocument.Status.ARCHIVED},
-    LegalDocument.Status.PUBLISHED: {LegalDocument.Status.ARCHIVED},
+    LegalDocument.Status.PUBLISHED: {LegalDocument.Status.DRAFT, LegalDocument.Status.ARCHIVED},
     LegalDocument.Status.ARCHIVED: {LegalDocument.Status.DRAFT},
 }
+
+
+def _normalize_legal_sections(raw_sections: Optional[list]) -> list[dict]:
+    if not raw_sections:
+        return []
+    cleaned: list[dict] = []
+    for idx, item in enumerate(raw_sections, start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        body_html = sanitize_html(str(item.get("body_html") or ""))
+        if not title and not body_html:
+            continue
+        cleaned.append(
+            {
+                "id": str(item.get("id") or f"sec-{idx}"),
+                "title": title or f"بخش {idx}",
+                "body_html": body_html,
+                "sort_order": int(item.get("sort_order") or idx),
+            }
+        )
+    cleaned.sort(key=lambda s: s["sort_order"])
+    return cleaned
+
+
+def _render_sections_html(sections: list[dict]) -> str:
+    if not sections:
+        return ""
+    parts = []
+    for s in sections:
+        parts.append(f"<h3>{s['title']}</h3>{s['body_html']}")
+    return "".join(parts)
 
 
 def _assert_cms_editor(user: Optional[User]) -> None:
@@ -113,10 +145,19 @@ def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> Leg
     if not clean_slug:
         raise ValidationDomainError("شناسه یکتا (slug) سند الزامی است.")
 
-    sanitized_body = sanitize_html(str(data.get("body_html") or ""))
+    sections = _normalize_legal_sections(data.get("sections_json")) if "sections_json" in data else None
+    raw_body = str(data.get("body_html") or "")
+    sanitized_body = sanitize_html(raw_body)
+    if sections is not None and (sections or not sanitized_body):
+        sanitized_body = _render_sections_html(sections) or sanitized_body
     existing = LegalDocument.objects.filter(slug=clean_slug).first()
 
     if existing is None:
+        final_sections = sections or (
+            [{"id": f"{clean_slug}-sec-1", "title": str(data["title_fa"]).strip(), "body_html": sanitized_body, "sort_order": 1}]
+            if sanitized_body
+            else []
+        )
         doc = LegalDocument.objects.create(
             slug=clean_slug,
             doc_type=str(data.get("doc_type") or "LEGAL").upper(),
@@ -124,6 +165,7 @@ def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> Leg
             title_en=str(data.get("title_en") or "").strip(),
             summary=str(data.get("summary") or "").strip(),
             body_html=sanitized_body,
+            sections_json=final_sections,
             status=str(data.get("status") or LegalDocument.Status.DRAFT),
             version_number=1,
             requires_acceptance=bool(data.get("requires_acceptance", False)),
@@ -142,6 +184,7 @@ def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> Leg
             title_fa=doc.title_fa,
             summary=doc.summary,
             body_html=doc.body_html,
+            sections_json=doc.sections_json,
             change_note=str(data.get("change_note") or "ایجاد نسخه اولیه")[:240],
             edited_by=user,
             created_by=user,
@@ -157,7 +200,13 @@ def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> Leg
             if new_status == LegalDocument.Status.PUBLISHED:
                 doc.published_at = doc.published_at or timezone.now()
                 doc.effective_at = doc.effective_at or timezone.now()
-        if "body_html" in data and data["body_html"] is not None:
+        if sections is not None:
+            doc.sections_json = sections
+            if sections:
+                doc.body_html = _render_sections_html(sections)
+            elif "body_html" in data and data["body_html"] is not None:
+                doc.body_html = sanitized_body
+        elif "body_html" in data and data["body_html"] is not None:
             doc.body_html = sanitized_body
         doc.version_number += 1
         doc.updated_by = user
@@ -168,6 +217,7 @@ def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> Leg
             title_fa=doc.title_fa,
             summary=doc.summary,
             body_html=doc.body_html,
+            sections_json=doc.sections_json or [],
             change_note=str(data.get("change_note") or f"ویرایش نسخه {doc.version_number}")[:240],
             edited_by=user,
             created_by=user,
@@ -234,6 +284,7 @@ def restore_legal_version(*, user: User, doc_id: UUID, version_number: int) -> L
     doc.title_fa = ver.title_fa
     doc.summary = ver.summary
     doc.body_html = sanitize_html(ver.body_html)
+    doc.sections_json = ver.sections_json or []
     doc.version_number += 1
     doc.updated_by = user
     doc.save()
@@ -244,6 +295,7 @@ def restore_legal_version(*, user: User, doc_id: UUID, version_number: int) -> L
         title_fa=doc.title_fa,
         summary=doc.summary,
         body_html=doc.body_html,
+        sections_json=doc.sections_json or [],
         change_note=f"بازگردانی از نسخه {version_number}",
         edited_by=user,
         created_by=user,
@@ -374,6 +426,7 @@ def create_article(*, user: User, data: dict) -> Article:
     reading_mins = max(1, len(body.split()) // 160)
 
     art = Article.objects.create(
+        agency_id=data.get("agency_id"),
         title=data["title"].strip(),
         slug=clean_slug,
         article_type=data.get("article_type", Article.ArticleType.ARTICLE),
@@ -383,6 +436,13 @@ def create_article(*, user: User, data: dict) -> Article:
         content_body=body,
         cover_image_url=data.get("cover_image_url", "").strip(),
         status=Article.Status.DRAFT,
+        language=str(data.get("language") or "fa").strip()[:12],
+        tone=str(data.get("tone") or "PROFESSIONAL").strip()[:40],
+        target_audience=str(data.get("target_audience") or "").strip()[:120],
+        keywords=list(data.get("keywords") or []),
+        ai_generated=bool(data.get("ai_generated", False)),
+        ai_model=str(data.get("ai_model") or "")[:64],
+        ai_tokens_used=int(data.get("ai_tokens_used") or 0),
         meta_title=data.get("meta_title", "").strip() or data["title"].strip()[:160],
         meta_description=data.get("meta_description", "").strip() or data.get("summary", "")[:300],
         canonical_url=data.get("canonical_url", "").strip(),
@@ -401,7 +461,7 @@ def create_article(*, user: User, data: dict) -> Article:
         title=art.title,
         content_body=art.content_body,
         edited_by=user,
-        change_note="ایجاد پیش‌نویس اولیه",
+        change_note=data.get("change_note") or "ایجاد پیش‌نویس اولیه",
         created_by=user,
     )
     record_audit_event(action="CMS_ARTICLE_CREATED", resource_type="Article", resource_id=str(art.id), actor=user)
@@ -417,11 +477,24 @@ def update_article(*, user: User, article_id: UUID, data: dict) -> Article:
     if not is_super_admin(user) and art.created_by_id != user.id:
         raise PermissionDeniedDomainError("شما فقط مجاز به ویرایش مقالات خود هستید.")
 
-    for field in ("title", "summary", "cover_image_url", "meta_title", "meta_description", "canonical_url", "article_type"):
+    for field in (
+        "title",
+        "summary",
+        "cover_image_url",
+        "meta_title",
+        "meta_description",
+        "canonical_url",
+        "article_type",
+        "language",
+        "tone",
+        "target_audience",
+        "keywords",
+    ):
         if field in data and data[field] is not None:
             setattr(art, field, data[field])
     if "content_body" in data and data["content_body"] is not None:
         art.content_body = sanitize_html(data["content_body"])
+        art.reading_time_minutes = max(1, len(art.content_body.split()) // 160)
     if "category_id" in data and data["category_id"] is not None:
         art.category_id = data["category_id"]
     art.updated_by = user
@@ -438,6 +511,29 @@ def update_article(*, user: User, article_id: UUID, data: dict) -> Article:
         created_by=user,
     )
     return art
+
+
+@transaction.atomic
+def delete_article(*, user: User, article_id: UUID) -> dict:
+    _assert_cms_editor(user)
+    art = Article.objects.filter(id=article_id).first()
+    if not art:
+        raise NotFoundDomainError("مقاله یا محتوا یافت نشد.")
+    if not is_super_admin(user):
+        if art.created_by_id != user.id:
+            raise PermissionDeniedDomainError("شما فقط مجاز به حذف پیش‌نویس‌های خود هستید.")
+        if art.status == Article.Status.PUBLISHED:
+            raise PermissionDeniedDomainError("حذف محتوای منتشرشده فقط توسط مدیر کل مجاز است.")
+    title_snap = art.title
+    art.delete()
+    record_audit_event(
+        action="CMS_ARTICLE_DELETED",
+        resource_type="Article",
+        resource_id=str(article_id),
+        actor=user,
+        after_state={"title": title_snap},
+    )
+    return {"deleted": True, "id": str(article_id)}
 
 
 @transaction.atomic

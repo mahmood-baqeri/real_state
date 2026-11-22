@@ -652,19 +652,26 @@ def upload_brand_media_slot(
 ) -> BrandMediaSlot:
     if not is_super_admin(user):
         raise PermissionDeniedDomainError("فقط مدیر کل مجاز به بارگذاری رسانه‌های برند است.")
-    slot = BrandMediaSlot.objects.filter(slot_key=slot_key).first()
-    if not slot:
-        raise NotFoundDomainError("جایگاه رسانه برند یافت نشد.")
+    clean_key = slot_key.strip().lower()
+    if not clean_key:
+        raise ValidationDomainError("شناسه جایگاه رسانه معتبر نیست.")
+    slot, _ = BrandMediaSlot.objects.get_or_create(
+        slot_key=clean_key,
+        defaults={
+            "title_fa": clean_key,
+            "category": "BRANDING",
+        },
+    )
 
     safe_name, verified_mime = validate_uploaded_file(
         filename=filename, content_type=content_type, content=content
     )
     if not verified_mime.startswith("image/"):
-        raise ValidationDomainError("فقط فایل‌های تصویری معتبر (PNG, JPG, WebP) برای رسانه برند مجاز هستند.")
+        raise ValidationDomainError("فقط فایل‌های تصویری معتبر (PNG, JPG, WebP, ICO) برای رسانه برند مجاز هستند.")
 
     storage = get_storage_provider()
     stored = storage.put_bytes(
-        key_prefix=f"platform/branding/{slot_key}",
+        key_prefix=f"platform/branding/{clean_key}",
         safe_filename=safe_name,
         content=content,
         mime_type=verified_mime,
@@ -682,9 +689,36 @@ def upload_brand_media_slot(
     record_audit_event(
         action="BRAND_MEDIA_UPLOADED",
         resource_type="BrandMediaSlot",
-        resource_id=slot_key,
+        resource_id=clean_key,
         actor=user,
         after_state={"url": stored.url, "dark_variant": dark_variant},
+    )
+    invalidate_public_bootstrap_cache()
+    return slot
+
+
+@transaction.atomic
+def clear_brand_media_slot_image(
+    *, user: User, slot_key: str, dark_variant: bool = False
+) -> BrandMediaSlot:
+    if not is_super_admin(user):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به حذف تصویر رسانه برند است.")
+    slot = BrandMediaSlot.objects.filter(slot_key=slot_key).first()
+    if not slot:
+        raise NotFoundDomainError("جایگاه رسانه برند یافت نشد.")
+    if dark_variant:
+        slot.dark_image_url = ""
+    else:
+        slot.image_url = ""
+        slot.file_key = ""
+    slot.updated_by = user
+    slot.save()
+    record_audit_event(
+        action="BRAND_MEDIA_CLEARED",
+        resource_type="BrandMediaSlot",
+        resource_id=slot_key,
+        actor=user,
+        after_state={"dark_variant": dark_variant},
     )
     invalidate_public_bootstrap_cache()
     return slot

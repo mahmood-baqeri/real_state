@@ -170,3 +170,137 @@ async def ai_logs_endpoint(ctx: RequestContext = Depends(get_current_context)):
         ]
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+class ContentTopicsBody(BaseModel):
+    content_type: str = "ARTICLE"
+    focus_city: str = ""
+    audience: str = ""
+
+
+class ContentGenerateBody(BaseModel):
+    topic: str = Field(min_length=3, max_length=240)
+    content_type: str = "ARTICLE"
+    language: str = "fa"
+    tone: str = "PROFESSIONAL"
+    target_audience: str = "خریداران و سرمایه‌گذاران املاک"
+    keywords: list[str] = []
+    custom_instructions: str = ""
+    model: Optional[str] = None
+
+
+class ContentRewriteBody(BaseModel):
+    title: str = ""
+    content_body: str = Field(min_length=5)
+    instruction: str = "بهبود خوانایی و ساختار سئو"
+    tone: str = "PROFESSIONAL"
+    language: str = "fa"
+    keywords: list[str] = []
+    model: Optional[str] = None
+
+
+class SaveAiDraftBody(BaseModel):
+    title: str = Field(min_length=3, max_length=240)
+    slug: str = Field(min_length=2, max_length=240)
+    article_type: str = "ARTICLE"
+    summary: str = ""
+    content_body: str = Field(min_length=10)
+    language: str = "fa"
+    tone: str = "PROFESSIONAL"
+    target_audience: str = ""
+    keywords: list[str] = []
+    ai_model: str = ""
+    ai_tokens_used: int = 0
+    meta_title: str = ""
+    meta_description: str = ""
+    tags: list[str] = []
+
+
+@router.get("/content/topics")
+async def get_ai_content_topics_endpoint(
+    content_type: str = "ARTICLE",
+    focus_city: str = "",
+    audience: str = "",
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.ai_assistant.services import suggest_content_topics
+
+        return suggest_content_topics(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            content_type=content_type,
+            focus_city=focus_city,
+            audience=audience,
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/content/topics")
+async def post_ai_content_topics_endpoint(
+    body: ContentTopicsBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.ai_assistant.services import suggest_content_topics
+
+        return suggest_content_topics(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            content_type=body.content_type,
+            focus_city=body.focus_city,
+            audience=body.audience,
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/content/generate")
+async def generate_ai_content_endpoint(
+    body: ContentGenerateBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.ai_assistant.services import generate_ai_content
+
+        return generate_ai_content(
+            user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/content/rewrite")
+async def rewrite_ai_content_endpoint(
+    body: ContentRewriteBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.ai_assistant.services import rewrite_ai_content
+
+        return rewrite_ai_content(
+            user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()
+        )
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/content/save-draft", status_code=201)
+async def save_ai_content_draft_endpoint(
+    body: SaveAiDraftBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.ai_assistant.services import save_ai_content_to_cms
+
+        art = save_ai_content_to_cms(
+            user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()
+        )
+        return {
+            "id": str(art.id),
+            "title": art.title,
+            "slug": art.slug,
+            "article_type": art.article_type,
+            "status": art.status,
+            "ai_generated": art.ai_generated,
+        }
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+

@@ -38,7 +38,12 @@ class AuthorProfile(BaseModel):
 class Article(BaseModel):
     class ArticleType(models.TextChoices):
         ARTICLE = "ARTICLE", "Article / Guide"
+        EDUCATIONAL = "EDUCATIONAL", "Educational"
         NEWS = "NEWS", "News / Market Report"
+        PROMOTIONAL = "PROMOTIONAL", "Promotional / Campaign"
+        SEO = "SEO", "SEO Content"
+        SOCIAL_MEDIA = "SOCIAL_MEDIA", "Social Media Post"
+        LISTING_DESCRIPTION = "LISTING_DESCRIPTION", "Property Listing Description"
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -48,9 +53,12 @@ class Article(BaseModel):
         SCHEDULED = "SCHEDULED", "Scheduled"
         ARCHIVED = "ARCHIVED", "Archived"
 
+    agency = models.ForeignKey(
+        "agencies.Agency", null=True, blank=True, on_delete=models.SET_NULL, related_name="articles"
+    )
     title = models.CharField(max_length=240)
     slug = models.SlugField(max_length=240, unique=True)
-    article_type = models.CharField(max_length=16, choices=ArticleType.choices, default=ArticleType.ARTICLE)
+    article_type = models.CharField(max_length=32, choices=ArticleType.choices, default=ArticleType.ARTICLE)
     category = models.ForeignKey(ContentCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name="articles")
     author = models.ForeignKey(AuthorProfile, null=True, blank=True, on_delete=models.SET_NULL, related_name="articles")
     summary = models.TextField(blank=True, default="")
@@ -62,6 +70,13 @@ class Article(BaseModel):
     meta_title = models.CharField(max_length=160, blank=True, default="")
     meta_description = models.CharField(max_length=320, blank=True, default="")
     canonical_url = models.CharField(max_length=300, blank=True, default="")
+    language = models.CharField(max_length=12, default="fa")
+    tone = models.CharField(max_length=32, blank=True, default="")
+    target_audience = models.CharField(max_length=120, blank=True, default="")
+    keywords = models.JSONField(default=list, blank=True)
+    ai_generated = models.BooleanField(default=False)
+    ai_model = models.CharField(max_length=64, blank=True, default="")
+    ai_tokens_used = models.PositiveIntegerField(default=0)
     reading_time_minutes = models.PositiveSmallIntegerField(default=4)
     view_count = models.PositiveIntegerField(default=0)
     tags = models.ManyToManyField(Tag, blank=True, related_name="articles")
@@ -187,6 +202,7 @@ class LegalDocument(BaseModel):
     title_en = models.CharField(max_length=200, blank=True, default="")
     summary = models.TextField(blank=True, default="")
     body_html = models.TextField()
+    sections_json = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
     version_number = models.PositiveIntegerField(default=1)
     requires_acceptance = models.BooleanField(default=False)
@@ -208,6 +224,7 @@ class LegalDocumentVersion(BaseModel):
     title_fa = models.CharField(max_length=200)
     summary = models.TextField(blank=True, default="")
     body_html = models.TextField()
+    sections_json = models.JSONField(default=list, blank=True)
     change_note = models.CharField(max_length=240, blank=True, default="")
     edited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL

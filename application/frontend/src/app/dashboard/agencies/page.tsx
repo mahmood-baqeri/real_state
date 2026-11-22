@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, GitMerge, Plus } from "lucide-react";
+import { Building2, Edit3, GitMerge, Plus, Power, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { AgencyItem, BranchItem, CooperationItem } from "@/lib/types";
@@ -14,29 +14,52 @@ import { ModalDrawer } from "@/components/ui/ModalDrawer";
 import { ErrorState, SuccessBanner } from "@/components/ui/StateNotice";
 
 export default function AgenciesBranchesPage() {
-  const { accessToken, activeAgencyId } = useAuth();
+  const { accessToken, activeAgencyId, effectiveRole } = useAuth();
   const qc = useQueryClient();
+  const isSuper = effectiveRole === "SUPER_ADMIN";
+
   const [branchModal, setBranchModal] = useState(false);
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [includeInactiveBranches, setIncludeInactiveBranches] = useState(true);
+
   const [agencyModal, setAgencyModal] = useState(false);
+  const [editingAgencyId, setEditingAgencyId] = useState<string | null>(null);
+
   const [coopModal, setCoopModal] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  const [branchForm, setBranchForm] = useState({ name: "", code: "", city: "تهران", address: "", phone: "" });
-  const [agencyForm, setAgencyForm] = useState({ name: "", slug: "", phone: "", registration_number: "" });
+  const emptyBranchForm = { name: "", code: "", province: "", city: "تهران", address: "", phone: "", is_main: false };
+  const [branchForm, setBranchForm] = useState(emptyBranchForm);
+
+  const emptyAgencyForm = {
+    name: "",
+    slug: "",
+    phone: "",
+    email: "",
+    registration_number: "",
+    tax_id: "",
+    description: "",
+  };
+  const [agencyForm, setAgencyForm] = useState(emptyAgencyForm);
   const [coopForm, setCoopForm] = useState({ provider_agency_id: "", default_split_percent: "50.00" });
 
   const agenciesQ = useQuery({
     queryKey: ["agencies-list"],
     enabled: !!accessToken,
-    queryFn: async () => (await apiFetch<AgencyItem[]>("/api/v1/agencies", { token: accessToken })).data,
+    queryFn: async () => (await apiFetch<AgencyItem[]>("/api/v1/agencies?page_size=100", { token: accessToken })).data,
   });
 
   const branchesQ = useQuery({
-    queryKey: ["branches-list", activeAgencyId],
+    queryKey: ["branches-list", activeAgencyId, includeInactiveBranches],
     enabled: !!accessToken && !!activeAgencyId,
     queryFn: async () =>
-      (await apiFetch<BranchItem[]>(`/api/v1/agencies/${activeAgencyId}/branches`, { token: accessToken })).data,
+      (
+        await apiFetch<BranchItem[]>(
+          `/api/v1/agencies/${activeAgencyId}/branches?include_inactive=${includeInactiveBranches}`,
+          { token: accessToken }
+        )
+      ).data,
   });
 
   const coopsQ = useQuery({
@@ -46,33 +69,107 @@ export default function AgenciesBranchesPage() {
       (await apiFetch<CooperationItem[]>(`/api/v1/agencies/${activeAgencyId}/cooperations`, { token: accessToken })).data,
   });
 
-  const createAgencyMut = useMutation({
-    mutationFn: async () =>
-      apiFetch("/api/v1/agencies", {
+  const saveAgencyMut = useMutation({
+    mutationFn: async () => {
+      if (editingAgencyId) {
+        return apiFetch(`/api/v1/agencies/${editingAgencyId}`, {
+          method: "PATCH",
+          token: accessToken,
+          body: JSON.stringify({
+            name: agencyForm.name,
+            phone: agencyForm.phone,
+            email: agencyForm.email,
+            registration_number: agencyForm.registration_number,
+            tax_id: agencyForm.tax_id,
+            description: agencyForm.description,
+          }),
+        });
+      }
+      return apiFetch("/api/v1/agencies", {
         method: "POST",
         token: accessToken,
         body: JSON.stringify(agencyForm),
-      }),
+      });
+    },
     onSuccess: () => {
       setAgencyModal(false);
-      setAgencyForm({ name: "", slug: "", phone: "", registration_number: "" });
-      setNotice("آژانس جدید ثبت شد و در انتظار تأیید مدیر کل است.");
+      setEditingAgencyId(null);
+      setAgencyForm(emptyAgencyForm);
+      setNotice(editingAgencyId ? "اطلاعات آژانس به‌روزرسانی شد." : "آژانس جدید ثبت شد.");
       qc.invalidateQueries({ queryKey: ["agencies-list"] });
+      qc.invalidateQueries({ queryKey: ["header-agencies"] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
 
-  const createBranchMut = useMutation({
-    mutationFn: async () =>
-      apiFetch(`/api/v1/agencies/${activeAgencyId}/branches`, {
+  const agencyStatusMut = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) =>
+      apiFetch(`/api/v1/agencies/${id}/status`, {
+        method: "POST",
+        token: accessToken,
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      setNotice("وضعیت آژانس تغییر یافت.");
+      qc.invalidateQueries({ queryKey: ["agencies-list"] });
+      qc.invalidateQueries({ queryKey: ["header-agencies"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
+  const deleteAgencyMut = useMutation({
+    mutationFn: async (id: string) =>
+      apiFetch(`/api/v1/agencies/${id}`, {
+        method: "DELETE",
+        token: accessToken,
+      }),
+    onSuccess: () => {
+      setNotice("آژانس با موفقیت بایگانی (حذف نرم) شد.");
+      qc.invalidateQueries({ queryKey: ["agencies-list"] });
+      qc.invalidateQueries({ queryKey: ["header-agencies"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
+  const saveBranchMut = useMutation({
+    mutationFn: async () => {
+      if (editingBranchId) {
+        return apiFetch(`/api/v1/agencies/${activeAgencyId}/branches/${editingBranchId}`, {
+          method: "PATCH",
+          token: accessToken,
+          body: JSON.stringify(branchForm),
+        });
+      }
+      return apiFetch(`/api/v1/agencies/${activeAgencyId}/branches`, {
         method: "POST",
         token: accessToken,
         body: JSON.stringify(branchForm),
-      }),
+      });
+    },
     onSuccess: () => {
       setBranchModal(false);
-      setBranchForm({ name: "", code: "", city: "تهران", address: "", phone: "" });
-      setNotice("شعبه جدید با موفقیت ثبت شد.");
+      setEditingBranchId(null);
+      setBranchForm(emptyBranchForm);
+      setNotice(editingBranchId ? "اطلاعات شعبه ویرایش شد." : "شعبه جدید با موفقیت ثبت شد.");
+      qc.invalidateQueries({ queryKey: ["branches-list", activeAgencyId] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
+  const toggleBranchMut = useMutation({
+    mutationFn: async ({ branchId, isActive }: { branchId: string; isActive: boolean }) =>
+      isActive
+        ? apiFetch(`/api/v1/agencies/${activeAgencyId}/branches/${branchId}`, {
+            method: "PATCH",
+            token: accessToken,
+            body: JSON.stringify({ is_active: true }),
+          })
+        : apiFetch(`/api/v1/agencies/${activeAgencyId}/branches/${branchId}`, {
+            method: "DELETE",
+            token: accessToken,
+          }),
+    onSuccess: () => {
+      setNotice("وضعیت فعال‌سازی شعبه تغییر یافت.");
       qc.invalidateQueries({ queryKey: ["branches-list", activeAgencyId] });
     },
     onError: (e: Error) => setErrMsg(e.message),
@@ -111,7 +208,7 @@ export default function AgenciesBranchesPage() {
     <div className="space-y-6">
       <PageHeader
         title="آژانس‌ها، شعب و شبکه همکاری"
-        subtitle="مدیریت شعب محلی و تفاهم‌نامه‌های فایل مشترک بین آژانس‌ها"
+        subtitle="مدیریت کامل آژانس‌ها، شعب فعال/غیرفعال و تفاهم‌نامه‌های فایل مشترک"
         breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "آژانس‌ها و شعب" }]}
         actions={
           <div className="flex flex-wrap gap-2">
@@ -119,7 +216,11 @@ export default function AgenciesBranchesPage() {
               <>
                 <button
                   type="button"
-                  onClick={() => setBranchModal(true)}
+                  onClick={() => {
+                    setEditingBranchId(null);
+                    setBranchForm(emptyBranchForm);
+                    setBranchModal(true);
+                  }}
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
                 >
                   <Plus className="h-4 w-4" />
@@ -137,7 +238,11 @@ export default function AgenciesBranchesPage() {
             )}
             <button
               type="button"
-              onClick={() => setAgencyModal(true)}
+              onClick={() => {
+                setEditingAgencyId(null);
+                setAgencyForm(emptyAgencyForm);
+                setAgencyModal(true);
+              }}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               <Building2 className="h-4 w-4" />
@@ -152,7 +257,18 @@ export default function AgenciesBranchesPage() {
 
       {activeAgencyId && (
         <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">شعب آژانس فعال</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">شعب آژانس فعال</h2>
+            <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={includeInactiveBranches}
+                onChange={(e) => setIncludeInactiveBranches(e.target.checked)}
+                className="accent-teal-700"
+              />
+              نمایش شعب غیرفعال / بایگانی
+            </label>
+          </div>
           <DataTable
             rows={branchesQ.data || []}
             rowKey={(b) => b.id}
@@ -161,9 +277,50 @@ export default function AgenciesBranchesPage() {
             columns={[
               { key: "code", header: "کد شعبه", render: (b) => <span className="font-mono text-xs">{b.code}</span> },
               { key: "name", header: "نام شعبه", render: (b) => <span className="font-semibold">{b.name}</span> },
-              { key: "city", header: "شهر", render: (b) => b.city },
+              { key: "city", header: "شهر", render: (b) => b.city || "—" },
               { key: "address", header: "نشانی", render: (b) => b.address || "—" },
               { key: "main", header: "نوع", render: (b) => (b.is_main ? "شعبه مرکزی" : "فرعی") },
+              { key: "status", header: "وضعیت", render: (b) => <StatusText status={b.is_active ? "ACTIVE" : "SUSPENDED"} /> },
+              {
+                key: "act",
+                header: "عملیات",
+                render: (b) => (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingBranchId(b.id);
+                        setBranchForm({
+                          name: b.name,
+                          code: b.code,
+                          province: b.province || "",
+                          city: b.city || "",
+                          address: b.address || "",
+                          phone: b.phone || "",
+                          is_main: b.is_main,
+                        });
+                        setBranchModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs font-semibold"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                      ویرایش
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleBranchMut.mutate({ branchId: b.id, isActive: !b.is_active })}
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
+                        b.is_active
+                          ? "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          : "bg-emerald-700 text-white hover:bg-emerald-800"
+                      }`}
+                    >
+                      <Power className="h-3 w-3" />
+                      {b.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
+                    </button>
+                  </div>
+                ),
+              },
             ]}
           />
         </div>
@@ -232,17 +389,80 @@ export default function AgenciesBranchesPage() {
             },
             { key: "slug", header: "شناسه یکتا", render: (a) => <span className="font-mono text-xs">{a.slug}</span> },
             { key: "owner", header: "مدیر مسئول", render: (a) => a.owner_name },
-            { key: "currency", header: "ارز پیش‌فرض", render: (a) => a.default_currency },
+            { key: "phone", header: "تلفن", render: (a) => <span className="font-mono text-xs">{a.phone || "—"}</span> },
             { key: "status", header: "وضعیت", render: (a) => <StatusText status={a.status} /> },
+            {
+              key: "actions",
+              header: "عملیات",
+              render: (a) => (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAgencyId(a.id);
+                      setAgencyForm({
+                        name: a.name,
+                        slug: a.slug,
+                        phone: a.phone || "",
+                        email: a.email || "",
+                        registration_number: a.registration_number || "",
+                        tax_id: a.tax_id || "",
+                        description: a.description || "",
+                      });
+                      setAgencyModal(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs font-semibold"
+                  >
+                    <Edit3 className="h-3 w-3" />
+                    ویرایش
+                  </button>
+                  {isSuper && a.status !== "ACTIVE" && (
+                    <button
+                      type="button"
+                      onClick={() => agencyStatusMut.mutate({ id: a.id, status: "ACTIVE" })}
+                      className="rounded-md bg-emerald-700 px-2 py-1 text-xs font-semibold text-white"
+                    >
+                      فعال‌سازی
+                    </button>
+                  )}
+                  {isSuper && a.status === "ACTIVE" && (
+                    <button
+                      type="button"
+                      onClick={() => agencyStatusMut.mutate({ id: a.id, status: "SUSPENDED" })}
+                      className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800"
+                    >
+                      تعلیق
+                    </button>
+                  )}
+                  {isSuper && a.status !== "ARCHIVED" && (
+                    <button
+                      type="button"
+                      onClick={() => deleteAgencyMut.mutate(a.id)}
+                      className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700"
+                      title="بایگانی آژانس"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ),
+            },
           ]}
         />
       </div>
 
-      <ModalDrawer open={branchModal} onClose={() => setBranchModal(false)} title="ثبت شعبه جدید">
+      <ModalDrawer
+        open={branchModal}
+        onClose={() => {
+          setBranchModal(false);
+          setEditingBranchId(null);
+        }}
+        title={editingBranchId ? "ویرایش شعبه" : "ثبت شعبه جدید"}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            createBranchMut.mutate();
+            saveBranchMut.mutate();
           }}
           className="space-y-3"
         >
@@ -251,42 +471,72 @@ export default function AgenciesBranchesPage() {
             placeholder="نام شعبه"
             value={branchForm.name}
             onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
           />
           <input
             required
             placeholder="کد شعبه (مثال: TEH-W2)"
             value={branchForm.code}
             onChange={(e) => setBranchForm({ ...branchForm, code: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
           />
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              placeholder="استان"
+              value={branchForm.province}
+              onChange={(e) => setBranchForm({ ...branchForm, province: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+            <input
+              placeholder="شهر"
+              value={branchForm.city}
+              onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+          </div>
           <input
-            placeholder="شهر"
-            value={branchForm.city}
-            onChange={(e) => setBranchForm({ ...branchForm, city: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+            placeholder="تلفن شعبه"
+            value={branchForm.phone}
+            onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })}
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm"
           />
           <input
             placeholder="نشانی"
             value={branchForm.address}
             onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
           />
+          <label className="inline-flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={branchForm.is_main}
+              onChange={(e) => setBranchForm({ ...branchForm, is_main: e.target.checked })}
+              className="accent-teal-700"
+            />
+            شعبه مرکزی آژانس
+          </label>
           <button
             type="submit"
-            disabled={createBranchMut.isPending}
+            disabled={saveBranchMut.isPending}
             className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white"
           >
-            ثبت شعبه
+            {editingBranchId ? "ذخیره تغییرات شعبه" : "ثبت شعبه"}
           </button>
         </form>
       </ModalDrawer>
 
-      <ModalDrawer open={agencyModal} onClose={() => setAgencyModal(false)} title="ایجاد آژانس جدید">
+      <ModalDrawer
+        open={agencyModal}
+        onClose={() => {
+          setAgencyModal(false);
+          setEditingAgencyId(null);
+        }}
+        title={editingAgencyId ? "ویرایش مشخصات آژانس" : "ایجاد آژانس جدید"}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            createAgencyMut.mutate();
+            saveAgencyMut.mutate();
           }}
           className="space-y-3"
         >
@@ -295,27 +545,58 @@ export default function AgenciesBranchesPage() {
             placeholder="نام رسمی آژانس"
             value={agencyForm.name}
             onChange={(e) => setAgencyForm({ ...agencyForm, name: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
           />
           <input
             required
+            disabled={!!editingAgencyId}
             placeholder="نامک انگلیسی (slug)"
             value={agencyForm.slug}
             onChange={(e) => setAgencyForm({ ...agencyForm, slug: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 font-mono text-sm"
+            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 font-mono text-sm disabled:opacity-60"
           />
-          <input
-            placeholder="شماره تماس"
-            value={agencyForm.phone}
-            onChange={(e) => setAgencyForm({ ...agencyForm, phone: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 px-3 text-sm"
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              placeholder="شماره تماس"
+              value={agencyForm.phone}
+              onChange={(e) => setAgencyForm({ ...agencyForm, phone: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+            <input
+              dir="ltr"
+              placeholder="ایمیل"
+              value={agencyForm.email}
+              onChange={(e) => setAgencyForm({ ...agencyForm, email: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              placeholder="شماره پروانه / ثبت"
+              value={agencyForm.registration_number}
+              onChange={(e) => setAgencyForm({ ...agencyForm, registration_number: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+            <input
+              placeholder="شناسه مالیاتی"
+              value={agencyForm.tax_id}
+              onChange={(e) => setAgencyForm({ ...agencyForm, tax_id: e.target.value })}
+              className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
+            />
+          </div>
+          <textarea
+            rows={2}
+            placeholder="توضیحات آژانس"
+            value={agencyForm.description}
+            onChange={(e) => setAgencyForm({ ...agencyForm, description: e.target.value })}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-2.5 text-sm"
           />
           <button
             type="submit"
-            disabled={createAgencyMut.isPending}
+            disabled={saveAgencyMut.isPending}
             className="h-10 w-full rounded-lg bg-teal-700 text-sm font-semibold text-white"
           >
-            ثبت آژانس
+            {editingAgencyId ? "ذخیره تغییرات آژانس" : "ثبت آژانس"}
           </button>
         </form>
       </ModalDrawer>

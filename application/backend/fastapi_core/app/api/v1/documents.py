@@ -22,15 +22,28 @@ class DocumentCreateBody(BaseModel):
     file_size_bytes: int = 1024
 
 
+class DocumentPatchBody(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    access_level: Optional[str] = None
+    property_id: Optional[UUID] = None
+    customer_id: Optional[UUID] = None
+    contract_id: Optional[UUID] = None
+
+
 def _ser_doc(d) -> dict:
     return {
         "id": str(d.id),
+        "agency_id": str(d.agency_id),
+        "agency_name": d.agency.name if d.agency else None,
         "title": d.title,
         "category": d.category,
         "access_level": d.access_level,
         "property_id": str(d.property_id) if d.property_id else None,
         "property_title": d.property.title if d.property else None,
+        "customer_id": str(d.customer_id) if d.customer_id else None,
         "customer_name": d.customer.full_name if d.customer else None,
+        "contract_id": str(d.contract_id) if d.contract_id else None,
         "contract_number": d.contract.contract_number if d.contract else None,
         "versions": [
             {
@@ -49,6 +62,10 @@ def _ser_doc(d) -> dict:
 @router.get("")
 async def list_documents_endpoint(
     category: Optional[str] = None,
+    property_id: Optional[UUID] = None,
+    customer_id: Optional[UUID] = None,
+    contract_id: Optional[UUID] = None,
+    q: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     ctx: RequestContext = Depends(require_agency_context),
@@ -57,7 +74,15 @@ async def list_documents_endpoint(
         from apps.documents.services import list_documents
         from common.pagination import paginate_queryset
 
-        qs = list_documents(user=ctx.user, agency_id=ctx.agency_id, category=category)
+        qs = list_documents(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            category=category,
+            property_id=property_id,
+            customer_id=customer_id,
+            contract_id=contract_id,
+            q=q,
+        )
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_doc)
 
     items, meta = await run_django(_op, agency_id=ctx.agency_id)
@@ -112,6 +137,40 @@ async def upload_document_endpoint(
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
 
+@router.patch("/{document_id}")
+async def patch_document_endpoint(
+    document_id: UUID,
+    body: DocumentPatchBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.documents.services import update_document
+
+        doc = update_document(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            document_id=document_id,
+            data=body.model_dump(exclude_unset=True),
+        )
+        return _ser_doc(doc)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.delete("/{document_id}")
+async def delete_document_endpoint(
+    document_id: UUID,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.documents.services import soft_delete_document
+
+        doc = soft_delete_document(user=ctx.user, agency_id=ctx.agency_id, document_id=document_id)
+        return {"id": str(doc.id), "archived": True}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
 @router.post("/{document_id}/download")
 async def download_document_endpoint(
     document_id: UUID,
@@ -141,6 +200,7 @@ async def download_document_endpoint(
 async def get_document_content_endpoint(
     document_id: UUID,
     request: Request,
+    inline: bool = Query(default=False),
     ctx: RequestContext = Depends(require_agency_context),
 ):
     ip = extract_client_ip(request.client.host if request.client else None)
@@ -163,8 +223,9 @@ async def get_document_content_endpoint(
         return raw, latest.mime_type, latest.file_key.split("/")[-1]
 
     raw, mime, fname = await run_django(_op, agency_id=ctx.agency_id)
+    disposition = "inline" if inline else "attachment"
     return Response(
         content=raw,
         media_type=mime,
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        headers={"Content-Disposition": f'{disposition}; filename="{fname}"'},
     )

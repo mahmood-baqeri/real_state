@@ -25,6 +25,7 @@ class MemberPatchBody(BaseModel):
     role_code: Optional[str] = None
     status: Optional[str] = None
     branch_id: Optional[UUID] = None
+    clear_branch: bool = False
 
 
 class OverrideItem(BaseModel):
@@ -116,8 +117,20 @@ async def patch_team_member(
             role_code=body.role_code,
             status_value=body.status,
             branch_id=body.branch_id,
+            clear_branch=body.clear_branch,
         )
         return {"id": str(m.id), "role_code": m.role.code, "status": m.status}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.delete("/team/members/{membership_id}")
+async def delete_team_member(membership_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.accounts.services import soft_delete_agency_member
+
+        m = soft_delete_agency_member(actor=ctx.user, agency_id=ctx.agency_id, membership_id=membership_id)
+        return {"id": str(m.id), "status": m.status}
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 

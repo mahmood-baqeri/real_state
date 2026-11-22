@@ -13,6 +13,20 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
+# Auto-install required OS packages on fresh Debian/Ubuntu containers if running as root
+if [ "$(id -u)" -eq 0 ] && command -v apt-get >/dev/null 2>&1; then
+  NEED_APT=0
+  python3 -m ensurepip --version >/dev/null 2>&1 || NEED_APT=1
+  command -v redis-server >/dev/null 2>&1 || NEED_APT=1
+  [ -d /usr/lib/postgresql ] || NEED_APT=1
+  if [ "$NEED_APT" -eq 1 ]; then
+    echo "[bonyan-melk] Installing system runtime packages (PostgreSQL, Redis, python3-venv)..."
+    apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--path-exclude=/var/log/*" \
+      postgresql postgresql-contrib redis-server python3-venv python3-pip libpq-dev >/dev/null
+  fi
+fi
+
 # Resolve Python interpreter cleanly: workspace .venv -> /opt/pyvenv -> python3
 if [ -x "$ROOT_DIR/.venv/bin/python" ]; then
   PY_BIN="$ROOT_DIR/.venv/bin/python"
@@ -24,7 +38,8 @@ fi
 
 if ! "$PY_BIN" -c "import django, fastapi, pydantic_settings, uvicorn, psycopg2, redis" >/dev/null 2>&1; then
   echo "[bonyan-melk] Installing backend dependencies into .venv..."
-  if [ ! -x "$ROOT_DIR/.venv/bin/python" ] || [ ! -x "$ROOT_DIR/.venv/bin/pip" ]; then
+  if [ ! -x "$ROOT_DIR/.venv/bin/pip" ]; then
+    rm -rf "$ROOT_DIR/.venv"
     python3 -m venv "$ROOT_DIR/.venv"
   fi
   "$ROOT_DIR/.venv/bin/pip" install --no-cache-dir --quiet -r "$ROOT_DIR/backend/requirements.txt"
@@ -99,6 +114,11 @@ echo "[bonyan-melk] Connected to PostgreSQL via DATABASE_URL."
 
 # Stop any stale listeners
 pkill -f "uvicorn .* --host 127.0.0.1 --port 8020" >/dev/null 2>&1 || true
+pkill -f "celery -A config worker" >/dev/null 2>&1 || true
+
+# Start Celery Worker for asynchronous panorama stitching, 3D geometry & scan processing
+(cd "$DJANGO_DIR" && exec "$PY_BIN" -m celery -A config worker -l info --concurrency=2 --logfile=/tmp/celery-worker.log) &
+CELERY_PID=$!
 
 # Start FastAPI Core Web API Service (Port 8020)
 (cd "$FASTAPI_DIR" && exec "$PY_BIN" -m uvicorn main:app --host 127.0.0.1 --port 8020) &
@@ -106,6 +126,7 @@ FASTAPI_PID=$!
 
 cleanup() {
   kill "$FASTAPI_PID" >/dev/null 2>&1 || true
+  kill "$CELERY_PID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
 

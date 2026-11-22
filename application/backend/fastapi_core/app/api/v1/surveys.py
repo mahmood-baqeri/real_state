@@ -28,6 +28,27 @@ class SurveyCreateBody(BaseModel):
     questions: list[SurveyQuestionBody]
 
 
+class SurveyPatchBody(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=3, max_length=180)
+    description: Optional[str] = None
+    target_audience: Optional[str] = None
+    crm_trigger_event: Optional[str] = None
+    is_active: Optional[bool] = None
+    allow_anonymous: Optional[bool] = None
+
+
+class SurveyQuestionPatchBody(BaseModel):
+    sort_order: Optional[int] = None
+    question_text: Optional[str] = Field(default=None, min_length=2, max_length=320)
+    question_type: Optional[str] = None
+    options: Optional[list[str]] = None
+    is_required: Optional[bool] = None
+
+
+class SurveyQuestionsReorderBody(BaseModel):
+    question_ids: list[UUID]
+
+
 class SurveyAnswerSubmitBody(BaseModel):
     question_id: UUID
     answer_text: str = ""
@@ -143,6 +164,116 @@ async def get_survey_detail_endpoint(survey_id: UUID, ctx: RequestContext = Depe
         from apps.surveys.services import get_survey_by_id
 
         return _ser_survey(get_survey_by_id(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id))
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.patch("/{survey_id}")
+async def update_survey_endpoint(
+    survey_id: UUID, body: SurveyPatchBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.surveys.services import update_survey
+
+        s = update_survey(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id, data=body.model_dump(exclude_none=True))
+        return _ser_survey(s)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/{survey_id}/questions", status_code=201)
+async def add_survey_question_endpoint(
+    survey_id: UUID, body: SurveyQuestionBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.surveys.services import add_survey_question
+
+        q = add_survey_question(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id, data=body.model_dump())
+        return {
+            "id": str(q.id),
+            "sort_order": q.sort_order,
+            "question_text": q.question_text,
+            "question_type": q.question_type,
+            "options": q.options,
+            "is_required": q.is_required,
+        }
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.patch("/{survey_id}/questions/{question_id}")
+async def update_survey_question_endpoint(
+    survey_id: UUID,
+    question_id: UUID,
+    body: SurveyQuestionPatchBody,
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.surveys.services import update_survey_question
+
+        q = update_survey_question(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            survey_id=survey_id,
+            question_id=question_id,
+            data=body.model_dump(exclude_none=True),
+        )
+        return {
+            "id": str(q.id),
+            "sort_order": q.sort_order,
+            "question_text": q.question_text,
+            "question_type": q.question_type,
+            "options": q.options,
+            "is_required": q.is_required,
+        }
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.delete("/{survey_id}/questions/{question_id}")
+async def delete_survey_question_endpoint(
+    survey_id: UUID, question_id: UUID, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.surveys.services import delete_survey_question
+
+        delete_survey_question(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id, question_id=question_id)
+        return {"deleted": True}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/{survey_id}/questions/reorder")
+async def reorder_survey_questions_endpoint(
+    survey_id: UUID, body: SurveyQuestionsReorderBody, ctx: RequestContext = Depends(get_current_context)
+):
+    def _op():
+        from apps.surveys.services import reorder_survey_questions
+
+        qs = reorder_survey_questions(
+            user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id, ordered_question_ids=body.question_ids
+        )
+        return [
+            {
+                "id": str(q.id),
+                "sort_order": q.sort_order,
+                "question_text": q.question_text,
+                "question_type": q.question_type,
+                "options": q.options,
+                "is_required": q.is_required,
+            }
+            for q in qs
+        ]
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/{survey_id}/responses")
+async def list_survey_responses_endpoint(survey_id: UUID, ctx: RequestContext = Depends(get_current_context)):
+    def _op():
+        from apps.surveys.services import list_survey_responses
+
+        return list_survey_responses(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id)
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 

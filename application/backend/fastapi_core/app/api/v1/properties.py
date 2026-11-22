@@ -185,6 +185,43 @@ def _ser_amenity_item(a, value_map: Optional[dict] = None) -> dict:
     }
 
 
+def _get_virtual_tour_brief(p, *, public_only: bool) -> dict:
+    from apps.virtual_tours.models import VirtualTour
+    from apps.virtual_tours.policies.access import is_property_publicly_publishable
+
+    if public_only:
+        if not is_property_publicly_publishable(p):
+            return {"virtual_tour_id": None, "virtual_tour_status": None, "has_virtual_tour": False}
+        row = (
+            VirtualTour.objects.filter(
+                property_id=p.id,
+                status=VirtualTour.Status.PUBLISHED,
+                publications__is_active=True,
+            )
+            .order_by("-created_at")
+            .values("id", "status")
+            .first()
+        )
+        return {
+            "virtual_tour_id": str(row["id"]) if row else None,
+            "virtual_tour_status": row["status"] if row else None,
+            "has_virtual_tour": bool(row),
+        }
+
+    row = (
+        VirtualTour.objects.filter(property_id=p.id)
+        .exclude(status=VirtualTour.Status.ARCHIVED)
+        .order_by("-created_at")
+        .values("id", "status")
+        .first()
+    )
+    return {
+        "virtual_tour_id": str(row["id"]) if row else None,
+        "virtual_tour_status": row["status"] if row else None,
+        "has_virtual_tour": bool(row),
+    }
+
+
 def _ser_public_property(p, include_history: bool = False) -> dict:
     loc = getattr(p, "location", None)
     loc_dict = None
@@ -265,6 +302,7 @@ def _ser_public_property(p, include_history: bool = False) -> dict:
         "agency_id": str(p.agency_id),
         "agency_name": p.agency.name,
         "verification_status": getattr(getattr(p, "verification", None), "verification_status", "UNVERIFIED"),
+        **_get_virtual_tour_brief(p, public_only=True),
         "view_count": p.view_count,
         "created_at": p.created_at.isoformat(),
     }
@@ -315,8 +353,13 @@ def _ser_agency_property(p, user, include_history: bool = False) -> dict:
             "longitude": str(loc.longitude) if loc.longitude else None,
             "hide_exact_address": loc.hide_exact_address,
         }
-    return {
+    latest_rej = next(
+        (sh.reason for sh in sorted(p.status_history.all(), key=lambda x: x.changed_at, reverse=True) if sh.to_status == "REJECTED" and sh.reason),
+        "",
+    )
+    payload = {
         **_ser_public_property(p, include_history=include_history),
+        **_get_virtual_tour_brief(p, public_only=False),
         "branch_id": str(p.branch_id) if p.branch_id else None,
         "property_type_id": p.property_type_id,
         "deal_type_id": p.deal_type_id,
@@ -325,6 +368,7 @@ def _ser_agency_property(p, user, include_history: bool = False) -> dict:
         "min_acceptable_price": str(p.min_acceptable_price) if p.min_acceptable_price is not None else None,
         "is_exclusive": p.is_exclusive,
         "inquiry_count": p.inquiry_count,
+        "latest_rejection_reason": latest_rej,
         "location": loc_dict,
         "owners": serialize_property_owners(user, p),
         "assigned_agents": [
@@ -336,6 +380,29 @@ def _ser_agency_property(p, user, include_history: bool = False) -> dict:
             for a in p.agent_assignments.all()
         ],
     }
+    if include_history:
+        from apps.documents.models import Document
+
+        docs_qs = (
+            Document.objects.all_tenants()
+            .filter(property=p, is_deleted=False)
+            .prefetch_related("versions")
+            .order_by("-created_at")
+        )
+        payload["documents"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "category": d.category,
+                "access_level": d.access_level,
+                "created_at": d.created_at.isoformat(),
+                "latest_version_id": str(d.versions.order_by("-version_number").first().id)
+                if d.versions.exists()
+                else None,
+            }
+            for d in docs_qs
+        ]
+    return payload
 
 
 @router.get("/catalog")

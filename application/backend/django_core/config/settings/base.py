@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.surveys",
     "apps.ai_assistant",
     "apps.cms",
+    "apps.virtual_tours",
 ]
 
 MIDDLEWARE = [
@@ -94,11 +95,11 @@ def parse_database_url(url: str) -> dict:
         query_params = {k: v[-1] for k, v in parse_qs(parsed.query).items() if v}
         db_config = {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": "real_state",
-            "USER": "postgres",
-            "PASSWORD": "Mb@1401",
-            "HOST": "localhost",
-            "PORT": "5432",
+            "NAME": os.environ.get("POSTGRES_NAME", ""),
+            "USER": os.environ.get("POSTGRES_USER", ""),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": os.environ.get("POSTGRES_HOST", ""),
+            "PORT": os.environ.get("POSTGRES_PORT", ""),
             "CONN_MAX_AGE": 60,
             "CONN_HEALTH_CHECKS": True,
         }

@@ -126,8 +126,29 @@ def submit_survey_response(
     ans_map = {str(a["question_id"]): a for a in answers}
 
     for qid, q in q_map.items():
-        if q.is_required and qid not in ans_map:
-            raise ValidationDomainError(f"پاسخ به سؤال «{q.question_text}» الزامی است.")
+        if q.is_required:
+            a = ans_map.get(qid)
+            if not a:
+                raise ValidationDomainError(f"پاسخ به سؤال «{q.question_text}» الزامی است.")
+            if q.question_type in (
+                SurveyQuestion.QuestionType.SHORT_TEXT,
+                SurveyQuestion.QuestionType.LONG_TEXT,
+                SurveyQuestion.QuestionType.TEXT,
+                SurveyQuestion.QuestionType.YES_NO,
+            ) and not str(a.get("answer_text") or "").strip():
+                raise ValidationDomainError(f"پاسخ متنی به سؤال «{q.question_text}» الزامی است.")
+            if q.question_type in (
+                SurveyQuestion.QuestionType.SINGLE_SELECT,
+                SurveyQuestion.QuestionType.MULTI_SELECT,
+            ) and not list(a.get("selected_options") or []):
+                raise ValidationDomainError(f"انتخاب گزینه برای سؤال «{q.question_text}» الزامی است.")
+            if q.question_type in (
+                SurveyQuestion.QuestionType.RATING,
+                SurveyQuestion.QuestionType.STARS,
+                SurveyQuestion.QuestionType.SCALE,
+                SurveyQuestion.QuestionType.NPS,
+            ) and a.get("answer_number") is None:
+                raise ValidationDomainError(f"امتیاز عددی برای سؤال «{q.question_text}» الزامی است.")
 
     response = SurveyResponse.objects.create(
         survey=survey,
@@ -146,19 +167,25 @@ def submit_survey_response(
         sel_opts = list(a.get("selected_options") or [])
 
         if q.question_type in (SurveyQuestion.QuestionType.RATING, SurveyQuestion.QuestionType.STARS):
-            if ans_num is None or not (1 <= float(ans_num) <= 5):
+            if ans_num is not None and not (1 <= float(ans_num) <= 5):
+                raise ValidationDomainError("امتیاز باید بین ۱ تا ۵ باشد.")
+            if q.is_required and ans_num is None:
                 raise ValidationDomainError("امتیاز باید بین ۱ تا ۵ باشد.")
         elif q.question_type == SurveyQuestion.QuestionType.SCALE:
-            if ans_num is None or not (1 <= float(ans_num) <= 10):
+            if ans_num is not None and not (1 <= float(ans_num) <= 10):
+                raise ValidationDomainError("مقیاس باید بین ۱ تا ۱۰ باشد.")
+            if q.is_required and ans_num is None:
                 raise ValidationDomainError("مقیاس باید بین ۱ تا ۱۰ باشد.")
         elif q.question_type == SurveyQuestion.QuestionType.NPS:
-            if ans_num is None or not (0 <= float(ans_num) <= 10):
+            if ans_num is not None and not (0 <= float(ans_num) <= 10):
+                raise ValidationDomainError("امتیاز NPS باید بین ۰ تا ۱۰ باشد.")
+            if q.is_required and ans_num is None:
                 raise ValidationDomainError("امتیاز NPS باید بین ۰ تا ۱۰ باشد.")
         elif q.question_type == SurveyQuestion.QuestionType.YES_NO:
-            if ans_text.upper() not in ("YES", "NO", "بله", "خیر"):
+            if ans_text and ans_text.upper() not in ("YES", "NO", "بله", "خیر"):
                 raise ValidationDomainError("پاسخ بله/خیر معتبر نیست.")
         elif q.question_type == SurveyQuestion.QuestionType.SINGLE_SELECT:
-            if len(sel_opts) != 1:
+            if sel_opts and len(sel_opts) != 1:
                 raise ValidationDomainError("برای سؤال تک‌انتخابی دقیقاً یک گزینه انتخاب کنید.")
 
         SurveyAnswer.objects.create(
@@ -169,6 +196,159 @@ def submit_survey_response(
             selected_options=sel_opts,
         )
     return response
+
+
+@transaction.atomic
+def update_survey(*, user: User, agency_id: Optional[UUID], survey_id: UUID, data: dict) -> Survey:
+    survey = get_survey_by_id(user=user, agency_id=agency_id, survey_id=survey_id)
+    _assert_survey_admin(user, survey.agency_id or agency_id)
+
+    if "title" in data and data["title"] is not None:
+        title = str(data["title"]).strip()
+        if len(title) < 3:
+            raise ValidationDomainError("عنوان نظرسنجی باید حداقل ۳ کاراکتر باشد.")
+        survey.title = title
+    if "description" in data and data["description"] is not None:
+        survey.description = str(data["description"]).strip()
+    if "target_audience" in data and data["target_audience"] is not None:
+        if data["target_audience"] not in Survey.TargetAudience.values:
+            raise ValidationDomainError("مخاطب هدف نظرسنجی نامعتبر است.")
+        survey.target_audience = data["target_audience"]
+    if "crm_trigger_event" in data and data["crm_trigger_event"] is not None:
+        if data["crm_trigger_event"] not in Survey.CrmTriggerEvent.values:
+            raise ValidationDomainError("رویداد ماشه CRM نامعتبر است.")
+        survey.crm_trigger_event = data["crm_trigger_event"]
+    if "is_active" in data and data["is_active"] is not None:
+        survey.is_active = bool(data["is_active"])
+    if "allow_anonymous" in data and data["allow_anonymous"] is not None:
+        survey.allow_anonymous = bool(data["allow_anonymous"])
+
+    survey.updated_by = user
+    survey.save()
+    record_audit_event(
+        action="SURVEY_UPDATED",
+        resource_type="Survey",
+        resource_id=str(survey.id),
+        actor=user,
+        agency_id=survey.agency_id or agency_id,
+    )
+    return survey
+
+
+@transaction.atomic
+def add_survey_question(*, user: User, agency_id: Optional[UUID], survey_id: UUID, data: dict) -> SurveyQuestion:
+    survey = get_survey_by_id(user=user, agency_id=agency_id, survey_id=survey_id)
+    _assert_survey_admin(user, survey.agency_id or agency_id)
+
+    q_type = data.get("question_type")
+    if q_type not in SurveyQuestion.QuestionType.values:
+        raise ValidationDomainError("نوع سؤال نظرسنجی نامعتبر است.")
+
+    max_order = survey.questions.aggregate(models.Max("sort_order")).get("sort_order__max") or 0
+    sort_order = int(data.get("sort_order") or (max_order + 1))
+
+    q = SurveyQuestion.objects.create(
+        survey=survey,
+        sort_order=sort_order,
+        question_text=str(data["question_text"]).strip(),
+        question_type=q_type,
+        options=list(data.get("options") or []),
+        is_required=bool(data.get("is_required", True)),
+        created_by=user,
+    )
+    return q
+
+
+@transaction.atomic
+def update_survey_question(
+    *, user: User, agency_id: Optional[UUID], survey_id: UUID, question_id: UUID, data: dict
+) -> SurveyQuestion:
+    survey = get_survey_by_id(user=user, agency_id=agency_id, survey_id=survey_id)
+    _assert_survey_admin(user, survey.agency_id or agency_id)
+
+    q = SurveyQuestion.objects.filter(id=question_id, survey=survey).first()
+    if not q:
+        raise NotFoundDomainError("سؤال مورد نظر یافت نشد.")
+
+    if "question_text" in data and data["question_text"] is not None:
+        q.question_text = str(data["question_text"]).strip()
+    if "question_type" in data and data["question_type"] is not None:
+        if data["question_type"] not in SurveyQuestion.QuestionType.values:
+            raise ValidationDomainError("نوع سؤال نظرسنجی نامعتبر است.")
+        q.question_type = data["question_type"]
+    if "options" in data and data["options"] is not None:
+        q.options = [str(opt).strip() for opt in data["options"] if str(opt).strip()]
+    if "is_required" in data and data["is_required"] is not None:
+        q.is_required = bool(data["is_required"])
+    if "sort_order" in data and data["sort_order"] is not None:
+        q.sort_order = int(data["sort_order"])
+    q.updated_by = user
+    q.save()
+    return q
+
+
+@transaction.atomic
+def delete_survey_question(*, user: User, agency_id: Optional[UUID], survey_id: UUID, question_id: UUID) -> None:
+    survey = get_survey_by_id(user=user, agency_id=agency_id, survey_id=survey_id)
+    _assert_survey_admin(user, survey.agency_id or agency_id)
+
+    q = SurveyQuestion.objects.filter(id=question_id, survey=survey).first()
+    if not q:
+        raise NotFoundDomainError("سؤال مورد نظر یافت نشد.")
+    if survey.questions.count() <= 1:
+        raise ValidationDomainError("نظرسنجی باید حداقل یک سؤال فعال داشته باشد.")
+    q.delete()
+
+
+@transaction.atomic
+def reorder_survey_questions(
+    *, user: User, agency_id: Optional[UUID], survey_id: UUID, ordered_question_ids: list[UUID]
+) -> list[SurveyQuestion]:
+    survey = get_survey_by_id(user=user, agency_id=agency_id, survey_id=survey_id)
+    _assert_survey_admin(user, survey.agency_id or agency_id)
+
+    q_by_id = {q.id: q for q in survey.questions.all()}
+    order_idx = 1
+    for qid in ordered_question_ids:
+        q = q_by_id.pop(qid, None)
+        if q:
+            q.sort_order = order_idx
+            q.save(update_fields=["sort_order", "updated_at"])
+            order_idx += 1
+    for remaining in q_by_id.values():
+        remaining.sort_order = order_idx
+        remaining.save(update_fields=["sort_order", "updated_at"])
+        order_idx += 1
+    return list(survey.questions.order_by("sort_order", "created_at"))
+
+
+def list_survey_responses(*, user: User, agency_id: Optional[UUID], survey_id: UUID) -> list[dict]:
+    survey = get_survey_by_id(user=user, agency_id=agency_id, survey_id=survey_id)
+    responses = (
+        survey.responses.select_related("respondent_user")
+        .prefetch_related("answers__question")
+        .order_by("-submitted_at")[:200]
+    )
+    return [
+        {
+            "id": str(r.id),
+            "respondent_name": r.respondent_name or (r.respondent_user.full_name if r.respondent_user else "مهمان"),
+            "respondent_identifier": r.respondent_identifier,
+            "submitted_at": r.submitted_at.isoformat(),
+            "answers": [
+                {
+                    "question_id": str(a.question_id),
+                    "question_text": a.question.question_text,
+                    "question_type": a.question.question_type,
+                    "answer_text": a.answer_text,
+                    "answer_number": float(a.answer_number) if a.answer_number is not None else None,
+                    "selected_options": a.selected_options or [],
+                }
+                for a in r.answers.all()
+            ],
+        }
+        for r in responses
+    ]
 
 
 def get_survey_analytics(*, user: User, agency_id: Optional[UUID], survey_id: UUID) -> dict:

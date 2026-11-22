@@ -229,7 +229,12 @@ export interface PropertyItem {
   assigned_agents?: { membership_id: string; full_name: string; role: string }[];
   price_history?: PropertyPriceHistoryItem[];
   status_history?: PropertyStatusHistoryItem[];
+  latest_rejection_reason?: string | null;
+  documents?: DocumentItem[];
   related_properties?: PublicSearchProperty[];
+  virtual_tour_id?: string | null;
+  virtual_tour_status?: string | null;
+  has_virtual_tour?: boolean;
   created_at: string;
 }
 
@@ -383,6 +388,7 @@ export interface EmployeeItem {
 export interface CustomerItem {
   id: string;
   agency: string;
+  agency_name?: string | null;
   customer_type: string;
   full_name: string;
   primary_phone: string;
@@ -408,21 +414,75 @@ export interface CustomerItem {
     max_budget: string;
     min_bedrooms: number;
   }[];
+  interactions?: {
+    id: string;
+    channel: string;
+    summary: string;
+    is_private: boolean;
+    author_name: string;
+    created_at: string;
+  }[];
+  tasks?: {
+    id: string;
+    title: string;
+    status: string;
+    due_at: string;
+    assigned_name: string | null;
+  }[];
+  contracts?: {
+    id: string;
+    contract_number: string;
+    status: string;
+    amount: string;
+    property_title: string | null;
+    created_at: string;
+  }[];
+  negotiations?: {
+    id: string;
+    status: string;
+    property_title: string | null;
+    latest_proposed_price: string;
+    created_at: string;
+  }[];
+  appointments?: {
+    id: string;
+    status: string;
+    property_title: string | null;
+    scheduled_start: string;
+  }[];
+  documents?: {
+    id: string;
+    title: string;
+    category: string;
+    created_at: string;
+  }[];
+  created_at: string;
+}
+
+export interface LeadActivityItem {
+  id: string;
+  activity_type: string;
+  note: string;
+  created_by_name: string;
   created_at: string;
 }
 
 export interface LeadItem {
   id: string;
+  agency_id?: string;
+  agency_name?: string | null;
   full_name: string;
   phone_number: string;
   request_type: string;
   property_id: string | null;
   property_title: string | null;
   source: string;
+  assigned_membership_id?: string | null;
   assigned_agent_name: string | null;
   converted_customer_id: string | null;
   status: string;
   notes: string;
+  activities?: LeadActivityItem[];
   created_at: string;
 }
 
@@ -521,6 +581,7 @@ export interface NegotiationActivityItem {
 
 export interface NegotiationItem {
   id: string;
+  agency_id?: string;
   property_id: string;
   property_code: string;
   property_title: string;
@@ -529,6 +590,7 @@ export interface NegotiationItem {
   customer_name: string;
   owner_customer_id?: string | null;
   owner_name?: string;
+  agent_membership_id?: string | null;
   agent_name: string;
   deal_type: string;
   deal_type_name: string;
@@ -566,8 +628,22 @@ export interface NegotiationAnalytics {
   failure_reasons: { reason: string; count: number }[];
 }
 
+export interface ContractAmendmentItem {
+  id: string;
+  amendment_number: number;
+  title: string;
+  reason: string;
+  changes_json: Record<string, unknown>;
+  status: string;
+  approved_by_name?: string | null;
+  approved_at?: string | null;
+  created_at: string;
+}
+
 export interface ContractItem {
   id: string;
+  agency_id?: string;
+  agency_name?: string | null;
   contract_number: string;
   internal_tracking_code: string;
   contract_type: string;
@@ -584,9 +660,11 @@ export interface ContractItem {
   remaining_amount: string;
   payment_method: string;
   status: string;
+  is_editable?: boolean;
   start_date: string | null;
   end_date: string | null;
   parties: { id: string; full_name: string; party_role: string; customer_id: string | null }[];
+  amendments?: ContractAmendmentItem[];
   created_at: string;
 }
 
@@ -679,12 +757,16 @@ export interface PayrollCycleItem {
 
 export interface DocumentItem {
   id: string;
+  agency_id?: string;
+  agency_name?: string | null;
   title: string;
   category: string;
   access_level: string;
   property_id: string | null;
   property_title: string | null;
+  customer_id?: string | null;
   customer_name: string | null;
+  contract_id?: string | null;
   contract_number: string | null;
   versions: {
     id: string;
@@ -1186,6 +1268,13 @@ export interface LegalDocumentVersionItem {
   created_at: string;
 }
 
+export interface LegalSectionItem {
+  id?: string;
+  title: string;
+  body_html: string;
+  sort_order: number;
+}
+
 export interface LegalDocumentItem {
   id: string;
   slug: string;
@@ -1194,6 +1283,7 @@ export interface LegalDocumentItem {
   title_en: string;
   summary: string;
   body_html: string;
+  sections_json?: LegalSectionItem[];
   status: string;
   version_number: number;
   requires_acceptance: boolean;
@@ -1291,4 +1381,503 @@ export interface SystemHealthPayload {
     last_check_status: string;
   }[];
 }
+
+// ---------- Virtual Tour, 360° Experience, Floor Plan & 3D Model Module ----------
+
+export interface VirtualTourRoomTypeOption {
+  code: string;
+  label_fa: string;
+}
+
+export interface VirtualTourCapturePolicy {
+  horizontal_steps: number;
+  require_ceiling_floor: boolean;
+  target_overlap_percent: number;
+  min_image_width_px: number;
+  min_image_height_px: number;
+  min_blur_score: number;
+  min_brightness: number;
+  max_brightness: number;
+  min_contrast: number;
+  min_usable_images_for_stitch: number;
+  stitcher_engine: string;
+  panorama_output_width: number;
+  max_upload_file_mb: number;
+}
+
+export interface VirtualTourLimitsConfig {
+  module_enabled: boolean;
+  max_floors: number;
+  max_scenes: number;
+  max_hotspots_per_scene: number;
+  require_manager_approval: boolean;
+  require_property_verified_for_publish: boolean;
+  dollhouse_wall_height_m: number;
+  dollhouse_wall_thickness_m: number;
+  dollhouse_default_opacity: number;
+  analytics_enabled: boolean;
+}
+
+export interface VirtualTourConfigBundle {
+  room_types: VirtualTourRoomTypeOption[];
+  capture_policy: VirtualTourCapturePolicy;
+  limits: VirtualTourLimitsConfig;
+}
+
+export interface TourFloorItem {
+  id: string;
+  tour_id: string;
+  title: string;
+  order: number;
+  elevation_m: string;
+  description: string;
+  created_at: string;
+}
+
+export interface PanoramaVersionItem {
+  id: string;
+  scene_id: string;
+  capture_session_id: string | null;
+  version: number;
+  state: string;
+  projection: string;
+  width_px: number;
+  height_px: number;
+  source_image_count: number;
+  engine: string;
+  quality_report: Record<string, unknown>;
+  is_current: boolean;
+  panorama_url: string | null;
+  thumbnail_url: string | null;
+  approved_by_name: string | null;
+  approved_at: string | null;
+  rejection_reason: string;
+  created_at: string;
+}
+
+export interface HotspotItem {
+  id: string;
+  scene_id: string;
+  kind: "info" | "scene_link" | "feature" | "media" | "measurement" | string;
+  title: string;
+  body: string;
+  yaw: number;
+  pitch: number;
+  target_scene_id: string | null;
+  target_scene_title: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SceneLinkItem {
+  id: string;
+  tour_id: string;
+  source_scene_id: string;
+  source_scene_title: string;
+  target_scene_id: string;
+  target_scene_title: string;
+  yaw: number;
+  pitch: number;
+  title: string;
+  bidirectional: boolean;
+  reverse_yaw: number | null;
+  created_at: string;
+}
+
+export interface TourSceneItem {
+  id: string;
+  tour_id: string;
+  floor_id: string;
+  floor_title: string;
+  title: string;
+  room_type: string;
+  description: string;
+  order: number;
+  is_start_scene: boolean;
+  active: boolean;
+  initial_yaw: number;
+  initial_pitch: number;
+  thumbnail_url: string | null;
+  width_m: string | null;
+  length_m: string | null;
+  height_m: string | null;
+  geometry_source: string;
+  current_panorama: PanoramaVersionItem | null;
+  panorama_count: number;
+  capture_sessions_count: number;
+  hotspots_count: number;
+  panoramas?: PanoramaVersionItem[];
+  hotspots?: HotspotItem[];
+  outgoing_links?: SceneLinkItem[];
+  created_at: string;
+}
+
+export interface CaptureGuideStepItem {
+  id: string;
+  sequence: number;
+  yaw: number;
+  pitch: number;
+  label: string;
+  required: boolean;
+  expected_overlap_percent: number;
+  state: "pending" | "captured" | "passed" | "needs_retake" | "skipped" | string;
+  guidance: string;
+  image_id: string | null;
+  image_url: string | null;
+}
+
+export interface CaptureImageAnalysis {
+  corrupt?: boolean;
+  width?: number;
+  height?: number;
+  blur_score?: number;
+  brightness?: number;
+  contrast?: number;
+  noise_level?: number;
+  dhash?: string;
+  min_hamming_distance?: number;
+  is_duplicate?: boolean;
+  issues?: string[];
+  warnings?: string[];
+  recommendations?: string[];
+}
+
+export interface CaptureImageItem {
+  id: string;
+  session_id: string;
+  scene_id: string;
+  sequence: number;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  width: number;
+  height: number;
+  status: string;
+  analysis: CaptureImageAnalysis;
+  yaw: number;
+  pitch: number;
+  image_url: string;
+  captured_at: string;
+}
+
+export interface CaptureSessionSummary {
+  session_id: string;
+  total_steps: number;
+  captured_steps: number;
+  skipped_steps: number;
+  retake_steps: number;
+  usable_images_count: number;
+  rejected_images_count: number;
+  min_usable_required: number;
+  ready_to_stitch: boolean;
+  has_ceiling: boolean;
+  has_floor: boolean;
+  angular_gaps: string[];
+  completion_percent: number;
+}
+
+export interface CaptureSessionItem {
+  id: string;
+  tour_id: string;
+  scene_id: string;
+  scene_title: string;
+  status: string;
+  device_info: Record<string, unknown>;
+  capture_config: Record<string, unknown>;
+  started_at: string;
+  completed_at: string | null;
+  summary: CaptureSessionSummary;
+  steps: CaptureGuideStepItem[];
+  images: CaptureImageItem[];
+}
+
+export interface ProcessingJobItem {
+  id: string;
+  tour_id: string;
+  scene_id: string | null;
+  scene_title: string | null;
+  job_type: string;
+  state: "queued" | "running" | "succeeded" | "failed" | "cancelled" | string;
+  progress: number;
+  current_step: string;
+  celery_task_id: string;
+  error: string;
+  result: Record<string, unknown>;
+  retry_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface QualityIssueItem {
+  code: string;
+  message: string;
+  fix?: string;
+}
+
+export interface TourQualityReportItem {
+  id: string;
+  tour_id: string;
+  is_ready_to_publish: boolean;
+  blocking_issues_count: number;
+  warning_issues_count: number;
+  report_data: {
+    blocking_issues?: QualityIssueItem[];
+    warnings?: QualityIssueItem[];
+    scenes_count?: number;
+    captured_scenes_count?: number;
+    approved_panoramas_count?: number;
+    incomplete_scenes?: { scene_id: string; title: string; reason: string }[];
+    links_count?: number;
+    rejected_images_count?: number;
+    failed_jobs_count?: number;
+    plan_status?: Record<string, unknown>;
+    dollhouse_status?: Record<string, unknown>;
+    scan_status?: {
+      total_count?: number;
+      validated_count?: number;
+      total_points?: number;
+    };
+  };
+  created_at: string;
+}
+
+export interface TourPublicationItem {
+  id: string;
+  tour_id: string;
+  version: number;
+  is_active: boolean;
+  public_slug: string;
+  published_by_name: string | null;
+  published_at: string;
+  unpublished_at: string | null;
+  scenes_count: number;
+  floors_count: number;
+}
+
+export interface VirtualTourDetail {
+  id: string;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  property_status: string;
+  property_visibility: string;
+  agency_id: string;
+  branch_id: string | null;
+  title: string;
+  description: string;
+  status: string;
+  settings_override: Record<string, unknown>;
+  published_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  floors: TourFloorItem[];
+  scenes: TourSceneItem[];
+  links: SceneLinkItem[];
+  floorplans?: FloorPlanAssetItem[];
+  rooms?: RoomGeometryItem[];
+  walls?: WallSegmentItem[];
+  generated_models?: GeneratedModelAssetItem[];
+  current_model?: GeneratedModelAssetItem | null;
+  scans?: ScanAssetItem[];
+  active_publication: TourPublicationItem | null;
+  latest_quality_report: TourQualityReportItem | null;
+  recent_jobs: ProcessingJobItem[];
+  config: VirtualTourConfigBundle;
+}
+
+export interface VirtualTourGetEnvelope {
+  tour?: null;
+  id?: string;
+  config: VirtualTourConfigBundle;
+}
+
+export interface PublicVirtualTourScene {
+  id: string;
+  floor_id: string;
+  floor_title: string;
+  title: string;
+  room_type: string;
+  description: string;
+  is_start_scene: boolean;
+  initial_yaw: number;
+  initial_pitch: number;
+  panorama_version_id: string;
+  panorama_url: string;
+  thumbnail_url: string;
+  width_px: number;
+  height_px: number;
+  links: {
+    id: string;
+    target_scene_id: string;
+    target_scene_title: string;
+    yaw: number;
+    pitch: number;
+    title: string;
+  }[];
+  hotspots: {
+    id: string;
+    kind: string;
+    title: string;
+    body: string;
+    yaw: number;
+    pitch: number;
+    target_scene_id: string | null;
+    metadata: Record<string, unknown>;
+  }[];
+}
+
+export interface PublicVirtualTourData {
+  tour_id: string;
+  property_id: string;
+  publication_version: number;
+  public_slug: string;
+  published_at: string;
+  title: string;
+  description: string;
+  floors: {
+    id: string;
+    title: string;
+    order: number;
+    elevation_m: string;
+  }[];
+  scenes: PublicVirtualTourScene[];
+  floorplans?: FloorPlanAssetItem[];
+  dollhouse?: GeneratedModelAssetItem | null;
+  rooms?: RoomGeometryItem[];
+}
+
+export interface TourAnalyticsSummary {
+  tour_id: string;
+  total_views: number;
+  unique_visitors: number;
+  total_sessions: number;
+  completed_sessions: number;
+  completion_rate_percent: number;
+  avg_duration_seconds: number;
+  hotspot_clicks: number;
+  dollhouse_opens: number;
+  floorplan_opens: number;
+  popular_scenes: { scene_id: string; title: string; visits: number }[];
+  device_breakdown: { device_type: string; count: number }[];
+}
+
+export interface FloorPlanAssetItem {
+  id: string;
+  tour_id: string;
+  floor_id: string;
+  floor_title?: string;
+  file_type: string;
+  filename: string;
+  width_px: number;
+  height_px: number;
+  scale_m_per_px: number | null;
+  calibration_data: Record<string, unknown>;
+  file_url: string;
+  created_at: string;
+}
+
+export interface RoomGeometryItem {
+  id: string;
+  tour_id: string;
+  floor_id: string;
+  scene_id: string | null;
+  scene_title?: string | null;
+  label: string;
+  room_type: string;
+  polygon_points: [number, number][];
+  area_sqm: string;
+  perimeter_m: string;
+  height_m: string;
+  source: string;
+  color_hex: string;
+}
+
+export interface WallSegmentItem {
+  id: string;
+  floor_id: string;
+  start_x: number;
+  start_y: number;
+  end_x: number;
+  end_y: number;
+  thickness_m: number;
+  height_m: number;
+  is_exterior?: boolean;
+  openings?: WallOpeningItem[];
+}
+
+export interface WallOpeningItem {
+  id: string;
+  wall_id: string;
+  kind: "door" | "window" | "arch" | "balcony" | string;
+  offset_ratio: number;
+  width_m: number;
+  height_m: number;
+  sill_height_m: number;
+}
+
+export interface GeneratedModelAssetItem {
+  id: string;
+  tour_id: string;
+  version: number;
+  format: string;
+  state: string;
+  geometry_source: string;
+  estimated_accuracy: string;
+  total_area_sqm: string;
+  file_url: string;
+  size_bytes: number;
+  metadata: Record<string, unknown>;
+  is_current: boolean;
+  created_at: string;
+}
+
+export interface ScanProcessingResultItem {
+  raw_points_count: number;
+  downsampled_points_count: number;
+  outlier_points_count: number;
+  estimated_footprint_sqm: string;
+  point_density_per_sqm: number;
+  height_stats: {
+    floor_y?: number;
+    ceiling_y?: number;
+    height_m?: number;
+  };
+  engine: string;
+  notes: string;
+}
+
+export interface ScanBoundingBox {
+  min?: [number, number, number];
+  max?: [number, number, number];
+  dimensions_m?: {
+    width?: number;
+    length?: number;
+    height?: number;
+  };
+}
+
+export interface ScanAssetItem {
+  id: string;
+  tour_id: string;
+  floor_id: string | null;
+  floor_title?: string | null;
+  scene_id: string | null;
+  scene_title?: string | null;
+  format: string;
+  filename: string;
+  size_bytes: number;
+  status: string;
+  source_device: string;
+  points_count: number;
+  bounding_box: ScanBoundingBox;
+  raw_file_url?: string;
+  preview_glb_url: string | null;
+  density_map_url: string | null;
+  processing_notes: string;
+  processing_result?: ScanProcessingResultItem | null;
+  created_at: string;
+}
+
 

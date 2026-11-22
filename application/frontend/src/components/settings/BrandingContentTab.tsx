@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileEdit, Image as ImageIcon, Save, Upload } from "lucide-react";
+import { FileEdit, Image as ImageIcon, Plus, Save, Trash2, Upload } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { BrandMediaSlotItem, SiteContentBlockItem } from "@/lib/types";
@@ -32,6 +32,8 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
   });
 
   const [slotEdits, setSlotEdits] = useState<Record<string, { alt_text?: string; image_url?: string; dark_image_url?: string }>>({});
+  const [newSlot, setNewSlot] = useState({ slot_key: "", title_fa: "", category: "LOGO" });
+  const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
 
   const brandingQ = useQuery({
     queryKey: ["admin-branding-slots"],
@@ -73,6 +75,7 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
       file: File;
       darkVariant: boolean;
     }) => {
+      setUploadingSlotKey(`${slotKey}:${darkVariant ? "dark" : "light"}`);
       const form = new FormData();
       form.append("file", file);
       form.append("dark_variant", darkVariant ? "true" : "false");
@@ -83,7 +86,45 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
       });
     },
     onSuccess: () => {
+      setUploadingSlotKey(null);
       onNotice("تصویر برند با موفقیت آپلود و در جایگاه مربوطه ذخیره شد.");
+      qc.invalidateQueries({ queryKey: ["admin-branding-slots"] });
+      qc.invalidateQueries({ queryKey: ["public-bootstrap"] });
+    },
+    onError: (e: Error) => {
+      setUploadingSlotKey(null);
+      onError(e.message);
+    },
+  });
+
+  const clearSlotImageMut = useMutation({
+    mutationFn: async ({ slotKey, darkVariant }: { slotKey: string; darkVariant: boolean }) =>
+      apiFetch(`/api/v1/settings/branding/${encodeURIComponent(slotKey)}/image?dark_variant=${darkVariant}`, {
+        method: "DELETE",
+        token: accessToken,
+      }),
+    onSuccess: () => {
+      onNotice("تصویر جایگاه بصری با موفقیت حذف شد.");
+      qc.invalidateQueries({ queryKey: ["admin-branding-slots"] });
+      qc.invalidateQueries({ queryKey: ["public-bootstrap"] });
+    },
+    onError: (e: Error) => onError(e.message),
+  });
+
+  const createSlotMut = useMutation({
+    mutationFn: async () =>
+      apiFetch(`/api/v1/settings/branding/${encodeURIComponent(newSlot.slot_key.trim().toLowerCase())}`, {
+        method: "PUT",
+        token: accessToken,
+        body: JSON.stringify({
+          title_fa: newSlot.title_fa.trim(),
+          category: newSlot.category,
+          is_active: true,
+        }),
+      }),
+    onSuccess: () => {
+      setNewSlot({ slot_key: "", title_fa: "", category: "LOGO" });
+      onNotice("جایگاه رسانه جدید اضافه شد.");
       qc.invalidateQueries({ queryKey: ["admin-branding-slots"] });
       qc.invalidateQueries({ queryKey: ["public-bootstrap"] });
     },
@@ -190,19 +231,33 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
                           <span className="text-[10px] text-slate-400">بدون تصویر</span>
                         )}
                       </div>
-                      <label className="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                        <Upload className="h-3 w-3" />
-                        آپلود نسخه روشن
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/x-icon"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) uploadSlotMut.mutate({ slotKey: slot.slot_key, file: f, darkVariant: false });
-                          }}
-                        />
-                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <label className="inline-flex h-8 flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                          <Upload className="h-3 w-3" />
+                          {uploadingSlotKey === `${slot.slot_key}:light` ? "در حال آپلود..." : "آپلود نسخه روشن"}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/x-icon,.ico"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              e.target.value = "";
+                              if (f) uploadSlotMut.mutate({ slotKey: slot.slot_key, file: f, darkVariant: false });
+                            }}
+                          />
+                        </label>
+                        {slot.image_url && (
+                          <button
+                            type="button"
+                            disabled={clearSlotImageMut.isPending}
+                            onClick={() => clearSlotImageMut.mutate({ slotKey: slot.slot_key, darkVariant: false })}
+                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
+                            title="حذف تصویر روشن"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
@@ -220,19 +275,33 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
                           <span className="text-[10px] text-slate-400">بدون تصویر</span>
                         )}
                       </div>
-                      <label className="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                        <Upload className="h-3 w-3" />
-                        آپلود نسخه تاریک
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/x-icon"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) uploadSlotMut.mutate({ slotKey: slot.slot_key, file: f, darkVariant: true });
-                          }}
-                        />
-                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <label className="inline-flex h-8 flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                          <Upload className="h-3 w-3" />
+                          {uploadingSlotKey === `${slot.slot_key}:dark` ? "در حال آپلود..." : "آپلود نسخه تاریک"}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/x-icon,.ico"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              e.target.value = "";
+                              if (f) uploadSlotMut.mutate({ slotKey: slot.slot_key, file: f, darkVariant: true });
+                            }}
+                          />
+                        </label>
+                        {slot.dark_image_url && (
+                          <button
+                            type="button"
+                            disabled={clearSlotImageMut.isPending}
+                            onClick={() => clearSlotImageMut.mutate({ slotKey: slot.slot_key, darkVariant: true })}
+                            className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100"
+                            title="حذف تصویر تاریک"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -262,6 +331,48 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
             })}
           </div>
         )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createSlotMut.mutate();
+          }}
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-700"
+        >
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">افزودن جایگاه رسانه جدید:</span>
+          <input
+            required
+            dir="ltr"
+            placeholder="slot_key (مثلاً promo_banner)"
+            value={newSlot.slot_key}
+            onChange={(e) => setNewSlot({ ...newSlot, slot_key: e.target.value })}
+            className="h-8 w-44 rounded-lg border border-slate-300 bg-white px-2.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+          />
+          <input
+            required
+            placeholder="عنوان فارسی جایگاه"
+            value={newSlot.title_fa}
+            onChange={(e) => setNewSlot({ ...newSlot, title_fa: e.target.value })}
+            className="h-8 flex-1 min-w-[160px] rounded-lg border border-slate-300 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
+          />
+          <select
+            value={newSlot.category}
+            onChange={(e) => setNewSlot({ ...newSlot, category: e.target.value })}
+            className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
+          >
+            <option value="LOGO">لوگو (LOGO)</option>
+            <option value="FAVICON">آیکون (FAVICON)</option>
+            <option value="BANNER">بنر (BANNER)</option>
+          </select>
+          <button
+            type="submit"
+            disabled={createSlotMut.isPending}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-slate-800 px-3 text-xs font-semibold text-white hover:bg-slate-900 dark:bg-slate-700"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            ایجاد جایگاه
+          </button>
+        </form>
       </div>
 
       {/* Section 2: Editable Portal Site Content Blocks */}

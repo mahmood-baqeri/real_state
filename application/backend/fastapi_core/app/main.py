@@ -43,6 +43,7 @@ from app.api.v1.ai import router as ai_router
 from app.api.v1.cms import router as cms_router
 from app.api.v1.locations import router as locations_router
 from app.api.v1.payments import router as payments_router
+from app.api.v1.virtual_tours import router as virtual_tours_router
 from app.api.v1.ws import router as ws_router
 
 
@@ -134,6 +135,7 @@ v1_router.include_router(ai_router)
 v1_router.include_router(cms_router)
 v1_router.include_router(locations_router)
 v1_router.include_router(payments_router)
+v1_router.include_router(virtual_tours_router)
 v1_router.include_router(ws_router)
 
 

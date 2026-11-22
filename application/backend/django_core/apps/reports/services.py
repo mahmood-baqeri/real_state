@@ -308,8 +308,8 @@ def get_dashboard_summary(
         customers_count = (
             Customer.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False).count()
         )
-        leads_count = Lead.objects.all_tenants().filter(agency_id=agency_id).count()
-        converted_leads = Lead.objects.all_tenants().filter(agency_id=agency_id, status="CONVERTED").count()
+        leads_count = Lead.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False).count()
+        converted_leads = Lead.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False, status="CONVERTED").count()
         deals_qs = Deal.objects.all_tenants().filter(agency_id=agency_id)
         comm_total = (
             CommissionShare.objects.all_tenants()
@@ -365,9 +365,12 @@ def get_dashboard_summary(
             .filter(agency_id=agency_id, status=Contract.Status.DRAFT)
             .count()
         )
-        active_negotiations = Negotiation.objects.all_tenants().filter(
-            agency_id=agency_id, status="OPEN"
-        ).count()
+        active_negotiations = (
+            Negotiation.objects.all_tenants()
+            .filter(agency_id=agency_id)
+            .exclude(status__in=["ACCEPTED", "REJECTED", "CANCELLED", "WITHDRAWN", "EXPIRED"])
+            .count()
+        )
 
         upcoming_appts = list(
             ViewingAppointment.objects.all_tenants()
@@ -552,6 +555,10 @@ def get_agency_analytics(
     branch_id: Optional[UUID] = None,
     agent_membership_id: Optional[UUID] = None,
 ) -> dict:
+    role_code = _resolve_role_code(user, agency_id)
+    if not is_super_admin(user) and role_code in ("SUPPORT_AGENT", "CUSTOMER"):
+        raise PermissionDeniedDomainError("دسترسی به گزارش‌های تحلیلی و مالی برای این نقش مجاز نیست.")
+
     now = timezone.now()
     days = max(7, min(period_days, 365))
     since = now - timedelta(days=days)
@@ -793,6 +800,9 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
     super_admin = is_super_admin(user)
     if not agency_id and not super_admin:
         raise PermissionDeniedDomainError("دسترسی به مرکز عملیات نیازمند انتخاب آژانس یا نقش مدیر کل است.")
+    role_code = _resolve_role_code(user, agency_id)
+    if not super_admin and role_code in ("SUPPORT_AGENT", "CUSTOMER"):
+        raise PermissionDeniedDomainError("دسترسی به مرکز عملیات برای این نقش مجاز نیست.")
 
     with tenant_bypass():
         scope = {"agency_id": agency_id} if agency_id else {}

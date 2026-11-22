@@ -549,10 +549,198 @@ def update_user_profile(user: User, **fields) -> User:
     return user
 
 
-def list_all_users_for_admin(actor: User):
+def list_all_users_for_admin(actor: User, q: Optional[str] = None, status: Optional[str] = None):
     if not is_super_admin(actor):
         raise PermissionDeniedDomainError("فقط مدیر کل به لیست کل کاربران دسترسی دارد.")
-    return User.objects.prefetch_related("memberships__agency", "memberships__role").order_by("-date_joined")
+    qs = (
+        User.objects.exclude(status=User.Status.DELETED)
+        .prefetch_related("memberships__agency", "memberships__role", "memberships__branch")
+        .order_by("-date_joined")
+    )
+    if status:
+        qs = qs.filter(status=status)
+    if q and q.strip():
+        clean = q.strip()
+        qs = qs.filter(
+            models.Q(phone_number__icontains=clean)
+            | models.Q(first_name__icontains=clean)
+            | models.Q(last_name__icontains=clean)
+            | models.Q(email__icontains=clean)
+        )
+    return qs
+
+
+@transaction.atomic
+def create_user_by_admin(*, actor: User, data: dict) -> User:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به ایجاد کاربر است.")
+    clean_phone = str(data.get("phone_number") or "").strip()
+    if not clean_phone:
+        raise ValidationDomainError("شماره موبایل الزامی است.")
+    if User.objects.filter(phone_number=clean_phone).exists():
+        raise ConflictDomainError("این شماره موبایل قبلاً ثبت شده است.")
+
+    clean_email = str(data.get("email") or "").strip().lower() or None
+    if clean_email and User.objects.filter(email=clean_email).exists():
+        raise ConflictDomainError("این ایمیل قبلاً ثبت شده است.")
+
+    password = str(data.get("password") or "Bonyan@12345")
+    platform_role = data.get("platform_role") or User.PlatformRole.AGENCY_USER
+    if platform_role not in User.PlatformRole.values:
+        raise ValidationDomainError("نقش پلتفرمی نامعتبر است.")
+
+    user = User.objects.create_user(
+        phone_number=clean_phone,
+        password=password,
+        first_name=str(data.get("first_name") or "").strip(),
+        last_name=str(data.get("last_name") or "").strip(),
+        email=clean_email,
+        platform_role=platform_role,
+        status=User.Status.ACTIVE,
+        is_active=True,
+    )
+
+    if data.get("agency_id") and data.get("role_code"):
+        assign_user_membership_by_admin(
+            actor=actor,
+            target_user_id=user.id,
+            agency_id=data["agency_id"],
+            role_code=data["role_code"],
+            branch_id=data.get("branch_id"),
+            status_value=AgencyMembership.Status.ACTIVE,
+        )
+
+    record_audit_event(
+        action="USER_CREATED_BY_ADMIN",
+        resource_type="User",
+        resource_id=str(user.id),
+        actor=actor,
+        after_state={"phone_number": user.phone_number, "platform_role": user.platform_role},
+    )
+    return user
+
+
+@transaction.atomic
+def update_user_by_admin(*, actor: User, target_user_id: UUID, data: dict) -> User:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به ویرایش کاربر است.")
+    target = User.objects.filter(id=target_user_id).first()
+    if not target:
+        raise NotFoundDomainError("کاربر یافت نشد.")
+
+    if "phone_number" in data and data["phone_number"] is not None:
+        clean_phone = str(data["phone_number"]).strip()
+        if User.objects.filter(phone_number=clean_phone).exclude(id=target.id).exists():
+            raise ConflictDomainError("شماره موبایل تکراری است.")
+        target.phone_number = clean_phone
+
+    if "email" in data and data["email"] is not None:
+        clean_email = str(data["email"]).strip().lower() or None
+        if clean_email and User.objects.filter(email=clean_email).exclude(id=target.id).exists():
+            raise ConflictDomainError("ایمیل تکراری است.")
+        target.email = clean_email
+
+    for field in ("first_name", "last_name"):
+        if field in data and data[field] is not None:
+            setattr(target, field, str(data[field]).strip())
+
+    if "platform_role" in data and data["platform_role"] is not None:
+        if data["platform_role"] not in User.PlatformRole.values:
+            raise ValidationDomainError("نقش پلتفرمی نامعتبر است.")
+        target.platform_role = data["platform_role"]
+
+    if "status" in data and data["status"] is not None:
+        if data["status"] not in User.Status.values:
+            raise ValidationDomainError("وضعیت کاربری نامعتبر است.")
+        target.status = data["status"]
+        target.is_active = data["status"] == User.Status.ACTIVE
+        if data["status"] != User.Status.ACTIVE:
+            UserSession.objects.filter(user=target, revoked_at__isnull=True).update(revoked_at=timezone.now())
+
+    if data.get("password"):
+        _validate_password_policy(str(data["password"]))
+        target.set_password(str(data["password"]))
+
+    target.save()
+    record_audit_event(
+        action="USER_UPDATED_BY_ADMIN",
+        resource_type="User",
+        resource_id=str(target.id),
+        actor=actor,
+    )
+    return target
+
+
+@transaction.atomic
+def soft_delete_user_by_admin(*, actor: User, target_user_id: UUID) -> User:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به غیرفعال‌سازی یا حذف نرم کاربر است.")
+    if actor.id == target_user_id:
+        raise ConflictDomainError("امکان حذف حساب کاربری جاری خودتان وجود ندارد.")
+    target = User.objects.filter(id=target_user_id).first()
+    if not target:
+        raise NotFoundDomainError("کاربر یافت نشد.")
+    target.status = User.Status.DELETED
+    target.is_active = False
+    target.save(update_fields=["status", "is_active", "updated_at"])
+    AgencyMembership.objects.filter(user=target, status=AgencyMembership.Status.ACTIVE).update(
+        status=AgencyMembership.Status.SUSPENDED
+    )
+    UserSession.objects.filter(user=target, revoked_at__isnull=True).update(revoked_at=timezone.now())
+    record_audit_event(
+        action="USER_SOFT_DELETED",
+        resource_type="User",
+        resource_id=str(target.id),
+        actor=actor,
+    )
+    return target
+
+
+@transaction.atomic
+def assign_user_membership_by_admin(
+    *,
+    actor: User,
+    target_user_id: UUID,
+    agency_id: UUID,
+    role_code: str,
+    branch_id: Optional[UUID] = None,
+    status_value: str = "ACTIVE",
+) -> AgencyMembership:
+    if not is_super_admin(actor):
+        raise PermissionDeniedDomainError("فقط مدیر کل مجاز به تخصیص آژانس و شعبه کاربر است.")
+    target = User.objects.filter(id=target_user_id).first()
+    if not target:
+        raise NotFoundDomainError("کاربر یافت نشد.")
+    role = (
+        Role.objects.filter(code=role_code, agency_id=agency_id).first()
+        or Role.objects.filter(code=role_code, agency__isnull=True).first()
+    )
+    if not role:
+        raise NotFoundDomainError("نقش انتخاب‌شده یافت نشد.")
+    if status_value not in AgencyMembership.Status.values:
+        raise ValidationDomainError("وضعیت عضویت نامعتبر است.")
+
+    membership, _ = AgencyMembership.objects.update_or_create(
+        user=target,
+        agency_id=agency_id,
+        defaults={
+            "role": role,
+            "branch_id": branch_id,
+            "status": status_value,
+        },
+    )
+    if target.platform_role == User.PlatformRole.CUSTOMER:
+        target.platform_role = User.PlatformRole.AGENCY_USER
+        target.save(update_fields=["platform_role", "updated_at"])
+    record_audit_event(
+        action="USER_MEMBERSHIP_ASSIGNED",
+        resource_type="AgencyMembership",
+        resource_id=str(membership.id),
+        actor=actor,
+        agency_id=agency_id,
+        after_state={"user_id": str(target.id), "role": role.code, "branch_id": str(branch_id) if branch_id else None},
+    )
+    return membership
 
 
 def update_user_status_by_admin(actor: User, target_user_id: UUID, status_value: str) -> User:
@@ -717,6 +905,7 @@ def update_member_role_or_status(
     role_code: Optional[str] = None,
     status_value: Optional[str] = None,
     branch_id: Optional[UUID] = None,
+    clear_branch: bool = False,
 ) -> AgencyMembership:
     if not (is_super_admin(actor) or has_agency_permission(actor, agency_id, "agency.manage_policy")):
         raise PermissionDeniedDomainError("عدم مجوز ویرایش عضویت تیم.")
@@ -736,7 +925,9 @@ def update_member_role_or_status(
         if status_value not in AgencyMembership.Status.values:
             raise ValidationDomainError("وضعیت عضویت نامعتبر است.")
         membership.status = status_value
-    if branch_id is not None:
+    if clear_branch:
+        membership.branch = None
+    elif branch_id is not None:
         membership.branch_id = branch_id
     membership.save()
     record_audit_event(
@@ -747,6 +938,27 @@ def update_member_role_or_status(
         agency_id=agency_id,
         before_state={"role": prev_role},
         after_state={"role": membership.role.code, "status": membership.status},
+    )
+    return membership
+
+
+@transaction.atomic
+def soft_delete_agency_member(*, actor: User, agency_id: UUID, membership_id: UUID) -> AgencyMembership:
+    if not (is_super_admin(actor) or has_agency_permission(actor, agency_id, "agency.manage_policy")):
+        raise PermissionDeniedDomainError("عدم مجوز تعلیق یا حذف عضو تیم.")
+    membership = AgencyMembership.objects.filter(id=membership_id, agency_id=agency_id).first()
+    if not membership:
+        raise NotFoundDomainError("عضویت یافت نشد.")
+    if membership.user_id == actor.id and not is_super_admin(actor):
+        raise ConflictDomainError("نمی‌توانید عضویت فعال خودتان را لغو کنید.")
+    membership.status = AgencyMembership.Status.LEFT
+    membership.save(update_fields=["status"])
+    record_audit_event(
+        action="AGENCY_MEMBER_REMOVED",
+        resource_type="AgencyMembership",
+        resource_id=str(membership.id),
+        actor=actor,
+        agency_id=agency_id,
     )
     return membership
 

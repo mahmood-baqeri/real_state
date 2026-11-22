@@ -317,9 +317,19 @@ export default function PublicSurveyFormPage() {
                       </div>
                     )}
 
-                    {q.question_type === "TEXT" && (
+                    {q.question_type === "SHORT_TEXT" && (
+                      <input
+                        type="text"
+                        placeholder="پاسخ کوتاه خود را وارد کنید..."
+                        value={cur.answer_text}
+                        onChange={(e) => setQuestionAnswer(q.id, { answer_text: e.target.value })}
+                        className="h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm text-slate-900 dark:text-slate-100"
+                      />
+                    )}
+
+                    {(q.question_type === "TEXT" || q.question_type === "LONG_TEXT") && (
                       <textarea
-                        rows={3}
+                        rows={q.question_type === "LONG_TEXT" ? 4 : 3}
                         placeholder="نظر یا پیشنهاد خود را بنویسید..."
                         value={cur.answer_text}
                         onChange={(e) => setQuestionAnswer(q.id, { answer_text: e.target.value })}

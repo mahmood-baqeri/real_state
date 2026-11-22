@@ -147,10 +147,37 @@ export function LegalDocumentView({ slug: propSlug, fallbackTitle }: LegalDocume
                 {acceptMsg && <SuccessBanner message={acceptMsg} />}
                 {acceptErr && <ErrorState message={acceptErr} />}
 
-                <div
-                  className="prose prose-sm max-w-none leading-7 text-slate-700 dark:prose-invert dark:text-slate-300 [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-slate-900 dark:[&_h2]:text-slate-100 [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-bold [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pr-5 [&_ol]:list-decimal [&_ol]:pr-5 [&_li]:mb-1.5"
-                  dangerouslySetInnerHTML={{ __html: doc.body_html }}
-                />
+                {Array.isArray(doc.sections_json) && doc.sections_json.length > 0 ? (
+                  <div className="space-y-6">
+                    {doc.body_html && (
+                      <div
+                        className="prose prose-sm max-w-none leading-7 text-slate-700 dark:prose-invert dark:text-slate-300 [&_p]:mb-3"
+                        dangerouslySetInnerHTML={{ __html: doc.body_html }}
+                      />
+                    )}
+                    {[...doc.sections_json]
+                      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                      .map((sec, idx) => (
+                        <section
+                          key={sec.id || idx}
+                          className="space-y-2 border-t border-slate-100 pt-5 first:border-t-0 first:pt-0 dark:border-slate-800"
+                        >
+                          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                            {formatNumberFa(idx + 1)}. {sec.title}
+                          </h2>
+                          <div
+                            className="prose prose-sm max-w-none leading-7 text-slate-700 dark:prose-invert dark:text-slate-300 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pr-5 [&_ol]:list-decimal [&_ol]:pr-5"
+                            dangerouslySetInnerHTML={{ __html: sec.body_html }}
+                          />
+                        </section>
+                      ))}
+                  </div>
+                ) : (
+                  <div
+                    className="prose prose-sm max-w-none leading-7 text-slate-700 dark:prose-invert dark:text-slate-300 [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-slate-900 dark:[&_h2]:text-slate-100 [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-bold [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pr-5 [&_ol]:list-decimal [&_ol]:pr-5 [&_li]:mb-1.5"
+                    dangerouslySetInnerHTML={{ __html: doc.body_html }}
+                  />
+                )}
 
                 {/* Acceptance footer */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">

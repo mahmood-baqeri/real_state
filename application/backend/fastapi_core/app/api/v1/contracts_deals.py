@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -43,13 +43,40 @@ class ContractCreateBody(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     terms_snapshot: str = ""
+    obligations_json: dict[str, Any] = {}
     status: str = "DRAFT"
     parties: list[ContractPartyBody] = []
+
+
+class ContractPatchBody(BaseModel):
+    contract_type: Optional[str] = None
+    property_id: Optional[UUID] = None
+    deal_type_id: Optional[str] = None
+    template_id: Optional[UUID] = None
+    currency_id: Optional[str] = None
+    amount: Optional[Decimal] = None
+    deposit_amount: Optional[Decimal] = None
+    rent_amount: Optional[Decimal] = None
+    advance_payment: Optional[Decimal] = None
+    remaining_amount: Optional[Decimal] = None
+    payment_method: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    terms_snapshot: Optional[str] = None
+    obligations_json: Optional[dict[str, Any]] = None
+    parties: Optional[list[ContractPartyBody]] = None
 
 
 class ContractStatusBody(BaseModel):
     status: str
     reason: str = ""
+
+
+class ContractAmendmentCreateBody(BaseModel):
+    title: str
+    reason: str
+    changes_json: dict[str, Any] = {}
+    approve_immediately: bool = True
 
 
 class DealCreateBody(BaseModel):
@@ -70,6 +97,8 @@ class DealCloseBody(BaseModel):
 def _ser_contract(c) -> dict:
     return {
         "id": str(c.id),
+        "agency_id": str(c.agency_id),
+        "agency_name": c.agency.name if c.agency else None,
         "contract_number": c.contract_number,
         "internal_tracking_code": c.internal_tracking_code,
         "contract_type": c.contract_type,
@@ -86,6 +115,7 @@ def _ser_contract(c) -> dict:
         "remaining_amount": str(c.remaining_amount),
         "payment_method": c.payment_method,
         "status": c.status,
+        "is_editable": c.status in ("DRAFT", "PENDING_REVIEW", "PENDING_PARTIES_APPROVAL"),
         "start_date": c.start_date.isoformat() if c.start_date else None,
         "end_date": c.end_date.isoformat() if c.end_date else None,
         "parties": [
@@ -96,6 +126,20 @@ def _ser_contract(c) -> dict:
                 "customer_id": str(p.customer_id) if p.customer_id else None,
             }
             for p in c.parties.all()
+        ],
+        "amendments": [
+            {
+                "id": str(a.id),
+                "amendment_number": a.amendment_number,
+                "title": a.title,
+                "reason": a.reason,
+                "changes_json": a.changes_json,
+                "status": a.status,
+                "approved_by_name": a.approved_by.full_name if a.approved_by else None,
+                "approved_at": a.approved_at.isoformat() if a.approved_at else None,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in c.amendments.order_by("amendment_number")
         ],
         "created_at": c.created_at.isoformat(),
     }
@@ -155,6 +199,8 @@ async def create_template_endpoint(
 
 @router.get("/contracts")
 async def list_contracts_endpoint(
+    status: Optional[str] = None,
+    q: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     ctx: RequestContext = Depends(require_agency_context),
@@ -163,7 +209,7 @@ async def list_contracts_endpoint(
         from apps.contracts.services import list_contracts
         from common.pagination import paginate_queryset
 
-        qs = list_contracts(user=ctx.user, agency_id=ctx.agency_id)
+        qs = list_contracts(user=ctx.user, agency_id=ctx.agency_id, status_filter=status, q=q)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_contract)
 
     items, meta = await run_django(_op, agency_id=ctx.agency_id)
@@ -179,6 +225,40 @@ async def create_contract_endpoint(
 
         c = create_contract(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_contract(c)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.patch("/contracts/{contract_id}")
+async def patch_contract_endpoint(
+    contract_id: UUID,
+    body: ContractPatchBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.contracts.services import update_contract
+
+        c = update_contract(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            contract_id=contract_id,
+            data=body.model_dump(exclude_none=True),
+        )
+        return _ser_contract(c)
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.delete("/contracts/{contract_id}")
+async def delete_contract_endpoint(
+    contract_id: UUID,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.contracts.services import archive_contract
+
+        c = archive_contract(user=ctx.user, agency_id=ctx.agency_id, contract_id=contract_id)
+        return {"id": str(c.id), "status": c.status, "archived": True}
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
@@ -200,6 +280,73 @@ async def contract_status_endpoint(
             reason=body.reason,
         )
         return {"id": str(c.id), "status": c.status}
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.post("/contracts/{contract_id}/amendments", status_code=201)
+async def create_contract_amendment_endpoint(
+    contract_id: UUID,
+    body: ContractAmendmentCreateBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.contracts.services import create_contract_amendment
+
+        a = create_contract_amendment(
+            user=ctx.user,
+            agency_id=ctx.agency_id,
+            contract_id=contract_id,
+            data=body.model_dump(),
+        )
+        return {
+            "id": str(a.id),
+            "amendment_number": a.amendment_number,
+            "title": a.title,
+            "reason": a.reason,
+            "changes_json": a.changes_json,
+            "status": a.status,
+            "approved_at": a.approved_at.isoformat() if a.approved_at else None,
+            "created_at": a.created_at.isoformat(),
+        }
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id))
+
+
+@router.get("/contracts/{contract_id}")
+async def get_contract_endpoint(contract_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.contracts.services import get_contract, get_contract_documents
+
+        c = get_contract(user=ctx.user, agency_id=ctx.agency_id, contract_id=contract_id)
+        data = _ser_contract(c)
+        data["payment_method"] = c.payment_method
+        data["terms_snapshot"] = c.terms_snapshot
+        data["obligations_json"] = c.obligations_json
+        data["template_title"] = c.template.title if c.template else None
+        data["documents"] = [
+            {
+                "id": str(d.id),
+                "title": d.title,
+                "category": d.category,
+                "access_level": d.access_level,
+                "created_at": d.created_at.isoformat(),
+            }
+            for d in get_contract_documents(c)
+        ]
+        data["history"] = [
+            {
+                "id": str(h.id),
+                "from_status": h.from_status,
+                "to_status": h.to_status,
+                "reason": h.reason,
+                "changed_by_name": h.changed_by.full_name if h.changed_by else "سیستم",
+                "created_at": h.changed_at.isoformat(),
+                "changed_at": h.changed_at.isoformat(),
+            }
+            for h in c.status_history.order_by("-changed_at")
+        ]
+        return data
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
@@ -228,32 +375,6 @@ async def create_deal_endpoint(body: DealCreateBody, ctx: RequestContext = Depen
 
         d = create_deal(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_deal(d)
-
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
-
-
-@router.get("/contracts/{contract_id}")
-async def get_contract_endpoint(contract_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
-    def _op():
-        from apps.contracts.services import get_contract
-
-        c = get_contract(user=ctx.user, agency_id=ctx.agency_id, contract_id=contract_id)
-        data = _ser_contract(c)
-        data["payment_method"] = c.payment_method
-        data["terms_snapshot"] = c.terms_snapshot
-        data["template_title"] = c.template.title if c.template else None
-        data["history"] = [
-            {
-                "id": str(h.id),
-                "from_status": h.from_status,
-                "to_status": h.to_status,
-                "reason": h.reason,
-                "changed_by_name": h.changed_by.full_name if h.changed_by else "سیستم",
-                "created_at": h.created_at.isoformat(),
-            }
-            for h in c.status_history.order_by("-created_at")
-        ]
-        return data
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
 
@@ -310,4 +431,3 @@ async def close_deal_endpoint(
         return _ser_deal(d)
 
     return ok(await run_django(_op, agency_id=ctx.agency_id))
-

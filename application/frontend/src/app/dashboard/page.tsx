@@ -147,9 +147,11 @@ export default function DashboardOverviewPage() {
       ).data,
   });
 
+  const canViewAgencyAnalytics = !["CUSTOMER", "SUPPORT_AGENT"].includes(effectiveRole);
+
   const { data: analytics } = useQuery({
     queryKey: ["dashboard-analytics", activeAgencyId, user?.id, periodDays],
-    enabled: !!accessToken && effectiveRole !== "CUSTOMER",
+    enabled: !!accessToken && canViewAgencyAnalytics,
     queryFn: async () =>
       (
         await apiFetch<AnalyticsData>(`/api/v1/reports/analytics?period_days=${periodDays}`, {
@@ -191,7 +193,7 @@ export default function DashboardOverviewPage() {
 
   const opsQ = useQuery({
     queryKey: ["dashboard-ops-center", activeAgencyId, user?.id],
-    enabled: !!accessToken && effectiveRole !== "CUSTOMER" && (!!activeAgencyId || effectiveRole === "SUPER_ADMIN"),
+    enabled: !!accessToken && canViewAgencyAnalytics && (!!activeAgencyId || effectiveRole === "SUPER_ADMIN"),
     queryFn: async () =>
       (
         await apiFetch<OperationsCenterData>("/api/v1/reports/operations-center", {
@@ -289,6 +291,22 @@ export default function DashboardOverviewPage() {
                 <Landmark className="h-4 w-4" />
                 تراز آزمایشی و اسناد
               </Link>
+            ) : effectiveRole === "SUPPORT_AGENT" ? (
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/dashboard/tickets"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800 dark:bg-teal-600"
+                >
+                  <Ticket className="h-4 w-4" />
+                  صف تیکت‌های پشتیبانی
+                </Link>
+                <Link
+                  href="/dashboard/complaints"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  رسیدگی به شکایات
+                </Link>
+              </div>
             ) : effectiveRole !== "CUSTOMER" ? (
               <div className="flex flex-wrap gap-2">
                 <Link
@@ -650,7 +668,7 @@ export default function DashboardOverviewPage() {
             ))}
 
           {/* Operations Center Strip */}
-          {opsQ.data && effectiveRole !== "CUSTOMER" && (
+          {opsQ.data && canViewAgencyAnalytics && (
             <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -709,7 +727,7 @@ export default function DashboardOverviewPage() {
           )}
 
           {/* Charts Row */}
-          {analytics && effectiveRole !== "CUSTOMER" && (
+          {analytics && canViewAgencyAnalytics && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {isWidgetEnabled("bi_trend") && analytics.timeline_series && (
                 <TrendLineChart

@@ -440,6 +440,26 @@ async def upload_branding_slot_endpoint(
     return ok(await run_django(_op))
 
 
+@router.delete("/branding/{slot_key}/image")
+async def delete_branding_slot_image_endpoint(
+    slot_key: str,
+    dark_variant: bool = Query(default=False),
+    ctx: RequestContext = Depends(get_current_context),
+):
+    def _op():
+        from apps.settings.services import clear_brand_media_slot_image
+
+        s = clear_brand_media_slot_image(user=ctx.user, slot_key=slot_key, dark_variant=dark_variant)
+        return {
+            "id": str(s.id),
+            "slot_key": s.slot_key,
+            "image_url": s.image_url,
+            "dark_image_url": s.dark_image_url,
+        }
+
+    return ok(await run_django(_op))
+
+
 @router.get("/content-blocks")
 async def list_content_blocks_endpoint(
     page_key: Optional[str] = Query(default=None),

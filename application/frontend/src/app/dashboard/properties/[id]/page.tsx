@@ -5,24 +5,32 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Bath,
   BedDouble,
   Check,
+  Download,
   Edit3,
   ExternalLink,
+  Eye,
+  EyeOff,
+  FileText,
+  History,
   MapPin,
   Maximize2,
   ShieldCheck,
   Star,
   Trash2,
+  Upload,
   UserCheck,
+  XCircle,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api-client";
+import { apiDownloadBlob, apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { formatArea, formatNumberFa } from "@/lib/formatters";
+import { formatArea, formatNumberFa, translateStatus } from "@/lib/formatters";
 import type { DocumentItem, PropertyItem, PropertyVerificationData } from "@/lib/types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusText } from "@/components/ui/StatusText";
@@ -30,7 +38,9 @@ import { MoneyDisplay } from "@/components/ui/MoneyDisplay";
 import { DateDisplay } from "@/components/ui/DateDisplay";
 import { PropertyGalleryLightbox } from "@/components/ui/PropertyGalleryLightbox";
 import { SecureFileUploader, type QueuedUploadFile } from "@/components/ui/SecureFileUploader";
+import { ModalDrawer } from "@/components/ui/ModalDrawer";
 import { ErrorState, LoadingState, SuccessBanner } from "@/components/ui/StateNotice";
+import { PropertyVirtualTourCard } from "@/components/virtual-tour/PropertyVirtualTourCard";
 
 export default function DashboardPropertyDetailPage() {
   const params = useParams<{ id: string }>();
@@ -53,6 +63,15 @@ export default function DashboardPropertyDetailPage() {
     notes?: string;
   }>({});
 
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [docTitle, setDocTitle] = useState("");
+  const [docCategory, setDocCategory] = useState("DEED");
+  const [docAccessLevel, setDocAccessLevel] = useState("AGENCY_INTERNAL");
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string; mime: string } | null>(null);
+
   const propQ = useQuery({
     queryKey: ["dashboard-property-detail", params.id, activeAgencyId],
     enabled: !!accessToken,
@@ -65,26 +84,40 @@ export default function DashboardPropertyDetailPage() {
       ).data,
   });
 
+  const targetAgencyId = activeAgencyId || propQ.data?.agency_id || null;
+
   const verificationQ = useQuery({
-    queryKey: ["property-verification", params.id, activeAgencyId],
-    enabled: !!accessToken,
+    queryKey: ["property-verification", params.id, targetAgencyId],
+    enabled: !!accessToken && !!propQ.data,
     queryFn: async () =>
       (
         await apiFetch<PropertyVerificationData>(`/api/v1/properties/${params.id}/verification`, {
           token: accessToken,
-          agencyId: activeAgencyId,
+          agencyId: targetAgencyId,
         })
       ).data,
   });
 
   const docsQ = useQuery({
-    queryKey: ["agency-documents-brief", activeAgencyId],
-    enabled: !!accessToken && !!activeAgencyId,
+    queryKey: ["property-documents", params.id, targetAgencyId],
+    enabled: !!accessToken && !!targetAgencyId,
+    queryFn: async () =>
+      (
+        await apiFetch<DocumentItem[]>(`/api/v1/documents?property_id=${params.id}&page_size=50`, {
+          token: accessToken,
+          agencyId: targetAgencyId,
+        })
+      ).data,
+  });
+
+  const agencyDocsQ = useQuery({
+    queryKey: ["agency-documents-brief", targetAgencyId],
+    enabled: !!accessToken && !!targetAgencyId,
     queryFn: async () =>
       (
         await apiFetch<DocumentItem[]>("/api/v1/documents?page_size=50", {
           token: accessToken,
-          agencyId: activeAgencyId,
+          agencyId: targetAgencyId,
         })
       ).data,
   });
@@ -95,7 +128,7 @@ export default function DashboardPropertyDetailPage() {
       return apiFetch<PropertyVerificationData>(`/api/v1/properties/${params.id}/verification`, {
         method: "PUT",
         token: accessToken,
-        agencyId: activeAgencyId,
+        agencyId: targetAgencyId,
         body: JSON.stringify({
           physical_verified: verDraft.physical_verified ?? cur?.physical_verified ?? false,
           physical_notes: verDraft.physical_notes ?? cur?.physical_notes ?? "",
@@ -125,18 +158,135 @@ export default function DashboardPropertyDetailPage() {
   });
 
   const actionMut = useMutation({
-    mutationFn: async (action: "submit" | "publish") =>
-      apiFetch(`/api/v1/properties/${params.id}/${action}`, {
+    mutationFn: async (payload: {
+      action: "submit" | "publish" | "unpublish" | "reject" | "delete";
+      reason?: string;
+    }) => {
+      if (payload.action === "delete") {
+        return apiFetch(`/api/v1/properties/${params.id}`, {
+          method: "DELETE",
+          token: accessToken,
+          agencyId: targetAgencyId,
+        });
+      }
+      if (payload.action === "unpublish") {
+        return apiFetch(`/api/v1/properties/${params.id}/status`, {
+          method: "POST",
+          token: accessToken,
+          agencyId: targetAgencyId,
+          body: JSON.stringify({
+            status: "DRAFT",
+            reason: payload.reason?.trim() || "لغو انتشار از پورتال عمومی",
+          }),
+        });
+      }
+      if (payload.action === "reject") {
+        return apiFetch(`/api/v1/properties/${params.id}/status`, {
+          method: "POST",
+          token: accessToken,
+          agencyId: targetAgencyId,
+          body: JSON.stringify({
+            status: "REJECTED",
+            reason: (payload.reason || "").trim(),
+          }),
+        });
+      }
+      return apiFetch(`/api/v1/properties/${params.id}/${payload.action}`, {
         method: "POST",
         token: accessToken,
-        agencyId: activeAgencyId,
-      }),
-    onSuccess: () => {
-      setNotice("وضعیت ملک با موفقیت به‌روزرسانی شد.");
+        agencyId: targetAgencyId,
+      });
+    },
+    onSuccess: (_, vars) => {
+      setErrMsg(null);
+      if (vars.action === "delete") {
+        qc.invalidateQueries({ queryKey: ["agency-properties"] });
+        router.push("/dashboard/properties");
+        return;
+      }
+      if (vars.action === "reject") {
+        setRejectOpen(false);
+        setRejectReason("");
+        setNotice("ملک رد شد و دلیل رد در پرونده ثبت گردید.");
+      } else if (vars.action === "unpublish") {
+        setNotice("انتشار ملک در پورتال عمومی لغو شد.");
+      } else {
+        setNotice("وضعیت ملک با موفقیت به‌روزرسانی شد.");
+      }
       qc.invalidateQueries({ queryKey: ["dashboard-property-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["agency-properties"] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
+
+  const deleteDocMut = useMutation({
+    mutationFn: async (docId: string) =>
+      apiFetch(`/api/v1/documents/${docId}`, {
+        method: "DELETE",
+        token: accessToken,
+        agencyId: targetAgencyId,
+      }),
+    onSuccess: () => {
+      setNotice("سند از پرونده ملک حذف (بایگانی) شد.");
+      qc.invalidateQueries({ queryKey: ["property-documents", params.id] });
+      qc.invalidateQueries({ queryKey: ["dashboard-property-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["agency-documents-brief"] });
+    },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+
+  const handleUploadPropertyDoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docFile || !targetAgencyId) {
+      setErrMsg("لطفاً فایل سند را انتخاب کنید.");
+      return;
+    }
+    setErrMsg(null);
+    setDocUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", docFile);
+      form.append("title", docTitle.trim() || docFile.name);
+      form.append("category", docCategory);
+      form.append("access_level", docAccessLevel);
+      form.append("property_id", params.id);
+      await apiFetch("/api/v1/documents/upload", {
+        method: "POST",
+        token: accessToken,
+        agencyId: targetAgencyId,
+        body: form,
+      });
+      setDocFile(null);
+      setDocTitle("");
+      setNotice("سند پیوست ملک با موفقیت بارگذاری شد.");
+      qc.invalidateQueries({ queryKey: ["property-documents", params.id] });
+      qc.invalidateQueries({ queryKey: ["dashboard-property-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["agency-documents-brief"] });
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : "خطا در آپلود سند");
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const openInlinePreview = async (doc: { id: string; title: string; versions?: { mime_type: string }[] }) => {
+    try {
+      const headers: Record<string, string> = {};
+      if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+      if (targetAgencyId) headers["X-Agency-ID"] = targetAgencyId;
+      const res = await fetch(`/api/v1/documents/${doc.id}/content?inline=true`, { headers });
+      if (!res.ok) throw new Error(`خطا در دریافت پیش‌نمایش (${res.status})`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewDoc({
+        title: doc.title,
+        url,
+        mime: doc.versions?.[0]?.mime_type || blob.type || "application/pdf",
+      });
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : "خطا در پیش‌نمایش سند");
+    }
+  };
 
   const uploadSingleMedia = async (item: QueuedUploadFile) => {
     setUploadQueue((prev) =>
@@ -253,7 +403,7 @@ export default function DashboardPropertyDetailPage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href={`/dashboard/properties/${property.id}/edit`}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 whitespace-nowrap"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 ویرایش مشخصات
@@ -261,8 +411,9 @@ export default function DashboardPropertyDetailPage() {
               {property.status === "DRAFT" && (
                 <button
                   type="button"
-                  onClick={() => actionMut.mutate("submit")}
-                  className="h-9 rounded-lg bg-amber-600 px-3.5 text-xs font-semibold text-white hover:bg-amber-700"
+                  disabled={actionMut.isPending}
+                  onClick={() => actionMut.mutate({ action: "submit" })}
+                  className="h-9 rounded-lg bg-amber-600 px-3.5 text-xs font-semibold text-white hover:bg-amber-700 whitespace-nowrap"
                 >
                   ارسال برای تأیید
                 </button>
@@ -270,19 +421,57 @@ export default function DashboardPropertyDetailPage() {
               {property.status !== "PUBLISHED" && canPublish && (
                 <button
                   type="button"
-                  onClick={() => actionMut.mutate("publish")}
-                  className="h-9 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800 dark:bg-teal-600"
+                  disabled={actionMut.isPending}
+                  onClick={() => actionMut.mutate({ action: "publish" })}
+                  className="h-9 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800 dark:bg-teal-600 whitespace-nowrap"
                 >
-                  انتشار در پورتال
+                  تأیید و انتشار در پورتال
+                </button>
+              )}
+              {property.status === "PUBLISHED" && canPublish && (
+                <button
+                  type="button"
+                  disabled={actionMut.isPending}
+                  onClick={() => actionMut.mutate({ action: "unpublish" })}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 whitespace-nowrap"
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                  لغو انتشار
+                </button>
+              )}
+              {canPublish && property.status !== "REJECTED" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRejectOpen(true);
+                    setRejectReason("");
+                  }}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-3.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 whitespace-nowrap"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  رد فایل
                 </button>
               )}
               <Link
                 href={`/properties/${property.id}`}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 whitespace-nowrap"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 نمای عمومی
               </Link>
+              <button
+                type="button"
+                disabled={actionMut.isPending}
+                onClick={() => {
+                  if (window.confirm(`آیا از حذف (بایگانی) ملک «${property.title}» مطمئن هستید؟`)) {
+                    actionMut.mutate({ action: "delete" });
+                  }
+                }}
+                className="inline-flex h-9 items-center gap-1 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-slate-900 dark:text-rose-400 whitespace-nowrap"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                حذف
+              </button>
             </div>
           ) : null
         }
@@ -290,6 +479,18 @@ export default function DashboardPropertyDetailPage() {
 
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
+
+      {property && (property.status === "REJECTED" || property.latest_rejection_reason) && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
+          <div>
+            <div className="font-bold">این فایل ملک رد شده است</div>
+            <p className="mt-1 leading-relaxed">
+              دلیل ثبت‌شده: {property.latest_rejection_reason || "دلیل ثبت نشده است"}
+            </p>
+          </div>
+        </div>
+      )}
 
       {propQ.isLoading ? (
         <LoadingState />
@@ -501,6 +702,116 @@ export default function DashboardPropertyDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Linked Property Documents Manager */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                  <FileText className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                  اسناد و مدارک پیوست ملک
+                </h3>
+                <span className="tabular-nums text-xs text-slate-500">
+                  {(docsQ.data || property.documents || []).length} سند
+                </span>
+              </div>
+
+              <form onSubmit={handleUploadPropertyDoc} className="grid grid-cols-1 gap-2.5 rounded-lg border border-slate-200 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-800/40 sm:grid-cols-12">
+                <input
+                  value={docTitle}
+                  onChange={(e) => setDocTitle(e.target.value)}
+                  placeholder="عنوان سند (مثلاً تصویر سند تک‌برگ)..."
+                  className="h-9 rounded-lg border border-slate-300 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950 sm:col-span-4"
+                />
+                <select
+                  value={docCategory}
+                  onChange={(e) => setDocCategory(e.target.value)}
+                  className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950 sm:col-span-3"
+                >
+                  <option value="DEED">سند مالکیت</option>
+                  <option value="IDENTITY">احراز هویت مالک</option>
+                  <option value="CONTRACT">قرارداد / مبایعه‌نامه</option>
+                  <option value="INSPECTION">گزارش بازدید</option>
+                  <option value="GENERAL">عمومی</option>
+                </select>
+                <select
+                  value={docAccessLevel}
+                  onChange={(e) => setDocAccessLevel(e.target.value)}
+                  className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950 sm:col-span-2"
+                >
+                  <option value="AGENCY_INTERNAL">داخلی آژانس</option>
+                  <option value="CONFIDENTIAL">محرمانه</option>
+                  <option value="SHARED_COOP">همکاری</option>
+                </select>
+                <div className="flex items-center gap-2 sm:col-span-3">
+                  <input
+                    type="file"
+                    onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                    className="w-full text-[11px] file:ml-2 file:rounded file:border-0 file:bg-slate-200 file:px-2 file:py-1 file:text-[11px] file:font-semibold dark:file:bg-slate-700"
+                  />
+                  <button
+                    type="submit"
+                    disabled={docUploading || !docFile}
+                    className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-teal-700 px-3 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {docUploading ? "آپلود..." : "پیوست"}
+                  </button>
+                </div>
+              </form>
+
+              {(docsQ.data || property.documents || []).length > 0 ? (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(docsQ.data || property.documents || []).map((d) => (
+                    <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">{d.title}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {translateStatus(d.category)} · {translateStatus(d.access_level)} ·{" "}
+                          <DateDisplay value={d.created_at} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openInlinePreview(d)}
+                          className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                        >
+                          <Eye className="h-3 w-3" />
+                          پیش‌نمایش
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            apiDownloadBlob(`/api/v1/documents/${d.id}/content`, {
+                              token: accessToken,
+                              agencyId: targetAgencyId,
+                              filenameFallback: `${d.title}.pdf`,
+                            }).catch((e) => setErrMsg(e instanceof Error ? e.message : "خطای دانلود"))
+                          }
+                          className="inline-flex h-7 items-center gap-1 rounded border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                        >
+                          <Download className="h-3 w-3" />
+                          دانلود
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`حذف سند «${d.title}»؟`)) {
+                              deleteDocMut.mutate(d.id);
+                            }
+                          }}
+                          className="inline-flex h-7 items-center rounded border border-rose-200 bg-rose-50 px-2 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">هنوز سندی به این ملک پیوست نشده است.</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-6 lg:col-span-4">
@@ -537,6 +848,11 @@ export default function DashboardPropertyDetailPage() {
                 )}
               </div>
             </div>
+
+            <PropertyVirtualTourCard
+              property={property}
+              onCreated={() => propQ.refetch()}
+            />
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -678,7 +994,7 @@ export default function DashboardPropertyDetailPage() {
                         className="h-8 w-full rounded border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                       >
                         <option value="">بدون سند پیوست</option>
-                        {(docsQ.data || []).map((doc) => (
+                        {(agencyDocsQ.data || []).map((doc) => (
                           <option key={doc.id} value={doc.id}>
                             {doc.title} ({doc.category})
                           </option>
@@ -738,6 +1054,35 @@ export default function DashboardPropertyDetailPage() {
               );
             })()}
 
+            {property.status_history && property.status_history.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-2.5">
+                <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                  <History className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                  تاریخچه وضعیت انتشار ملک
+                </h3>
+                <div className="space-y-2 text-xs">
+                  {property.status_history.map((sh) => (
+                    <div
+                      key={sh.id}
+                      className="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5 dark:border-slate-800 dark:bg-slate-800/40"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold">
+                          {translateStatus(sh.from_status)} ➔ {translateStatus(sh.to_status)}
+                        </span>
+                        <DateDisplay value={sh.changed_at} className="text-[11px] text-slate-500" />
+                      </div>
+                      {sh.reason && (
+                        <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">
+                          توضیح: {sh.reason}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => router.push("/dashboard/properties")}
@@ -748,6 +1093,75 @@ export default function DashboardPropertyDetailPage() {
           </div>
         </div>
       ) : null}
+
+      <ModalDrawer
+        open={rejectOpen}
+        onClose={() => {
+          setRejectOpen(false);
+          setRejectReason("");
+        }}
+        title={`رد فایل ملک ${property?.property_code || ""}`}
+        subtitle="درج دلیل رد الزامی است و برای مشاور نمایش داده می‌شود."
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              دلیل رد ملک *
+            </label>
+            <textarea
+              rows={4}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="مثال: متراژ اعلام‌شده با سند هم‌خوانی ندارد..."
+              className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-900 focus:border-teal-600 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setRejectOpen(false)}
+              className="h-9 rounded-lg border border-slate-300 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+            >
+              انصراف
+            </button>
+            <button
+              type="button"
+              disabled={!rejectReason.trim() || actionMut.isPending}
+              onClick={() =>
+                actionMut.mutate({ action: "reject", reason: rejectReason.trim() })
+              }
+              className="h-9 rounded-lg bg-rose-600 px-4 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              {actionMut.isPending ? "در حال ثبت..." : "ثبت رد فایل"}
+            </button>
+          </div>
+        </div>
+      </ModalDrawer>
+
+      <ModalDrawer
+        open={Boolean(previewDoc)}
+        onClose={() => {
+          if (previewDoc?.url) URL.revokeObjectURL(previewDoc.url);
+          setPreviewDoc(null);
+        }}
+        title={previewDoc?.title || "پیش‌نمایش سند"}
+        maxWidthClass="max-w-3xl"
+      >
+        {previewDoc &&
+          (previewDoc.mime.startsWith("image/") ? (
+            <img
+              src={previewDoc.url}
+              alt={previewDoc.title}
+              className="max-h-[75vh] w-full rounded-lg object-contain"
+            />
+          ) : (
+            <iframe
+              src={previewDoc.url}
+              title={previewDoc.title}
+              className="h-[75vh] w-full rounded-lg border border-slate-200 dark:border-slate-800"
+            />
+          ))}
+      </ModalDrawer>
     </div>
   );
 }

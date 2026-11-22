@@ -1,9 +1,9 @@
 from django.conf import settings
 from django.db import models
-from common.models import BaseModel, TenantScopedModel
+from common.models import BaseModel, SoftDeleteMixin, TenantScopedModel
 
 
-class Document(TenantScopedModel):
+class Document(TenantScopedModel, SoftDeleteMixin):
     class AccessLevel(models.TextChoices):
         PUBLIC = "PUBLIC", "Public"
         AGENCY_INTERNAL = "AGENCY_INTERNAL", "Agency Internal"
