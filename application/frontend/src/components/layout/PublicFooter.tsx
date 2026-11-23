@@ -24,7 +24,7 @@ export function PublicFooter() {
 
   return (
     <footer className="border-t border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
@@ -148,11 +148,11 @@ export function PublicFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-[11px] dark:border-slate-800 sm:flex-row">
+        <div className="mt-3 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-[11px] dark:border-slate-800 sm:flex-row">
           <span>{copyrightText}</span>
           <div className="flex flex-wrap items-center gap-4">
             {legalDocuments.length > 0 ? (
-              legalDocuments.slice(0, 6).map((doc) => (
+              legalDocuments.slice(0, 2).map((doc) => (
                 <Link
                   key={doc.slug}
                   href={`/legal/${doc.slug}`}

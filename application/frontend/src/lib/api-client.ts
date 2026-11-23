@@ -40,6 +40,10 @@ export class ApiRequestError extends Error {
 
 const STORAGE_KEY = "bonyan_auth_v2";
 let refreshPromise: Promise<string | null> | null = null;
+let apiRequestCount = 0;
+function notifyApiRequestCount() {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("bonyan-api-request-count", { detail: { count: apiRequestCount } }));
+}
 
 async function tryRefreshAccessToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
@@ -118,43 +122,50 @@ export async function apiFetch<T>(
     return finalHeaders;
   };
 
-  let res = await fetch(path, {
-    ...rest,
-    headers: buildHeaders(token),
-  });
+  apiRequestCount += 1;
+  notifyApiRequestCount();
+  try {
+    let res = await fetch(path, {
+      ...rest,
+      headers: buildHeaders(token),
+    });
 
-  if (res.status === 401 && token && !skipRefresh && !path.includes("/auth/login")) {
-    const newToken = await tryRefreshAccessToken();
-    if (newToken) {
-      res = await fetch(path, {
-        ...rest,
-        headers: buildHeaders(newToken),
-      });
+    if (res.status === 401 && token && !skipRefresh && !path.includes("/auth/login")) {
+      const newToken = await tryRefreshAccessToken();
+      if (newToken) {
+        res = await fetch(path, {
+          ...rest,
+          headers: buildHeaders(newToken),
+        });
+      }
     }
-  }
 
-  const json = await res.json().catch(() => null);
-  const isEnvelope =
-    json !== null && typeof json === "object" && "success" in json && typeof json.success === "boolean";
+    const json = await res.json().catch(() => null);
+    const isEnvelope =
+      json !== null && typeof json === "object" && "success" in json && typeof json.success === "boolean";
 
-  if (!res.ok) {
-    const env = isEnvelope ? (json as ApiEnvelope<T>) : null;
-    throw new ApiRequestError(extractErrorMessage(json, res.status), res.status, env?.errors ?? null);
-  }
-
-  if (isEnvelope) {
-    const env = json as ApiEnvelope<T>;
-    if (!env.success) {
-      throw new ApiRequestError(extractErrorMessage(json, res.status), res.status, env.errors ?? null);
+    if (!res.ok) {
+      const env = isEnvelope ? (json as ApiEnvelope<T>) : null;
+      throw new ApiRequestError(extractErrorMessage(json, res.status), res.status, env?.errors ?? null);
     }
-    return env;
-  }
 
-  return {
-    success: true,
-    data: json as T,
-    errors: null,
-  };
+    if (isEnvelope) {
+      const env = json as ApiEnvelope<T>;
+      if (!env.success) {
+        throw new ApiRequestError(extractErrorMessage(json, res.status), res.status, env.errors ?? null);
+      }
+      return env;
+    }
+
+    return {
+      success: true,
+      data: json as T,
+      errors: null,
+    };
+  } finally {
+    apiRequestCount = Math.max(0, apiRequestCount - 1);
+    notifyApiRequestCount();
+  }
 }
 
 export async function apiDownloadBlob(

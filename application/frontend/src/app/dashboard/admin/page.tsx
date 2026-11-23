@@ -95,7 +95,7 @@ export default function AdminPlatformPage() {
   const [subForm, setSubForm] = useState({
     agency_id: "",
     plan_code: "PRO",
-    billing_cycle: "MONTHLY",
+    billing_cycle: "MONTH_1",
     duration_days: 30,
     status: "ACTIVE",
     extend_days: 30,
@@ -501,7 +501,7 @@ export default function AdminPlatformPage() {
           columns={[
             { key: "agency", header: "آژانس", render: (r) => <span className="font-semibold">{r.agency_name}</span> },
             { key: "plan", header: "پلن", render: (r) => `${r.plan_name} (${r.plan_code})` },
-            { key: "cycle", header: "دوره", render: (r) => (r.billing_cycle === "ANNUAL" ? "سالانه" : "ماهانه") },
+            { key: "cycle", header: "دوره", render: (r) => (({MONTH_1:"۱ ماهه",MONTH_2:"۲ ماهه",MONTH_3:"۳ ماهه",MONTH_6:"۶ ماهه",MONTH_12:"۱ ساله",MONTHLY:"ماهانه",ANNUAL:"سالانه"} as Record<string,string>)[r.billing_cycle] || r.billing_cycle) },
             { key: "status", header: "وضعیت", render: (r) => <StatusText status={r.status} /> },
             { key: "exp", header: "انقضا", render: (r) => <DateDisplay value={r.expires_at} /> },
             {
@@ -735,11 +735,14 @@ export default function AdminPlatformPage() {
           <div className="grid grid-cols-2 gap-2">
             <select
               value={subForm.billing_cycle}
-              onChange={(e) => setSubForm({ ...subForm, billing_cycle: e.target.value })}
+              onChange={(e) => { const cycle=e.target.value; const months=Number(cycle.split("_")[1]||1); setSubForm({ ...subForm, billing_cycle: cycle, duration_days: months*30 }); }}
               className="h-10 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-sm"
             >
-              <option value="MONTHLY">ماهانه</option>
-              <option value="ANNUAL">سالانه</option>
+              <option value="MONTH_1">۱ ماهه</option>
+              <option value="MONTH_2">۲ ماهه</option>
+              <option value="MONTH_3">۳ ماهه</option>
+              <option value="MONTH_6">۶ ماهه</option>
+              <option value="MONTH_12">۱ ساله</option>
             </select>
             <select
               value={subForm.status}

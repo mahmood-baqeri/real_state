@@ -78,7 +78,7 @@ export default function SubscriptionsPage() {
   const { accessToken, activeAgencyId, effectiveRole } = useAuth();
   const qc = useQueryClient();
   const isSuperAdmin = effectiveRole === "SUPER_ADMIN";
-  const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
+  const [billingCycle, setBillingCycle] = useState<string>("MONTH_1");
   const [selectedGateway, setSelectedGateway] = useState<string>("sandbox");
   const [pendingCheckout, setPendingCheckout] = useState<CheckoutResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -183,8 +183,12 @@ export default function SubscriptionsPage() {
       setErrMsg(null);
       setPendingCheckout(res);
       const gwTitle = GATEWAY_LABELS[res.provider_key] || res.provider_key;
-      setNotice(`تراکنش درگاه ${gwTitle} با موفقیت ایجاد شد. آماده انتقال یا تأیید پرداخت است.`);
+      setNotice(`در حال انتقال به درگاه ${gwTitle}…`);
       qc.invalidateQueries({ queryKey: ["payment-transactions"] });
+      // Immediately hand off to the configured bank/gateway for non-sandbox payments.
+      if (!res.is_sandbox && res.redirect_url) {
+        window.location.assign(res.redirect_url);
+      }
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
@@ -333,29 +337,10 @@ export default function SubscriptionsPage() {
                 ایجاد پلن اشتراک
               </button>
             )}
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
-              <button
-                type="button"
-                onClick={() => setBillingCycle("MONTHLY")}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  billingCycle === "MONTHLY"
-                    ? "bg-teal-700 text-white dark:bg-teal-600"
-                    : "text-slate-600 dark:text-slate-400"
-                }`}
-              >
-                ماهانه
-              </button>
-              <button
-                type="button"
-                onClick={() => setBillingCycle("ANNUAL")}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  billingCycle === "ANNUAL"
-                    ? "bg-teal-700 text-white dark:bg-teal-600"
-                    : "text-slate-600 dark:text-slate-400"
-                }`}
-              >
-                سالانه (به‌صرفه‌تر)
-              </button>
+            <div className="flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
+              {[ ["MONTH_1","۱ ماه"],["MONTH_2","۲ ماه"],["MONTH_3","۳ ماه"],["MONTH_6","۶ ماه"],["MONTH_12","۱ سال"] ].map(([value,label]) => (
+                <button key={value} type="button" onClick={() => setBillingCycle(value)} className={`rounded-md px-2.5 py-1.5 text-xs font-semibold ${billingCycle === value ? "bg-teal-700 text-white" : "text-slate-600 dark:text-slate-400"}`}>{label}</button>
+              ))}
             </div>
           </div>
         }
@@ -481,7 +466,8 @@ export default function SubscriptionsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {(plansQ.data || []).map((p) => {
-            const price = billingCycle === "ANNUAL" ? p.annual_price : p.monthly_price;
+            const months = Number(billingCycle.split("_")[1] || 1);
+            const price = months === 12 ? p.annual_price : String(Number(p.monthly_price) * months);
             return (
               <div
                 key={p.id}
@@ -499,7 +485,7 @@ export default function SubscriptionsPage() {
                   <div className="text-xl font-bold text-teal-800 dark:text-teal-300 tabular-nums">
                     <MoneyDisplay amount={price} sourceCurrency={p.currency} />
                     <span className="mr-1 text-xs font-normal text-slate-500 dark:text-slate-400">
-                      / {billingCycle === "ANNUAL" ? "سالانه" : "ماهانه"}
+                      / {({MONTH_1:"۱ ماهه",MONTH_2:"۲ ماهه",MONTH_3:"۳ ماهه",MONTH_6:"۶ ماهه",MONTH_12:"۱ ساله"} as Record<string,string>)[billingCycle]}
                     </span>
                   </div>
                   <ul className="space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-700 dark:border-slate-800 dark:text-slate-300">

@@ -41,12 +41,9 @@ def list_audit_logs(
     action: Optional[str] = None,
 ):
     qs = AuditLog.objects.select_related("actor")
-    if is_super_admin(user):
-        if agency_id:
-            qs = qs.filter(agency_id=agency_id)
-    else:
-        if not agency_id or not has_agency_permission(user, agency_id, "audit.view"):
-            raise PermissionDeniedDomainError("عدم مجوز مشاهده لاگ ممیزی.")
+    if not is_super_admin(user):
+        raise PermissionDeniedDomainError("مشاهده گزارش ممیزی فقط برای مدیر کل مجاز است.")
+    if agency_id:
         qs = qs.filter(agency_id=agency_id)
     if resource_type:
         qs = qs.filter(resource_type__icontains=resource_type)

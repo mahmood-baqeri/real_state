@@ -45,7 +45,7 @@ class AdminMembershipAssignBody(BaseModel):
 class AdminSubscriptionCreateBody(BaseModel):
     agency_id: UUID
     plan_code: str
-    billing_cycle: str = "MONTHLY"
+    billing_cycle: str = "MONTH_1"
     duration_days: int = 30
     status: str = "ACTIVE"
 

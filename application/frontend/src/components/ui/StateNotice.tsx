@@ -1,15 +1,15 @@
 import React from "react";
-import { AlertCircle, CheckCircle2, Inbox, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, Inbox, RefreshCw, LoaderCircle } from "lucide-react";
 
 export function LoadingState({ message = "در حال بارگذاری اطلاعات..." }: { message?: string }) {
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-      <div className="text-sm font-medium text-slate-600 dark:text-slate-300">{message}</div>
-      <div className="space-y-2 animate-pulse">
-        <div className="h-9 w-full rounded-lg bg-slate-100 dark:bg-slate-800" />
-        <div className="h-9 w-full rounded-lg bg-slate-100 dark:bg-slate-800" />
-        <div className="h-9 w-4/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+    <div role="status" aria-live="polite" className="relative overflow-hidden rounded-2xl border border-teal-100 bg-white/90 p-5 shadow-sm dark:border-teal-950 dark:bg-slate-900/90">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-cyan-400 to-indigo-500" />
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300"><LoaderCircle className="h-5 w-5 animate-spin" /></div>
+        <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{message}</div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full w-1/3 animate-[dashboard-progress_1.2s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-teal-500 to-indigo-500" /></div></div>
       </div>
+      <div className="mt-4 grid gap-2 animate-pulse"><div className="h-7 rounded-lg bg-slate-100 dark:bg-slate-800"/><div className="h-7 rounded-lg bg-slate-100 dark:bg-slate-800"/><div className="h-7 w-4/5 rounded-lg bg-slate-100 dark:bg-slate-800"/></div>
     </div>
   );
 }

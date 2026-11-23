@@ -86,9 +86,7 @@ def _assert_cms_editor(user: Optional[User]) -> None:
         raise PermissionDeniedDomainError("احراز هویت الزامی است.")
     if is_super_admin(user):
         return
-    if user.memberships.filter(status="ACTIVE", role__code="AGENCY_MANAGER").exists():
-        return
-    raise PermissionDeniedDomainError("مدیریت محتوای CMS فقط برای ادمین پلتفرم یا مدیر آژانس مجاز است.")
+    raise PermissionDeniedDomainError("مدیریت محتوای سامانه فقط برای مدیر کل مجاز است.")
 
 
 def _assert_cms_approver(user: Optional[User]) -> None:

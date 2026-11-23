@@ -14,7 +14,8 @@ import { EmptyState, ErrorState, LoadingState, SuccessBanner } from "@/component
 import { PushSubscriptionPanel } from "@/components/pwa/PushSubscriptionPanel";
 
 export default function NotificationsPage() {
-  const { accessToken, activeAgencyId } = useAuth();
+  const { accessToken, activeAgencyId, user } = useAuth();
+  const isSuperAdmin = user?.platform_role === "SUPER_ADMIN";
   const qc = useQueryClient();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
@@ -106,14 +107,14 @@ export default function NotificationsPage() {
               <CheckCheck className="h-4 w-4" />
               خواندن همه
             </button>
-            <button
+            {isSuperAdmin && <button
               type="button"
               onClick={() => setSendOpen(true)}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800"
             >
               <Send className="h-4 w-4" />
               ارسال اعلان جدید
-            </button>
+            </button>}
           </div>
         }
       />
@@ -121,7 +122,7 @@ export default function NotificationsPage() {
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
 
-      <PushSubscriptionPanel />
+      {isSuperAdmin && <PushSubscriptionPanel />}
 
       <div className="flex gap-2">
         <button
@@ -189,7 +190,7 @@ export default function NotificationsPage() {
         </div>
       )}
 
-      <ModalDrawer open={sendOpen} onClose={() => setSendOpen(false)} title="ارسال اعلان یا پیامک">
+      {isSuperAdmin && <ModalDrawer open={sendOpen} onClose={() => setSendOpen(false)} title="ارسال اعلان یا پیامک">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -237,7 +238,7 @@ export default function NotificationsPage() {
             ارسال اعلان
           </button>
         </form>
-      </ModalDrawer>
+      </ModalDrawer>}
     </div>
   );
 }

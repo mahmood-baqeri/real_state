@@ -84,7 +84,7 @@ def initiate_gateway_payment(
     user: User,
     agency_id: UUID,
     plan_code: str,
-    billing_cycle: str = "MONTHLY",
+    billing_cycle: str = "MONTH_1",
     provider_key: Optional[str] = None,
     callback_url: str = "/dashboard/subscriptions",
     idempotency_key: Optional[str] = None,
@@ -136,12 +136,16 @@ def initiate_gateway_payment(
     is_sandbox = cfg.is_sandbox if cfg else True
 
     # Server determines authoritative amount from DB plan — never from client input!
-    amount = plan.annual_price if billing_cycle == "ANNUAL" else plan.monthly_price
+    cycle_months = {"MONTH_1": 1, "MONTH_2": 2, "MONTH_3": 3, "MONTH_6": 6, "MONTH_12": 12, "MONTHLY": 1, "ANNUAL": 12}
+    if billing_cycle not in cycle_months:
+        raise ValidationDomainError("دوره پرداخت باید ۱، ۲، ۳، ۶ یا ۱۲ ماهه باشد.")
+    months = cycle_months[billing_cycle]
+    amount = plan.annual_price if months == 12 else plan.monthly_price * months
     if amount <= Decimal("0"):
         raise ValidationDomainError("مبلغ پلن اشتراک نامعتبر است.")
 
     now = timezone.now()
-    days = 365 if billing_cycle == "ANNUAL" else 30
+    days = months * 30
     sub = AgencySubscription.objects.create(
         agency_id=agency_id,
         plan=plan,

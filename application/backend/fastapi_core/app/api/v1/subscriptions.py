@@ -12,7 +12,7 @@ router = APIRouter(tags=["Subscriptions & Payments"])
 
 class CheckoutBody(BaseModel):
     plan_code: str
-    billing_cycle: str = "MONTHLY"
+    billing_cycle: str = "MONTH_1"
     provider_key: str = "sandbox"
 
 

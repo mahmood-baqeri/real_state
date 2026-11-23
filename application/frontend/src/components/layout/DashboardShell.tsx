@@ -23,6 +23,7 @@ import {
   Home,
   Landmark,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Menu,
   MessageSquareWarning,
@@ -106,6 +107,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { getSetting, getBrandAsset, currencies, calendars } = usePublicConfig();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+
+  useEffect(() => {
+    if (!isLoading && pathname === "/dashboard/roles" && user?.platform_role !== "SUPER_ADMIN") {
+      router.replace("/dashboard");
+    }
+  }, [pathname, isLoading, user?.platform_role, router]);
   const platformName = getSetting<string>("general.platform_name_fa", "بنیان ملک");
   const brandLogo = getBrandAsset(isDark ? "site_logo_dark" : "site_logo_light", isDark, "");
   const activeCurrencies =
@@ -127,6 +134,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [commandQuery, setCommandQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [wsUnreadCount, setWsUnreadCount] = useState<number | null>(null);
+  const [routeProgress, setRouteProgress] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(commandQuery.trim()), 240);
@@ -136,12 +144,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoading && !user) {
       router.replace("/login");
+      return;
     }
-  }, [isLoading, user, router]);
+    if (!isLoading && pathname === "/dashboard/roles" && user?.platform_role !== "SUPER_ADMIN") {
+      router.replace("/dashboard");
+    }
+  }, [isLoading, user, router, pathname]);
 
   useEffect(() => {
     setMobileOpen(false);
     setCommandOpen(false);
+    setRouteProgress(true);
+    const timer = setTimeout(() => setRouteProgress(false), 650);
+    return () => clearTimeout(timer);
   }, [pathname]);
 
   useEffect(() => {
@@ -413,6 +428,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div data-dashboard-shell className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
+      {routeProgress && <>
+        <div aria-hidden="true" className="fixed inset-x-0 top-0 z-[100] h-[3px] overflow-hidden bg-teal-100/60 dark:bg-teal-950/60"><div className="h-full w-1/3 animate-[dashboard-progress_1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-teal-500 via-cyan-400 to-indigo-500 shadow-[0_0_12px_rgba(45,212,191,.65)]" /></div>
+        <div role="status" className="fixed left-1/2 top-3 z-[101] flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-200/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-lg backdrop-blur-md dark:border-indigo-900/60 dark:bg-slate-900/90 dark:text-slate-200"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-teal-500" />در حال انتقال به صفحه</div>
+      </>}
       {/* Desktop RTL Sidebar */}
       <aside data-dashboard-sidebar-frame className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:z-30 lg:block lg:w-64 lg:border-l lg:border-slate-200 dark:lg:border-slate-800">
         {sidebarContent}

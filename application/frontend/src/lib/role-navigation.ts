@@ -174,7 +174,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "نقش‌ها و سیاست دسترسی",
     href: "/dashboard/roles",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     key: "notifications",
@@ -234,21 +234,21 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "مدیریت محتوا، سئو و درخواست‌ها",
     href: "/dashboard/cms",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     key: "settings",
     label: "تنظیمات سیستم",
     href: "/dashboard/settings",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     key: "audit",
     label: "گزارش ممیزی (Audit)",
     href: "/dashboard/audit",
     group: "admin",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER"],
+    roles: ["SUPER_ADMIN"],
   },
   {
     key: "profile",

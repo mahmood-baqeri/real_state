@@ -23,7 +23,7 @@ interface PlanItem {
 }
 
 export default function PricingPage() {
-  const [annual, setAnnual] = useState(false);
+  const [cycle, setCycle] = useState("MONTH_1");
 
   const plansQ = useQuery({
     queryKey: ["public-plans"],
@@ -39,25 +39,8 @@ export default function PricingPage() {
           <p className="text-sm text-slate-600 dark:text-slate-400">
             تعرفه شفاف متناسب با تعداد مشاوران، شعب و حجم فایل‌های فعال آژانس شما
           </p>
-          <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
-            <button
-              type="button"
-              onClick={() => setAnnual(false)}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-                !annual ? "bg-teal-700 text-white" : "text-slate-600 dark:text-slate-300"
-              }`}
-            >
-              پرداخت ماهانه
-            </button>
-            <button
-              type="button"
-              onClick={() => setAnnual(true)}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-                annual ? "bg-teal-700 text-white" : "text-slate-600 dark:text-slate-300"
-              }`}
-            >
-              پرداخت سالانه (۲ ماه تخفیف)
-            </button>
+          <div className="mx-auto flex w-full max-w-md flex-nowrap gap-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 overflow-hidden">
+            {[["MONTH_1","۱ ماه"],["MONTH_2","۲ ماه"],["MONTH_3","۳ ماه"],["MONTH_6","۶ ماه"],["MONTH_12","۱ سال"]].map(([v,l]) => <button key={v} type="button" onClick={() => setCycle(v)} className={`min-w-0 flex-1 whitespace-nowrap rounded-lg px-1.5 sm:px-2.5 py-2 text-[11px] sm:text-xs font-semibold ${cycle===v ? "bg-teal-700 text-white" : "text-slate-600 dark:text-slate-300"}`}>{l}</button>)}
           </div>
         </div>
 
@@ -72,7 +55,8 @@ export default function PricingPage() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {(plansQ.data || []).map((plan) => {
               const isPro = plan.code === "PRO";
-              const price = annual ? plan.annual_price : plan.monthly_price;
+              const months = Number(cycle.split("_")[1] || 1);
+              const price = months === 12 ? plan.annual_price : String(Number(plan.monthly_price) * months);
               return (
                 <div
                   key={plan.id}
@@ -92,7 +76,7 @@ export default function PricingPage() {
                         {formatMoney(price, "IRT", "IRT")}
                       </div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {annual ? "صورت‌حساب سالانه" : "صورت‌حساب ماهانه"}
+                        {({MONTH_1:"صورت‌حساب ۱ ماهه",MONTH_2:"صورت‌حساب ۲ ماهه",MONTH_3:"صورت‌حساب ۳ ماهه",MONTH_6:"صورت‌حساب ۶ ماهه",MONTH_12:"صورت‌حساب ۱ ساله"} as Record<string,string>)[cycle]}
                       </div>
                     </div>
                     <ul className="space-y-2.5 text-xs text-slate-700 dark:text-slate-300">

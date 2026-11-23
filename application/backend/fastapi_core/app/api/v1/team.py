@@ -181,6 +181,10 @@ async def get_roles_permissions(ctx: RequestContext = Depends(require_agency_con
 
 @router.post("/team/roles", status_code=201)
 async def create_role_endpoint(body: RoleCreateBody, ctx: RequestContext = Depends(require_agency_context)):
+    from common.permissions import is_super_admin
+    from fastapi import HTTPException
+    if not is_super_admin(ctx.user):
+        raise HTTPException(status_code=403, detail="ایجاد نقش سفارشی فقط در اختیار مدیر کل است.")
     def _op():
         from apps.accounts.services import create_custom_role
 

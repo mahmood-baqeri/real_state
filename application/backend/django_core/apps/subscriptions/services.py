@@ -144,12 +144,16 @@ def assign_or_create_agency_subscription(*, actor: User, data: dict) -> AgencySu
     status_val = str(data.get("status") or AgencySubscription.Status.ACTIVE)
     if status_val not in AgencySubscription.Status.values:
         raise ValidationDomainError("وضعیت اشتراک نامعتبر است.")
-    duration_days = max(1, int(data.get("duration_days") or 30))
+    cycle = str(data.get("billing_cycle") or "MONTH_1").upper()
+    cycle_months = {"MONTH_1": 1, "MONTH_2": 2, "MONTH_3": 3, "MONTH_6": 6, "MONTH_12": 12, "MONTHLY": 1, "ANNUAL": 12}
+    if cycle not in cycle_months:
+        raise ValidationDomainError("مدت اشتراک نامعتبر است؛ یکی از دوره‌های ۱، ۲، ۳، ۶ یا ۱۲ ماه را انتخاب کنید.")
+    duration_days = max(1, int(data.get("duration_days") or cycle_months[cycle] * 30))
     now = timezone.now()
     sub = AgencySubscription.objects.create(
         agency=agency,
         plan=plan,
-        billing_cycle=str(data.get("billing_cycle") or "MONTHLY"),
+        billing_cycle=cycle,
         starts_at=now,
         expires_at=now + timedelta(days=duration_days),
         status=status_val,
@@ -226,7 +230,7 @@ def initiate_subscription_payment(
     user: User,
     agency_id: UUID,
     plan_code: str,
-    billing_cycle: str = "MONTHLY",
+    billing_cycle: str = "MONTH_1",
     provider_key: Optional[str] = None,
     idempotency_key: Optional[str] = None,
 ) -> dict:

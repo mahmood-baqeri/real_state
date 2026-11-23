@@ -247,8 +247,8 @@ def list_system_settings(
     country_code: Optional[str] = None,
     q: Optional[str] = None,
 ) -> list[SystemSetting]:
-    if not (is_super_admin(user) or (agency_id and has_agency_permission(user, agency_id, "agency.manage_policy"))):
-        raise PermissionDeniedDomainError("عدم دسترسی به مرکز تنظیمات سیستم.")
+    if not is_super_admin(user):
+        raise PermissionDeniedDomainError("مرکز تنظیمات سیستم فقط برای مدیر کل مجاز است.")
 
     qs = SystemSetting.objects.all()
     if is_super_admin(user):
@@ -357,8 +357,8 @@ def bulk_update_system_settings(
         raise ValidationDomainError("لیست تغییرات تنظیمات خالی است.")
     target_agency_id = agency_id if (agency_id and not is_super_admin(user)) else agency_id
     if target_agency_id:
-        if not (is_super_admin(user) or has_agency_permission(user, target_agency_id, "agency.manage_policy")):
-            raise PermissionDeniedDomainError("عدم مجوز ویرایش تنظیمات آژانس.")
+        if not is_super_admin(user):
+            raise PermissionDeniedDomainError("ویرایش تنظیمات فقط برای مدیر کل مجاز است.")
     elif not is_super_admin(user):
         raise PermissionDeniedDomainError("فقط مدیر کل مجاز به ویرایش تنظیمات سراسری پلتفرم است.")
 
@@ -487,7 +487,7 @@ def reset_system_setting_to_default(
     if not setting:
         raise NotFoundDomainError("تنظیم مورد نظر یافت نشد.")
     if setting.agency_id:
-        if not (is_super_admin(user) or has_agency_permission(user, setting.agency_id, "agency.manage_policy")):
+        if not is_super_admin(user):
             raise PermissionDeniedDomainError("عدم مجوز بازنشانی تنظیم آژانس.")
     elif not is_super_admin(user):
         raise PermissionDeniedDomainError("فقط مدیر کل مجاز به بازنشانی تنظیمات پلتفرم است.")
@@ -566,7 +566,7 @@ def rollback_system_setting(*, user: User, history_id: UUID) -> SystemSetting:
 def list_setting_history(
     *, user: User, agency_id: Optional[UUID] = None, setting_key: Optional[str] = None
 ) -> list[SystemSettingHistory]:
-    if not (is_super_admin(user) or (agency_id and has_agency_permission(user, agency_id, "agency.manage_policy"))):
+    if not is_super_admin(user):
         raise PermissionDeniedDomainError("عدم دسترسی به تاریخچه تغییرات تنظیمات.")
     qs = SystemSettingHistory.objects.select_related("changed_by")
     if not is_super_admin(user):
@@ -1289,8 +1289,8 @@ def list_provider_configs(
     *, user: User, agency_id: Optional[UUID], category: Optional[str] = None
 ) -> list[ProviderConfiguration]:
     if agency_id:
-        if not (is_super_admin(user) or has_agency_permission(user, agency_id, "agency.manage_policy")):
-            raise PermissionDeniedDomainError("عدم دسترسی به تنظیمات ارائه‌دهندگان آژانس.")
+        if not is_super_admin(user):
+            raise PermissionDeniedDomainError("تنظیمات ارائه‌دهندگان فقط برای مدیر کل مجاز است.")
         qs = ProviderConfiguration.objects.filter(agency_id__in=[None, agency_id])
     elif is_super_admin(user):
         qs = ProviderConfiguration.objects.filter(agency__isnull=True)
@@ -1305,8 +1305,8 @@ def list_provider_configs(
 def upsert_provider_config(*, user: User, agency_id: Optional[UUID], data: dict) -> ProviderConfiguration:
     target_agency_id = agency_id
     if target_agency_id:
-        if not (is_super_admin(user) or has_agency_permission(user, target_agency_id, "agency.manage_policy")):
-            raise PermissionDeniedDomainError("عدم مجوز تنظیم ارائه‌دهندگان.")
+        if not is_super_admin(user):
+            raise PermissionDeniedDomainError("تنظیم ارائه‌دهندگان فقط برای مدیر کل مجاز است.")
     elif not is_super_admin(user):
         raise PermissionDeniedDomainError("فقط مدیر کل مجاز به تنظیم ارائه‌دهندگان پلتفرم است.")
 
@@ -1366,11 +1366,8 @@ def test_provider_config(*, user: User, agency_id: Optional[UUID], config_id: UU
     cfg = ProviderConfiguration.objects.filter(id=config_id).first()
     if not cfg:
         raise NotFoundDomainError("پیکربندی درگاه یا سرویس یافت نشد.")
-    if cfg.agency_id:
-        if not (is_super_admin(user) or has_agency_permission(user, cfg.agency_id, "agency.manage_policy")):
-            raise PermissionDeniedDomainError("عدم مجوز تست اتصال این سرویس.")
-    elif not is_super_admin(user) and not (agency_id and has_agency_permission(user, agency_id, "agency.manage_policy")):
-        raise PermissionDeniedDomainError("عدم مجوز تست اتصال سرویس سراسری.")
+    if not is_super_admin(user):
+        raise PermissionDeniedDomainError("تست اتصال سرویس‌ها فقط برای مدیر کل مجاز است.")
 
     creds = parse_provider_credentials(cfg)
     result = {"ok": True, "status": "READY", "message": "پیکربندی معتبر است."}
@@ -1421,9 +1418,7 @@ def test_provider_config(*, user: User, agency_id: Optional[UUID], config_id: UU
 def _assert_geo_manager(user: User, agency_id: Optional[UUID] = None) -> None:
     if is_super_admin(user):
         return
-    if agency_id and has_agency_permission(user, agency_id, "agency.manage_policy"):
-        return
-    raise PermissionDeniedDomainError("فقط مدیر مجاز امکان ایجاد یا ویرایش اطلاعات جغرافیایی را دارد.")
+    raise PermissionDeniedDomainError("مدیریت اطلاعات جغرافیایی فقط برای مدیر کل مجاز است.")
 
 
 def list_provinces(*, country_id: str = "IR", q: Optional[str] = None, active_only: bool = True):

@@ -204,6 +204,10 @@ async def update_agency_status_endpoint(
 
 @router.get("/{agency_id}/access-policy")
 async def get_policy(agency_id: UUID, ctx: RequestContext = Depends(get_current_context)):
+    from common.permissions import is_super_admin
+    from fastapi import HTTPException
+    if not is_super_admin(ctx.user):
+        raise HTTPException(status_code=403, detail="این بخش فقط در اختیار مدیر کل است.")
     def _op():
         from apps.agencies.services import get_access_policy
 
@@ -216,6 +220,10 @@ async def get_policy(agency_id: UUID, ctx: RequestContext = Depends(get_current_
 async def patch_policy(
     agency_id: UUID, body: AccessPolicyPatchBody, ctx: RequestContext = Depends(get_current_context)
 ):
+    from common.permissions import is_super_admin
+    from fastapi import HTTPException
+    if not is_super_admin(ctx.user):
+        raise HTTPException(status_code=403, detail="این بخش فقط در اختیار مدیر کل است.")
     def _op():
         from apps.agencies.services import update_access_policy
 

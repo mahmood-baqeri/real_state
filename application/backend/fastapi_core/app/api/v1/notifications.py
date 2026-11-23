@@ -100,6 +100,10 @@ async def list_notifications_endpoint(
 async def send_notification_endpoint(
     body: NotificationCreateBody, ctx: RequestContext = Depends(get_current_context)
 ):
+    from common.permissions import is_super_admin
+    from fastapi import HTTPException
+    if not is_super_admin(ctx.user):
+        raise HTTPException(status_code=403, detail="ارسال اعلان سراسری فقط در اختیار مدیر کل است.")
     def _op():
         from apps.notifications.services import send_notification
 

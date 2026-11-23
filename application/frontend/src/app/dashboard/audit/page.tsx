@@ -12,7 +12,7 @@ import { DateDisplay } from "@/components/ui/DateDisplay";
 import { ModalDrawer } from "@/components/ui/ModalDrawer";
 
 export default function AuditLogsPage() {
-  const { accessToken, activeAgencyId } = useAuth();
+  const { accessToken, activeAgencyId, effectiveRole } = useAuth();
   const [resourceFilter, setResourceFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
@@ -30,6 +30,8 @@ export default function AuditLogsPage() {
       ).data;
     },
   });
+
+  if (effectiveRole !== "SUPER_ADMIN") return <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm font-semibold text-rose-700">گزارش ممیزی فقط برای مدیر کل قابل مشاهده است.</div>;
 
   return (
     <div className="space-y-6">

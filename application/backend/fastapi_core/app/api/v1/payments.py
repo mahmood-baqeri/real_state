@@ -22,7 +22,7 @@ class GatewayConfigBody(BaseModel):
 
 class PaymentInitiateBody(BaseModel):
     plan_code: str
-    billing_cycle: str = "MONTHLY"
+    billing_cycle: str = "MONTH_1"
     provider_key: Optional[str] = None
     callback_url: str = "/dashboard/subscriptions"
     idempotency_key: Optional[str] = None

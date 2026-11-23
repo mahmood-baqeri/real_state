@@ -490,6 +490,8 @@ export default function SettingsPage() {
     setGatewayModalOpen(true);
   };
 
+  if (!isSuperAdmin) return <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-sm font-semibold text-rose-700">دسترسی به تنظیمات سیستم فقط برای مدیر کل مجاز است.</div>;
+
   return (
     <div className="space-y-6">
       <PageHeader

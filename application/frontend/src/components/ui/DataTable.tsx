@@ -114,7 +114,7 @@ export function DataTable<T>({
   );
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const colsButtonRef = useRef<HTMLButtonElement>(null);
-  const [colsMenuPos, setColsMenuPos] = useState({ top: 0, left: 0 });
+  const [colsMenuPos, setColsMenuPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!colsMenuOpen) return;
@@ -122,9 +122,13 @@ export function DataTable<T>({
       const rect = colsButtonRef.current?.getBoundingClientRect();
       if (!rect) return;
       const menuWidth = 208;
+      const menuHeight = 280;
       const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8));
-      const top = Math.min(rect.bottom + 8, window.innerHeight - 260);
-      setColsMenuPos({ top: Math.max(8, top), left });
+      const below = rect.bottom + 8;
+      const top = below + menuHeight <= window.innerHeight - 8
+        ? below
+        : Math.max(8, rect.top - menuHeight - 8);
+      setColsMenuPos({ top, left });
     };
     updatePosition();
     window.addEventListener("resize", updatePosition);
@@ -340,7 +344,7 @@ export function DataTable<T>({
                 <button
                   ref={colsButtonRef}
                   type="button"
-                  onClick={() => setColsMenuOpen((o) => !o)}
+                  onClick={() => { setColsMenuPos(null); setColsMenuOpen((o) => !o); }}
                   aria-expanded={colsMenuOpen}
                   aria-label="تنظیم ستون‌های جدول"
                   className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
@@ -348,7 +352,7 @@ export function DataTable<T>({
                   <Columns3 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">ستون‌ها</span>
                 </button>
-                {colsMenuOpen && typeof document !== "undefined" && createPortal(
+                {colsMenuOpen && colsMenuPos && typeof document !== "undefined" && createPortal(
                   <div
                     style={{ position: "fixed", top: colsMenuPos.top, left: colsMenuPos.left, zIndex: 10000 }}
                     className="w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900"

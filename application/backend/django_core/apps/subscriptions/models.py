@@ -33,7 +33,7 @@ class AgencySubscription(BaseModel):
     )
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.PROTECT)
     billing_cycle = models.CharField(
-        max_length=16, choices=[("MONTHLY", "Monthly"), ("ANNUAL", "Annual")], default="MONTHLY"
+        max_length=16, choices=[("MONTH_1", "1 month"), ("MONTH_2", "2 months"), ("MONTH_3", "3 months"), ("MONTH_6", "6 months"), ("MONTH_12", "12 months"), ("MONTHLY", "Legacy monthly"), ("ANNUAL", "Legacy annual")], default="MONTH_1"
     )
     starts_at = models.DateTimeField()
     expires_at = models.DateTimeField(db_index=True)

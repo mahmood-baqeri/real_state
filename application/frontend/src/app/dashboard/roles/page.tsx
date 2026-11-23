@@ -106,7 +106,7 @@ const POLICY_FIELDS: PolicyFieldMeta[] = [
 ];
 
 export default function RolesAndPolicyPage() {
-  const { accessToken, activeAgencyId, effectiveRole } = useAuth();
+  const { accessToken, activeAgencyId, user } = useAuth();
   const qc = useQueryClient();
   const [policyState, setPolicyState] = useState<Partial<AgencyAccessPolicy>>({});
   const [roleModal, setRoleModal] = useState(false);
@@ -114,11 +114,16 @@ export default function RolesAndPolicyPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  const canManage = ["SUPER_ADMIN", "AGENCY_MANAGER"].includes(effectiveRole);
+  const isSuperAdmin = user?.platform_role === "SUPER_ADMIN";
+  const canManage = isSuperAdmin;
+
+  useEffect(() => {
+    if (user && !isSuperAdmin) window.location.replace("/dashboard");
+  }, [user, isSuperAdmin]);
 
   const policyQ = useQuery({
     queryKey: ["agency-access-policy", activeAgencyId],
-    enabled: !!accessToken && !!activeAgencyId,
+    enabled: !!accessToken && !!activeAgencyId && isSuperAdmin,
     queryFn: async () =>
       (await apiFetch<AgencyAccessPolicy>(`/api/v1/agencies/${activeAgencyId}/access-policy`, {
         token: accessToken,
@@ -128,7 +133,7 @@ export default function RolesAndPolicyPage() {
 
   const rolesQ = useQuery({
     queryKey: ["team-roles", activeAgencyId],
-    enabled: !!accessToken && !!activeAgencyId,
+    enabled: !!accessToken && !!activeAgencyId && isSuperAdmin,
     queryFn: async () =>
       (await apiFetch<{ roles: RoleItem[]; permissions: PermissionItem[] }>("/api/v1/team/roles", {
         token: accessToken,
