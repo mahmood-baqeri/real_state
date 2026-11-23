@@ -135,6 +135,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [wsUnreadCount, setWsUnreadCount] = useState<number | null>(null);
   const [routeProgress, setRouteProgress] = useState(false);
+  const [apiLoadingCount, setApiLoadingCount] = useState(0);
+  const [confirmState, setConfirmState] = useState<{ title?: string; message: string; confirmText?: string; cancelText?: string; danger?: boolean; resolve: (v: boolean) => void } | null>(null);
+
+  useEffect(() => {
+    const onRequestCount = (event: Event) => {
+      const detail = (event as CustomEvent<{ count?: number }>).detail;
+      setApiLoadingCount(Math.max(0, detail?.count || 0));
+    };
+    const onConfirm = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.resolve) setConfirmState(detail);
+    };
+    window.addEventListener("bonyan-api-request-count", onRequestCount);
+    window.addEventListener("bonyan-confirm-dialog", onConfirm);
+    return () => {
+      window.removeEventListener("bonyan-api-request-count", onRequestCount);
+      window.removeEventListener("bonyan-confirm-dialog", onConfirm);
+    };
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(commandQuery.trim()), 240);
@@ -147,6 +166,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       return;
     }
     if (!isLoading && pathname === "/dashboard/roles" && user?.platform_role !== "SUPER_ADMIN") {
+      router.replace("/dashboard");
+    }
+    if (!isLoading && pathname === "/dashboard/ai-assistant" && user?.platform_role === "AGENCY_MANAGER") {
       router.replace("/dashboard");
     }
   }, [isLoading, user, router, pathname]);
@@ -428,10 +450,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div data-dashboard-shell className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
-      {routeProgress && <>
-        <div aria-hidden="true" className="fixed inset-x-0 top-0 z-[100] h-[3px] overflow-hidden bg-teal-100/60 dark:bg-teal-950/60"><div className="h-full w-1/3 animate-[dashboard-progress_1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-teal-500 via-cyan-400 to-indigo-500 shadow-[0_0_12px_rgba(45,212,191,.65)]" /></div>
-        <div role="status" className="fixed left-1/2 top-3 z-[101] flex -translate-x-1/2 items-center gap-2 rounded-full border border-indigo-200/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-lg backdrop-blur-md dark:border-indigo-900/60 dark:bg-slate-900/90 dark:text-slate-200"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-teal-500" />در حال انتقال به صفحه</div>
-      </>}
+      {(routeProgress || apiLoadingCount > 0) && <div role="status" aria-live="polite" className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/25 backdrop-blur-[3px]">
+        <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-indigo-100 dark:bg-indigo-950"><div className="h-full w-1/3 animate-[dashboard-progress_1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-indigo-500 shadow-[0_0_16px_rgba(45,212,191,.8)]" /></div>
+        <div className="flex min-w-[220px] flex-col items-center gap-4 rounded-2xl border border-white/70 bg-white/95 px-8 py-7 shadow-2xl shadow-indigo-900/15 dark:border-slate-700 dark:bg-slate-900/95">
+          <div className="relative flex h-14 w-14 items-center justify-center"><div className="absolute inset-0 rounded-full border-[3px] border-indigo-100 dark:border-indigo-950"/><div className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-t-teal-500 border-l-indigo-500"/><div className="h-3 w-3 animate-pulse rounded-full bg-teal-500 shadow-[0_0_14px_rgba(20,184,166,.6)]"/></div>
+          <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{routeProgress ? "در حال انتقال به صفحه" : "در حال دریافت اطلاعات"}</span><span className="text-xs text-slate-500 dark:text-slate-400">لطفاً کمی صبر کنید…</span>
+        </div>
+      </div>}
+      {confirmState && <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) { confirmState.resolve(false); setConfirmState(null); } }}>
+        <div role="alertdialog" aria-modal="true" aria-labelledby="bonyan-confirm-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col items-center gap-3 px-6 pt-6 text-center"><div className={`flex h-14 w-14 items-center justify-center rounded-full ${confirmState.danger ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400" : "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400"}`}><ShieldCheck className="h-7 w-7"/></div><h2 id="bonyan-confirm-title" className="text-base font-extrabold text-slate-900 dark:text-white">{confirmState.title || "تأیید عملیات"}</h2><p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{confirmState.message}</p></div>
+          <div className="flex gap-2 p-5"><button type="button" onClick={() => { confirmState.resolve(false); setConfirmState(null); }} className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">{confirmState.cancelText || "انصراف"}</button><button type="button" onClick={() => { confirmState.resolve(true); setConfirmState(null); }} className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold text-white ${confirmState.danger ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700"}`}>{confirmState.confirmText || "تأیید"}</button></div>
+        </div>
+      </div>}
       {/* Desktop RTL Sidebar */}
       <aside data-dashboard-sidebar-frame className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:z-30 lg:block lg:w-64 lg:border-l lg:border-slate-200 dark:lg:border-slate-800">
         {sidebarContent}

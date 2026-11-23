@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/lib/confirm-dialog";
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -462,11 +463,11 @@ export default function DashboardPropertyDetailPage() {
               <button
                 type="button"
                 disabled={actionMut.isPending}
-                onClick={() => {
-                  if (window.confirm(`آیا از حذف (بایگانی) ملک «${property.title}» مطمئن هستید؟`)) {
-                    actionMut.mutate({ action: "delete" });
-                  }
-                }}
+                onClick={async () => {
+                    if (await confirmDialog({ title: "تأیید حذف", message: `آیا از حذف (بایگانی) ملک «${property.title}» مطمئن هستید؟`, danger: true })) {
+                      actionMut.mutate({ action: "delete" });
+                    }
+                  }}
                 className="inline-flex h-9 items-center gap-1 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-slate-900 dark:text-rose-400 whitespace-nowrap"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -795,8 +796,8 @@ export default function DashboardPropertyDetailPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm(`حذف سند «${d.title}»؟`)) {
+                          onClick={async () => {
+                            if (await confirmDialog({ title: "تأیید حذف", message: `حذف سند «${d.title}»؟`, danger: true })) {
                               deleteDocMut.mutate(d.id);
                             }
                           }}

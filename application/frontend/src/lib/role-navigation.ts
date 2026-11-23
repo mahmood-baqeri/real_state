@@ -54,7 +54,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "فهرست املاک",
     href: "/dashboard/properties",
     group: "portfolio",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "documents",
@@ -75,14 +75,14 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "سرنخ‌ها (Leads)",
     href: "/dashboard/leads",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "crm",
     label: "پایپ‌لاین CRM و تطبیق",
     href: "/dashboard/crm",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "appointments",
@@ -96,7 +96,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "مذاکرات و پیشنهادها",
     href: "/dashboard/negotiations",
     group: "deals",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "contracts",
@@ -227,7 +227,7 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     label: "دستیار هوشمند آژانس",
     href: "/dashboard/ai-assistant",
     group: "crm",
-    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+    roles: ["SUPER_ADMIN", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
   },
   {
     key: "cms",

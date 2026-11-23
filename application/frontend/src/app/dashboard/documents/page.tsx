@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/lib/confirm-dialog";
 "use client";
 
 import React, { useState } from "react";
@@ -448,8 +449,8 @@ export default function DocumentsVaultPage() {
                 <button
                   type="button"
                   disabled={deleteMut.isPending}
-                  onClick={() => {
-                    if (window.confirm(`آیا از حذف (بایگانی) سند «${d.title}» مطمئن هستید؟`)) {
+                  onClick={async () => {
+                    if (await confirmDialog({ title: "تأیید حذف", message: `آیا از حذف (بایگانی) سند «${d.title}» مطمئن هستید؟`, danger: true })) {
                       deleteMut.mutate(d);
                     }
                   }}

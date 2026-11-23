@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/lib/confirm-dialog";
 "use client";
 
 import React, { useState } from "react";
@@ -357,8 +358,8 @@ export default function DashboardPropertiesPage() {
                 <button
                   type="button"
                   disabled={actionMut.isPending}
-                  onClick={() => {
-                    if (window.confirm(`آیا از حذف (بایگانی) ملک «${p.title}» مطمئن هستید؟`)) {
+                  onClick={async () => {
+                    if (await confirmDialog({ title: "تأیید حذف", message: `آیا از حذف (بایگانی) ملک «${p.title}» مطمئن هستید؟`, danger: true })) {
                       actionMut.mutate({ id: p.id, agencyId: p.agency_id, action: "delete" });
                     }
                   }}

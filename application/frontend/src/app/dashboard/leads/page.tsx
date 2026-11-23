@@ -1,3 +1,4 @@
+import { confirmDialog } from "@/lib/confirm-dialog";
 "use client";
 
 import React, { useState } from "react";
@@ -360,8 +361,8 @@ export default function LeadsPage() {
                 <button
                   type="button"
                   disabled={deleteMut.isPending}
-                  onClick={() => {
-                    if (window.confirm(`آیا از حذف سرنخ «${l.full_name}» مطمئن هستید؟`)) {
+                  onClick={async () => {
+                    if (await confirmDialog({ title: "تأیید حذف", message: `آیا از حذف سرنخ «${l.full_name}» مطمئن هستید؟`, danger: true })) {
                       deleteMut.mutate(l);
                     }
                   }}
