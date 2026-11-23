@@ -1145,7 +1145,7 @@ export default function DashboardPropertyDetailPage() {
           setPreviewDoc(null);
         }}
         title={previewDoc?.title || "پیش‌نمایش سند"}
-        maxWidthClass="max-w-3xl"
+        widthClass="max-w-3xl"
       >
         {previewDoc &&
           (previewDoc.mime.startsWith("image/") ? (

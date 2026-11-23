@@ -15,6 +15,7 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { formatNumberFa } from "@/lib/formatters";
+import { roomTypeLabel } from "@/lib/virtual-tour-room-types";
 import type {
   FloorPlanAssetItem,
   RoomGeometryItem,
@@ -444,7 +445,7 @@ export function FloorPlanEditor({
               >
                 {roomTypes.map((rt) => (
                   <option key={rt.code} value={rt.code}>
-                    {rt.label_fa}
+                    {roomTypeLabel(rt)}
                   </option>
                 ))}
               </select>

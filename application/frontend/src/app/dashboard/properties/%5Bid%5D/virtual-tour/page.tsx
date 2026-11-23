@@ -47,6 +47,7 @@ import {
 import { GuidedMobileCapture } from "@/components/virtual-tour/GuidedMobileCapture";
 import { FloorPlanEditor } from "@/components/virtual-tour/FloorPlanEditor";
 import { DollhouseViewer } from "@/components/virtual-tour/DollhouseViewer";
+import { DEFAULT_VIRTUAL_TOUR_ROOM_TYPES, roomTypeLabel } from "@/lib/virtual-tour-room-types";
 
 type StudioTab = "overview" | "capture" | "editor" | "floorplan" | "dollhouse" | "jobs" | "analytics";
 
@@ -937,9 +938,9 @@ export default function PropertyVirtualTourStudioPage() {
                         onChange={(e) => setNewSceneRoomType(e.target.value)}
                         className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                       >
-                        {(configBundle?.room_types || [{ code: "living_room", label_fa: "پذیرایی" }]).map((rt) => (
+                        {(configBundle?.room_types?.length ? configBundle.room_types : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES).map((rt) => (
                           <option key={rt.code} value={rt.code}>
-                            {rt.label_fa}
+                            {roomTypeLabel(rt)}
                           </option>
                         ))}
                       </select>
@@ -1313,7 +1314,7 @@ export default function PropertyVirtualTourStudioPage() {
               tourId={tour.id}
               floors={tour.floors}
               scenes={tour.scenes}
-              roomTypes={configBundle?.room_types || []}
+              roomTypes={configBundle?.room_types?.length ? configBundle.room_types : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES}
               floorplans={tour.floorplans || []}
               rooms={tour.rooms || []}
               walls={tour.walls || []}

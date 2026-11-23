@@ -556,7 +556,7 @@ export default function LeadsPage() {
         open={Boolean(activeActivityLead)}
         onClose={() => setActivityTarget(null)}
         title={`تاریخچه و ثبت پیگیری — ${activeActivityLead?.full_name || ""}`}
-        maxWidthClass="max-w-xl"
+        widthClass="max-w-xl"
       >
         {activeActivityLead && (
           <div className="space-y-4">

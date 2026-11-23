@@ -5,6 +5,8 @@ import * as THREE from "three";
 import {
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Compass,
   Expand,
   Info,
@@ -578,6 +580,10 @@ export function PanoramaViewer({
     threeRef.current.requestRender();
   };
 
+  const activeSceneIndex = Math.max(0, scenes.findIndex((scene) => scene.id === activeSceneId));
+  const previousScene = scenes[activeSceneIndex - 1];
+  const nextScene = scenes[activeSceneIndex + 1];
+
   const floorScenes = useMemo(() => {
     if (!selectedFloorId || floors.length <= 1) return scenes;
     const filtered = scenes.filter((s) => s.floor_id === selectedFloorId);
@@ -764,6 +770,39 @@ export function PanoramaViewer({
 
         {!dockCollapsed && (
           <div className="pointer-events-auto flex w-full max-w-4xl flex-col gap-2 rounded-xl border border-slate-700/80 bg-slate-950/92 p-2.5 text-slate-100">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={!previousScene}
+                onClick={() => previousScene && onSceneChange(previousScene.id)}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-700 px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="رفتن به فضای قبلی"
+              >
+                <ChevronRight className="h-3.5 w-3.5" /> قبلی
+              </button>
+              <select
+                value={activeScene.id}
+                onChange={(event) => onSceneChange(event.target.value)}
+                aria-label="انتخاب مستقیم فضای خانه"
+                className="h-8 min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 text-[11px] font-semibold text-slate-100"
+              >
+                {scenes.map((scene) => (
+                  <option key={scene.id} value={scene.id}>
+                    {scene.floor_title} — {scene.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!nextScene}
+                onClick={() => nextScene && onSceneChange(nextScene.id)}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-700 px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="رفتن به فضای بعدی"
+              >
+                بعدی <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="text-[10px] tabular-nums text-slate-400">{activeSceneIndex + 1} از {scenes.length}</span>
+            </div>
             {floors.length > 1 && (
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                 {floors.map((fl) => (

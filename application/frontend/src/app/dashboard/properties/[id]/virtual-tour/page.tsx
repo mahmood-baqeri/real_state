@@ -50,6 +50,7 @@ import { FloorPlanEditor } from "@/components/virtual-tour/FloorPlanEditor";
 import { DollhouseViewer } from "@/components/virtual-tour/DollhouseViewer";
 import { ScanManager } from "@/components/virtual-tour/ScanManager";
 import { TourAnalyticsPanel } from "@/components/virtual-tour/TourAnalyticsPanel";
+import { DEFAULT_VIRTUAL_TOUR_ROOM_TYPES, roomTypeLabel } from "@/lib/virtual-tour-room-types";
 
 type StudioTab =
   | "overview"
@@ -1006,9 +1007,9 @@ export default function PropertyVirtualTourStudioPage() {
                         onChange={(e) => setNewSceneRoomType(e.target.value)}
                         className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                       >
-                        {(configBundle?.room_types || [{ code: "living_room", label_fa: "پذیرایی" }]).map((rt) => (
+                        {(configBundle?.room_types?.length ? configBundle.room_types : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES).map((rt) => (
                           <option key={rt.code} value={rt.code}>
-                            {rt.label_fa}
+                            {roomTypeLabel(rt)}
                           </option>
                         ))}
                       </select>
@@ -1382,7 +1383,7 @@ export default function PropertyVirtualTourStudioPage() {
               tourId={tour.id}
               floors={tour.floors}
               scenes={tour.scenes}
-              roomTypes={configBundle?.room_types || []}
+              roomTypes={configBundle?.room_types?.length ? configBundle.room_types : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES}
               floorplans={tour.floorplans || []}
               rooms={tour.rooms || []}
               walls={tour.walls || []}
@@ -1400,7 +1401,7 @@ export default function PropertyVirtualTourStudioPage() {
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    پیش‌نمایش سه‌بعدی Dollhouse و مدیریت نسخه‌های GLB
+                    پیش‌نمایش مدل هندسی و مدیریت نسخه‌های GLB
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">
                     مدل سه‌بعدی از روی چندضلعی اتاق‌ها، ضخامت دیوارها و بازشوهای (در/پنجره) ترسیم‌شده در پلان کالیبره‌شده تولید می‌شود.
@@ -1422,7 +1423,7 @@ export default function PropertyVirtualTourStudioPage() {
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-teal-700 px-3.5 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
                   >
                     <Box className="h-3.5 w-3.5" />
-                    {generate3DMut.isPending ? "در حال تولید GLB..." : "بازساخت مدل سه‌بعدی"}
+                    {generate3DMut.isPending ? "در حال تولید GLB..." : "ساخت مدل هندسی از پلان"}
                   </button>
                 </div>
               </div>

@@ -322,6 +322,11 @@ export function DollhouseViewer({
 
   return (
     <div className="space-y-3">
+      {model.geometry_source === "floorplan_2d_extrusion" && (
+        <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs leading-6 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          این مدل از پلان دوبعدی کالیبره‌شده و هندسه ترسیم‌شده اتاق‌ها/دیوارها ساخته شده است؛ بازسازی فوتوگرامتری از تصاویر موبایل یا پانوراما نیست و جزئیات واقعیِ ثبت‌نشده را نشان نمی‌دهد.
+        </div>
+      )}
       <div className={`relative w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950 ${heightClass}`}>
         <div ref={mountRef} className="h-full w-full" />
 

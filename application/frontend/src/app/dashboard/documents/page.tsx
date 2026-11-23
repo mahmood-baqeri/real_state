@@ -468,7 +468,7 @@ export default function DocumentsVaultPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title="آپلود و پیش‌نمایش سند جدید در خزانه"
-        maxWidthClass="max-w-2xl"
+        widthClass="max-w-2xl"
       >
         <form
           onSubmit={(e) => {
@@ -692,7 +692,7 @@ export default function DocumentsVaultPage() {
           setPreviewDoc(null);
         }}
         title={previewDoc?.title || "پیش‌نمایش سند"}
-        maxWidthClass="max-w-3xl"
+        widthClass="max-w-3xl"
       >
         {previewDoc &&
           (previewDoc.mime.startsWith("image/") ? (

@@ -1386,7 +1386,9 @@ export interface SystemHealthPayload {
 
 export interface VirtualTourRoomTypeOption {
   code: string;
-  label_fa: string;
+  /** API currently returns `label`; `label_fa` is accepted for backward compatibility. */
+  label?: string;
+  label_fa?: string;
 }
 
 export interface VirtualTourCapturePolicy {
