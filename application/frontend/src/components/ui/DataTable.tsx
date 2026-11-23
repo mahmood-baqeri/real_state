@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDownUp,
   ChevronLeft,
@@ -112,6 +113,27 @@ export function DataTable<T>({
     columns.filter((c) => c.defaultHidden).map((c) => c.key)
   );
   const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const colsButtonRef = useRef<HTMLButtonElement>(null);
+  const [colsMenuPos, setColsMenuPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (!colsMenuOpen) return;
+    const updatePosition = () => {
+      const rect = colsButtonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const menuWidth = 208;
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8));
+      const top = Math.min(rect.bottom + 8, window.innerHeight - 260);
+      setColsMenuPos({ top: Math.max(8, top), left });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [colsMenuOpen]);
   const [internalSelected, setInternalSelected] = useState<string[]>([]);
 
   const activeSelection = selectedKeys !== undefined ? selectedKeys : internalSelected;
@@ -316,6 +338,7 @@ export function DataTable<T>({
             {allowColumnToggle && columns.length > 3 && (
               <div className="relative">
                 <button
+                  ref={colsButtonRef}
                   type="button"
                   onClick={() => setColsMenuOpen((o) => !o)}
                   aria-expanded={colsMenuOpen}
@@ -325,8 +348,11 @@ export function DataTable<T>({
                   <Columns3 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">ستون‌ها</span>
                 </button>
-                {colsMenuOpen && (
-                  <div className="absolute left-0 top-11 z-30 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                {colsMenuOpen && typeof document !== "undefined" && createPortal(
+                  <div
+                    style={{ position: "fixed", top: colsMenuPos.top, left: colsMenuPos.left, zIndex: 10000 }}
+                    className="w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+                  >
                     <div className="mb-1 px-2 py-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                       نمایش ستون‌ها
                     </div>
@@ -349,7 +375,8 @@ export function DataTable<T>({
                         );
                       })}
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}

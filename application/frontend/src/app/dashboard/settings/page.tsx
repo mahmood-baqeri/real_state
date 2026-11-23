@@ -1417,7 +1417,7 @@ export default function SettingsPage() {
               setProvForm({
                 ...provForm,
                 category: cat,
-                provider_key: cat === "AI" ? "gapgpt" : cat === "MAP" ? "osm" : "kavenegar_ready",
+                provider_key: cat === "AI" ? "gapgpt" : cat === "MAP" ? "osm" : "kavenegar",
                 display_name:
                   cat === "AI" ? "GapGPT AI" : cat === "MAP" ? "نقشه OpenStreetMap" : "کاوه‌نگار",
               });
@@ -1428,13 +1428,30 @@ export default function SettingsPage() {
             <option value="MAP">سرویس نقشه (OSM / Carto / Neshan)</option>
             <option value="SMS">سرویس پیامک (SMS)</option>
           </select>
-          <input
+          <select
             required
-            placeholder="کلید آداپتر (gapgpt, osm, carto_positron, neshan, kavenegar_ready)"
             value={provForm.provider_key}
             onChange={(e) => setProvForm({ ...provForm, provider_key: e.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-sm dark:border-slate-700 dark:bg-slate-950"
-          />
+            className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-sm dark:border-slate-700 dark:bg-slate-950"
+          >
+            {provForm.category === "AI" && <option value="gapgpt">GapGPT (gapgpt)</option>}
+            {provForm.category === "MAP" && (
+              <>
+                <option value="osm">OpenStreetMap (osm)</option>
+                <option value="carto">CartoDB (carto)</option>
+                <option value="neshan">نشان (neshan)</option>
+                <option value="custom_tile">Tile سفارشی (custom_tile)</option>
+              </>
+            )}
+            {provForm.category === "SMS" && (
+              <>
+                <option value="console">Console / تست (console)</option>
+                <option value="kavenegar">کاوه‌نگار (kavenegar)</option>
+                <option value="melipayamak">ملی‌پیامک (melipayamak)</option>
+                <option value="smsir">SMS.ir (smsir)</option>
+              </>
+            )}
+          </select>
           <input
             required
             placeholder="نام نمایشی"
