@@ -136,7 +136,7 @@ def evaluate_capture_session_quality(session: CaptureSession) -> dict[str, Any]:
         {
             round(img.yaw % 360.0, 1)
             for img in images
-            if img.status != CaptureImage.Status.REJECTED and abs(img.pitch) < 45
+            if img.status != CaptureImage.Status.REJECTED and abs(img.pitch) < 20
         }
     )
     has_ceiling = any(img.pitch >= 45 and img.status != CaptureImage.Status.REJECTED for img in images)
@@ -228,6 +228,18 @@ def generate_tour_quality_report(tour: VirtualTour, actor=None) -> TourQualityRe
                 "code": "SCENE_MISSING_PANORAMA",
                 "message": f"اتاق «{sc.title}» هنوز پانوراما ندارد.",
                 "fix": f"برای اتاق «{sc.title}» عکاسی یا آپلود انجام دهید و پردازش را اجرا کنید.",
+            })
+        elif (current_pano.quality_report or {}).get("coverage_complete") is False:
+            coverage_warning = (current_pano.quality_report or {}).get("coverage_warning") or "پوشش تصویری پانوراما کامل نیست."
+            incomplete_scenes.append({
+                "scene_id": str(sc.id),
+                "title": sc.title,
+                "reason": "پوشش تصویری ناقص",
+            })
+            blocking_issues.append({
+                "code": "PANORAMA_COVERAGE_INCOMPLETE",
+                "message": f"پانورامای اتاق «{sc.title}» بخش‌های بدون تصویر دارد.",
+                "fix": str(coverage_warning),
             })
         elif current_pano.state != PanoramaVersion.State.APPROVED:
             if limits["require_manager_approval"] or current_pano.state != PanoramaVersion.State.REVIEW:

@@ -1065,6 +1065,7 @@ export interface SystemSettingHistoryItem {
 }
 
 export interface BrandMediaSlotItem {
+  /** Backward-compatible alias of slot_key; BrandMediaSlot uses slot_key as its primary key. */
   id?: string;
   slot_key: string;
   category: string;
@@ -1250,7 +1251,7 @@ export interface AdminSessionItem {
 
 export interface SecurityEventItem {
   id: string;
-  phone_number: string;
+  identifier: string;
   user_name: string | null;
   ip_address: string | null;
   succeeded: boolean;

@@ -332,7 +332,7 @@ export function SecurityConsoleTab({ onNotice, onError }: Props) {
             <table className="w-full text-right text-xs">
               <thead className="border-b border-slate-200 text-slate-500 dark:border-slate-800">
                 <tr>
-                  <th className="py-2 px-2">کاربر / تلفن</th>
+                  <th className="py-2 px-2">کاربر / شناسه ورود</th>
                   <th className="py-2 px-2">IP</th>
                   <th className="py-2 px-2">نتیجه</th>
                   <th className="py-2 px-2">جزئیات</th>
@@ -345,7 +345,7 @@ export function SecurityConsoleTab({ onNotice, onError }: Props) {
                     <td className="py-2 px-2">
                       <span className="font-semibold">{ev.user_name || "ناشناس"}</span>{" "}
                       <span className="font-mono text-[11px] text-slate-500" dir="ltr">
-                        ({ev.phone_number})
+                        ({ev.identifier})
                       </span>
                     </td>
                     <td className="py-2 px-2 font-mono" dir="ltr">

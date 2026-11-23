@@ -303,7 +303,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-white dark:bg-slate-900">
+    <div data-dashboard-sidebar className="flex h-full flex-col bg-white dark:bg-slate-900">
       <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5 dark:border-slate-800">
             <Link href="/" className="flex items-center gap-2.5">
           {brandLogo ? (
@@ -412,9 +412,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
+    <div data-dashboard-shell className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
       {/* Desktop RTL Sidebar */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:z-30 lg:block lg:w-64 lg:border-l lg:border-slate-200 dark:lg:border-slate-800">
+      <aside data-dashboard-sidebar-frame className="hidden lg:fixed lg:inset-y-0 lg:right-0 lg:z-30 lg:block lg:w-64 lg:border-l lg:border-slate-200 dark:lg:border-slate-800">
         {sidebarContent}
       </aside>
 
@@ -544,7 +544,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <div className="min-w-0 lg:pr-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:gap-3 sm:px-6">
+        <header data-dashboard-header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:gap-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
               type="button"

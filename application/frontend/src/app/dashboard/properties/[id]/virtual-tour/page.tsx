@@ -46,6 +46,7 @@ import {
   type PanoramaViewerScene,
 } from "@/components/virtual-tour/PanoramaViewer";
 import { GuidedMobileCapture } from "@/components/virtual-tour/GuidedMobileCapture";
+import { CameraAngleGuide } from "@/components/virtual-tour/CameraAngleGuide";
 import { FloorPlanEditor } from "@/components/virtual-tour/FloorPlanEditor";
 import { DollhouseViewer } from "@/components/virtual-tour/DollhouseViewer";
 import { ScanManager } from "@/components/virtual-tour/ScanManager";
@@ -855,12 +856,18 @@ export default function PropertyVirtualTourStudioPage() {
                   </ol>
                   <p className="mt-2 text-[11px]">برای ثبت تصاویر دوربین، صفحه باید روی HTTPS باز شود و اجازه دسترسی دوربین را بدهید. در صورت نداشتن دوربین سازگار، آپلود تصاویر آماده نیز قابل استفاده است.</p>
                 </div>
+                <CameraAngleGuide />
                 {/* Floors manager */}
                 <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                  <h3 className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
-                    <Layers className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                    طبقات ({formatNumberFa(tour.floors.length)})
-                  </h3>
+                  <div>
+                    <h3 className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <Layers className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+                      مدیریت طبقات ({formatNumberFa(tour.floors.length)})
+                    </h3>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                      هر طبقه یک بخش مستقل از ساختمان است؛ ابتدا طبقات را بسازید و سپس اتاق‌ها را به طبقه درست متصل کنید.
+                    </p>
+                  </div>
                   <div className="space-y-1.5">
                     {tour.floors.map((fl) => (
                       <div
@@ -870,13 +877,14 @@ export default function PropertyVirtualTourStudioPage() {
                         <div>
                           <span className="font-semibold">{fl.title}</span>
                           <span className="mr-2 tabular-nums text-[11px] text-slate-500">
-                            تراز {fl.elevation_m}m
+                            ارتفاع از مبنا: {fl.elevation_m} متر
                           </span>
                         </div>
                         {tour.floors.length > 1 && (
                           <button
                             type="button"
                             onClick={() => deleteFloorMut.mutate(fl.id)}
+                            aria-label={`حذف ${fl.title}`}
                             className="text-rose-600 hover:text-rose-800"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -890,40 +898,57 @@ export default function PropertyVirtualTourStudioPage() {
                       e.preventDefault();
                       if (newFloorTitle.trim()) createFloorMut.mutate();
                     }}
-                    className="flex gap-1.5 pt-1"
+                    className="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800"
                   >
-                    <input
-                      value={newFloorTitle}
-                      onChange={(e) => setNewFloorTitle(e.target.value)}
-                      placeholder="نام طبقه (مثلاً طبقه اول)"
-                      className="h-8 flex-1 rounded-lg border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
-                    />
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={newFloorElev}
-                      onChange={(e) => setNewFloorElev(e.target.value)}
-                      className="h-8 w-16 rounded-lg border border-slate-300 px-2 text-xs tabular-nums dark:border-slate-700 dark:bg-slate-950"
-                      title="ارتفاع تراز (متر)"
-                    />
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px]">
+                      <label className="space-y-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <span>نام طبقه</span>
+                        <input
+                          value={newFloorTitle}
+                          onChange={(e) => setNewFloorTitle(e.target.value)}
+                          placeholder="مثلاً همکف، طبقه اول یا زیرزمین"
+                          className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-xs font-normal dark:border-slate-700 dark:bg-slate-950"
+                        />
+                      </label>
+                      <label className="space-y-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <span>ارتفاع از مبنا (متر)</span>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={newFloorElev}
+                          onChange={(e) => setNewFloorElev(e.target.value)}
+                          className="h-9 w-full rounded-lg border border-slate-300 px-2 text-xs font-normal tabular-nums dark:border-slate-700 dark:bg-slate-950"
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[10px] leading-5 text-slate-500">ارتفاع، اختلاف تراز کف این طبقه با نقطه مبنای ساختمان است؛ برای همکف معمولاً ۰ وارد کنید.</p>
                     <button
                       type="submit"
-                      disabled={createFloorMut.isPending}
-                      className="h-8 rounded-lg bg-slate-900 px-2.5 text-xs font-semibold text-white dark:bg-teal-700"
+                      disabled={createFloorMut.isPending || !newFloorTitle.trim()}
+                      className="h-9 w-full rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white disabled:opacity-50 dark:bg-teal-700"
                     >
-                      افزودن
+                      {createFloorMut.isPending ? "در حال افزودن طبقه..." : "افزودن طبقه"}
                     </button>
                   </form>
                 </div>
 
                 {/* Scenes manager */}
                 <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    اتاق‌ها و صحنه‌ها ({formatNumberFa(tour.scenes.length)})
-                  </h3>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      فضاهای ثبت‌شده برای تور ({formatNumberFa(tour.scenes.length)})
+                    </h3>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                      هر فضا یک نقطه قابل ورود در تور است؛ مانند پذیرایی، آشپزخانه یا اتاق خواب. روی یک فضا بزنید تا همان فضا برای عکاسی و ویرایش انتخاب شود.
+                    </p>
+                  </div>
                   <div className="space-y-1.5">
                     {tour.scenes.map((sc) => {
                       const active = selectedScene?.id === sc.id;
+                      const roomTypeOptions = configBundle?.room_types?.length
+                        ? configBundle.room_types
+                        : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES;
+                      const roomType = roomTypeOptions.find((item) => item.code === sc.room_type);
                       return (
                         <div
                           key={sc.id}
@@ -937,8 +962,9 @@ export default function PropertyVirtualTourStudioPage() {
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-bold text-slate-900 dark:text-slate-100">
                               {sc.title}
-                              {sc.is_start_scene ? " (نقطه شروع)" : ""}
+                              {sc.is_start_scene ? " · نقطه شروع" : ""}
                             </span>
+                            {active && <span className="rounded-md bg-teal-700 px-2 py-0.5 text-[10px] font-bold text-white">انتخاب‌شده برای ویرایش</span>}
                             {sc.current_panorama ? (
                               <StatusText status={sc.current_panorama.state} />
                             ) : (
@@ -946,7 +972,7 @@ export default function PropertyVirtualTourStudioPage() {
                             )}
                           </div>
                           <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                            <span>{sc.floor_title}</span>
+                            <span>{sc.floor_title} · {roomType ? roomTypeLabel(roomType) : "نوع نامشخص"}</span>
                             <div className="flex items-center gap-2">
                               {!sc.is_start_scene && (
                                 <button
@@ -980,47 +1006,60 @@ export default function PropertyVirtualTourStudioPage() {
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      if (newSceneTitle.trim()) createSceneMut.mutate();
+                      if (newSceneTitle.trim() && newSceneFloorId && tour.floors.length > 0) createSceneMut.mutate();
                     }}
-                    className="space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800"
+                    className="space-y-3 border-t border-slate-100 pt-3 dark:border-slate-800"
                   >
-                    <input
-                      value={newSceneTitle}
-                      onChange={(e) => setNewSceneTitle(e.target.value)}
-                      placeholder="نام اتاق یا فضا (مثلاً سالن پذیرایی)"
-                      className="h-8 w-full rounded-lg border border-slate-300 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-950"
-                    />
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <select
-                        value={newSceneFloorId}
-                        onChange={(e) => setNewSceneFloorId(e.target.value)}
-                        className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
-                      >
-                        {tour.floors.map((fl) => (
-                          <option key={fl.id} value={fl.id}>
-                            {fl.title}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={newSceneRoomType}
-                        onChange={(e) => setNewSceneRoomType(e.target.value)}
-                        className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
-                      >
-                        {(configBundle?.room_types?.length ? configBundle.room_types : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES).map((rt) => (
-                          <option key={rt.code} value={rt.code}>
-                            {roomTypeLabel(rt)}
-                          </option>
-                        ))}
-                      </select>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">افزودن فضای جدید</h4>
+                      <p className="mt-1 text-[10px] leading-5 text-slate-500">این سه مشخصه با هم یک فضای جدید می‌سازند؛ نام، عنوانی است که بازدیدکننده در تور می‌بیند.</p>
+                    </div>
+                    <label className="block space-y-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      <span>۱. نام نمایشی فضا</span>
+                      <input
+                        required
+                        value={newSceneTitle}
+                        onChange={(e) => setNewSceneTitle(e.target.value)}
+                        placeholder="مثلاً پذیرایی اصلی یا اتاق خواب والدین"
+                        className="h-9 w-full rounded-lg border border-slate-300 px-2.5 text-xs font-normal dark:border-slate-700 dark:bg-slate-950"
+                      />
+                      <span className="block font-normal text-slate-500">این نام برای انتخاب اتاق، عنوان صحنه و دکمه‌های جابه‌جایی استفاده می‌شود.</span>
+                    </label>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="block space-y-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <span>۲. این فضا در کدام طبقه است؟</span>
+                        <select
+                          required
+                          value={newSceneFloorId}
+                          onChange={(e) => setNewSceneFloorId(e.target.value)}
+                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-xs font-normal dark:border-slate-700 dark:bg-slate-950"
+                        >
+                          <option value="" disabled>انتخاب طبقه...</option>
+                          {tour.floors.map((fl) => (
+                            <option key={fl.id} value={fl.id}>{fl.title}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block space-y-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        <span>۳. نوع فضا چیست؟</span>
+                        <select
+                          value={newSceneRoomType}
+                          onChange={(e) => setNewSceneRoomType(e.target.value)}
+                          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-xs font-normal dark:border-slate-700 dark:bg-slate-950"
+                        >
+                          {(configBundle?.room_types?.length ? configBundle.room_types : DEFAULT_VIRTUAL_TOUR_ROOM_TYPES).map((rt) => (
+                            <option key={rt.code} value={rt.code}>{roomTypeLabel(rt)}</option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                     <button
                       type="submit"
-                      disabled={createSceneMut.isPending}
+                      disabled={createSceneMut.isPending || !newSceneTitle.trim() || !newSceneFloorId || tour.floors.length === 0}
                       className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-teal-700 text-xs font-semibold text-white hover:bg-teal-800 disabled:opacity-50"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      افزودن اتاق به تور
+                      {createSceneMut.isPending ? "در حال ایجاد فضا..." : "ایجاد فضا و شروع ثبت تصاویر"}
                     </button>
                   </form>
                 </div>
@@ -1107,6 +1146,16 @@ export default function PropertyVirtualTourStudioPage() {
                                   {pv.width_px}×{pv.height_px}px · {translateStatus(pv.engine)} ·{" "}
                                   {formatNumberFa(pv.source_image_count)} تصویر
                                 </div>
+                                {typeof pv.quality_report?.coverage_360_percent === "number" && (
+                                  <div className={`mt-1 text-[11px] font-semibold ${pv.quality_report.coverage_complete === false ? "text-amber-700 dark:text-amber-300" : "text-teal-700 dark:text-teal-400"}`}>
+                                    پوشش افقی ثبت‌شده: {formatNumberFa(pv.quality_report.coverage_360_percent)}٪
+                                  </div>
+                                )}
+                                {typeof pv.quality_report?.coverage_warning === "string" && pv.quality_report.coverage_warning && (
+                                  <div className="mt-1 max-w-xl text-[11px] leading-5 text-amber-700 dark:text-amber-300">
+                                    {pv.quality_report.coverage_warning}
+                                  </div>
+                                )}
                                 {pv.rejection_reason && (
                                   <div className="mt-0.5 text-[11px] text-rose-600">
                                     دلیل رد: {pv.rejection_reason}
@@ -1180,6 +1229,9 @@ export default function PropertyVirtualTourStudioPage() {
                           <Navigation className="h-4 w-4 text-teal-700 dark:text-teal-400" />
                           نقاط حرکت بین اتاق‌ها
                         </h3>
+                        <p className="text-[11px] leading-5 text-slate-500">
+                          برای ساخت مسیر واقعی، روی «انتخاب نقطه روی ۳۶۰°» بزنید، محل در یا راهروی خروجی را روی تصویر انتخاب کنید، اتاق مقصد و عنوان دکمه را مشخص کنید و مسیر را ثبت کنید. این مسیر به‌صورت دکمه «مجاور» در تور نمایش داده می‌شود.
+                        </p>
                         <button
                           type="button"
                           onClick={() => setPickTarget((p) => (p === "link" ? "none" : "link"))}

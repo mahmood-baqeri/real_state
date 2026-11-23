@@ -92,11 +92,17 @@ def main():
     )
     env["DJANGO_SETTINGS_MODULE"] = "config.settings.development"
 
-    # فقط اگر کاربر خواسته، دیتابیس را ریست کن
+    # A normal start must still apply pending migrations. Skipping DROP/CREATE is
+    # correct, but skipping migrate can leave FastAPI querying tables that do not
+    # exist yet (for example notifications_message).
     if args.reset_db:
         _reset_database(env)
     else:
-        print("ℹ️  Skipping database reset (pass --reset-db to wipe & re-seed).\n")
+        print("ℹ️  Preserving database contents (no schema reset requested).\n")
+        _run(
+            [sys.executable, "manage.py", "migrate", "--noinput"],
+            DJANGO_DIR, env, "Applying pending database migrations"
+        )
 
     print("⏳ Starting servers...\n")
 

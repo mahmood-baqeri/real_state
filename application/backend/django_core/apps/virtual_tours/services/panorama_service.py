@@ -287,6 +287,14 @@ def upload_direct_equirectangular_panorama(
     from io import BytesIO
     from PIL import Image
 
+    aspect = width / max(1, height)
+    if not 1.95 <= aspect <= 2.05:
+        raise ValidationDomainError(
+            "این فایل پانورامای ۳۶۰ درجه Equirectangular با نسبت تصویر نزدیک به ۲:۱ نیست. "
+            "برای فایل‌های معمولی موبایل از عکاسی هدایت‌شده و دوخت تصاویر استفاده کنید؛ "
+            "برای آپلود مستقیم، فایل خروجی ۳۶۰ درجه دوربین را انتخاب کنید."
+        )
+
     with Image.open(BytesIO(normalized_bytes)) as im:
         thumb = im.convert("RGB").resize((800, 400), Image.Resampling.LANCZOS)
         tbuf = BytesIO()
@@ -373,6 +381,13 @@ def approve_scene_panorama(
     if pano.state == PanoramaVersion.State.FAILED:
         raise ValidationDomainError("نسخه ناموفق قابل تأیید نیست.")
 
+    quality = pano.quality_report or {}
+    if quality.get("coverage_complete") is False:
+        detail = quality.get("coverage_warning") or "پوشش تصویر کامل نیست."
+        raise ValidationDomainError(
+            f"این پانوراما هنوز پوشش کافی ندارد و قابل تأیید نیست. {detail}"
+        )
+
     # Mark previous current versions as superseded cleanly
     scene.panorama_versions.exclude(id=pano.id).filter(is_current=True).update(
         is_current=False, state=PanoramaVersion.State.SUPERSEDED
@@ -451,6 +466,11 @@ def restore_panorama_version(
         raise ValidationDomainError("نسخه پانورامای درخواستی برای بازیابی یافت نشد.")
     if target.state == PanoramaVersion.State.FAILED:
         raise ValidationDomainError("نسخه ناموفق قابل بازیابی نیست.")
+    if (target.quality_report or {}).get("coverage_complete") is False:
+        detail = (target.quality_report or {}).get("coverage_warning") or "پوشش تصویر کامل نیست."
+        raise ValidationDomainError(
+            f"این نسخه به دلیل پوشش تصویری ناقص قابل بازیابی نیست. {detail}"
+        )
 
     scene.panorama_versions.exclude(id=target.id).filter(is_current=True).update(
         is_current=False,

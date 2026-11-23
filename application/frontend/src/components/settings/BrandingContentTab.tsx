@@ -220,6 +220,11 @@ export function BrandingContentTab({ onNotice, onError }: Props) {
                       <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
                         نسخه روشن (Light)
                       </div>
+                      {slot.category === "FAVICON" && (
+                        <p className="text-[10px] leading-5 text-slate-500 dark:text-slate-400">
+                          این تصویر پس از ذخیره، به‌عنوان آیکون واقعی تب مرورگر جایگزین آیکون ثابت می‌شود. فرمت پیشنهادی: PNG شفاف ۵۱۲×۵۱۲ یا ICO.
+                        </p>
+                      )}
                       <div className="flex h-20 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700">
                         {slot.image_url ? (
                           <img

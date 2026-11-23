@@ -7,6 +7,7 @@ import { PublicConfigProvider } from "@/lib/public-config-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { OfflineIndicator } from "@/components/pwa/PWAInstallButton";
+import { VisualExperience } from "@/components/VisualExperience";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -33,7 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PublicConfigProvider>
           <ToastProvider>
             <AuthProvider>
-              {children}
+              <VisualExperience>{children}</VisualExperience>
               <OfflineIndicator />
             </AuthProvider>
           </ToastProvider>

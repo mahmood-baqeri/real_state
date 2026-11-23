@@ -40,7 +40,17 @@ async def notifications_ws(websocket: WebSocket, token: str = Query(default=""))
                     ],
                 }
 
-            snap = await run_django(_fetch)
+            try:
+                snap = await run_django(_fetch)
+            except Exception as exc:
+                # During first boot / rolling deployment, the database can be
+                # reachable a moment before the notifications migration lands.
+                # Keep the socket alive and retry instead of crashing the ASGI task.
+                from django.db.utils import OperationalError, ProgrammingError
+                if not isinstance(exc, (OperationalError, ProgrammingError)):
+                    raise
+                snap = {"unread_count": 0, "latest": [], "temporarily_unavailable": True}
+                await asyncio.sleep(3)
             await websocket.send_json({"event": "notification_snapshot", "data": snap})
             await asyncio.sleep(15)
     except WebSocketDisconnect:

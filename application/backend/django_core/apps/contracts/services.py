@@ -26,6 +26,13 @@ EDITABLE_CONTRACT_STATUSES = {
     Contract.Status.PENDING_PARTIES_APPROVAL,
 }
 
+def _normalize_contract_datetime(value):
+    """Make API datetimes timezone-aware before persisting DateTimeFields."""
+    if value is not None and timezone.is_naive(value):
+        return timezone.make_aware(value, timezone.get_current_timezone())
+    return value
+
+
 LOCKED_CONTRACT_STATUSES = {
     Contract.Status.SIGNED,
     Contract.Status.ACTIVE,
@@ -174,8 +181,8 @@ def create_contract(*, user: User, agency_id: Optional[UUID], data: dict) -> Con
         advance_payment=Decimal(data.get("advance_payment", "0")),
         remaining_amount=Decimal(data.get("remaining_amount", "0")),
         payment_method=data.get("payment_method", ""),
-        start_date=data.get("start_date") or timezone.now(),
-        end_date=data.get("end_date"),
+        start_date=_normalize_contract_datetime(data.get("start_date")) or timezone.now(),
+        end_date=_normalize_contract_datetime(data.get("end_date")),
         terms_snapshot=data.get("terms_snapshot", ""),
         obligations_json=data.get("obligations_json") or {},
         status=init_status,
@@ -233,6 +240,8 @@ def update_contract(*, user: User, agency_id: Optional[UUID], contract_id: UUID,
     for field in editable_fields:
         if field in data and data[field] is not None:
             val = data[field]
+            if field in ("start_date", "end_date"):
+                val = _normalize_contract_datetime(val)
             if field in ("amount", "deposit_amount", "rent_amount", "advance_payment", "remaining_amount"):
                 val = Decimal(val)
             setattr(contract, field, val)

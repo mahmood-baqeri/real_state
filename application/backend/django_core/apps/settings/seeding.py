@@ -2265,7 +2265,7 @@ def seed_all_platform_data(
         ("general.maintenance_mode", "حالت تعمیرات و به‌روزرسانی سامانه", "Maintenance Mode", "مسدودسازی موقت درخواست‌های غیرادمین هنگام نگهداری", "GENERAL", "OPERATIONS", "BOOLEAN", False, "PUBLIC", {}, 7),
         ("general.allow_public_registration", "امکان ثبت‌نام عمومی کاربران", "Allow Public Registration", "فعال یا غیرفعال‌کردن فرم ثبت‌نام خریداران و کاربران جدید", "GENERAL", "ACCESS", "BOOLEAN", True, "PUBLIC", {}, 8),
         # BRANDING
-        ("branding.default_theme_preset", "سبک بصری پیش‌فرض پلتفرم", "Default Theme Preset", "یکی از ۴ سبک طراحی سازمانی سیستم", "BRANDING", "THEME", "SELECT", "architectural", "PUBLIC", {"choices": ["architectural", "executive", "editorial", "sand"]}, 10),
+        ("branding.default_theme_preset", "سبک بصری پیش‌فرض پلتفرم", "Default Theme Preset", "یکی از سه سبک آماده یا پالت رنگ اختصاصی پلتفرم", "BRANDING", "THEME", "SELECT", "glass", "PUBLIC", {"choices": ["glass", "neo", "organic", "custom"]}, 10),
         ("branding.default_color_mode", "حالت روشنایی پیش‌فرض", "Default Color Mode", "حالت پیش‌فرض روشن یا تیره برای بازدیدکنندگان جدید", "BRANDING", "THEME", "SELECT", "light", "PUBLIC", {"choices": ["light", "dark", "system"]}, 11),
         ("branding.copyright_text", "متن کپی‌رایت پاورقی", "Footer Copyright", "متن حقوقی نمایش‌داده‌شده در انتهای تمام صفحات", "BRANDING", "FOOTER", "STRING", "© تمامی حقوق این پلتفرم متعلق به سامانه بنیان ملک است.", "PUBLIC", {}, 12),
         # LOCALIZATION
@@ -2373,6 +2373,18 @@ def seed_all_platform_data(
             },
         )
 
+    # Upgrade the existing global visual-preset registry as well as new installs.
+    # get_or_create above intentionally preserves operator values; this targeted
+    # update only expands the allowed choices and keeps the currently selected preset.
+    SystemSetting.objects.filter(
+        key="branding.default_theme_preset", agency=None, country_code=""
+    ).update(
+        description="یکی از ۸ زبان طراحی بصری پلتفرم؛ شامل رنگ، سطوح، عمق، بافت و جلوه‌های رابط کاربری",
+        validation_schema={
+            "choices": ["glass", "neo", "organic", "custom"]
+        },
+    )
+
     if not SystemSettingHistory.objects.exists():
         SystemSettingHistory.objects.create(
             setting_key="compliance.require_property_verification_before_publish",
@@ -2390,7 +2402,7 @@ def seed_all_platform_data(
         ("site_logo_light", "LOGO", "لوگوی اصلی پلتفرم (تم روشن)", "تصویر لوگوی نمایش‌داده‌شده در هدر و صفحات روشن", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی بنیان ملک", 1),
         ("site_logo_dark", "LOGO", "لوگوی پلتفرم (تم تیره)", "تصویر لوگوی بهینه‌شده برای پس‌زمینه تیره", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی بنیان ملک در حالت تیره", 2),
         ("mobile_logo", "LOGO", "لوگوی نسخه موبایل", "تصویر لوگوی فشرده نمایش‌داده‌شده در هدر موبایل", "/images/brand-mark.svg", "/images/brand-mark.svg", "لوگوی موبایل بنیان ملک", 3),
-        ("favicon", "FAVICON", "آیکون تب مرورگر (Favicon)", "فایل آیکون `.ico` یا `.png` نمایش‌داده‌شده در تب مرورگر", "/images/brand-mark.svg", "/images/brand-mark.svg", "آیکون بنیان ملک", 4),
+        ("favicon", "FAVICON", "آیکون تب مرورگر (Favicon)", "فایل آیکون `.ico` یا `.png` نمایش‌داده‌شده در تب مرورگر", "/icon.svg", "/icon.svg", "آیکون بنیان ملک", 4),
         ("hero_banner", "BANNER", "تصویر شاخص صفحه اصلی (Hero)", "بنر معماری نمایش‌داده‌شده در بخش اول پورتال عمومی", "/images/hero-penthouse-tehran.jpg", "/images/hero-penthouse-tehran.jpg", "پنت‌هاوس لوکس معماری در شمال تهران", 5),
         ("auth_banner", "BANNER", "تصویر جانبی صفحات ورود و ثبت‌نام", "تصویر معماری نمایش‌داده‌شده در کنار فرم‌های احراز هویت", "/images/modern-villa-facade.jpg", "/images/modern-villa-facade.jpg", "نمای ویلای مدرن بنیان ملک", 6),
         ("about_banner", "BANNER", "تصویر معرفی پلتفرم (درباره ما)", "تصویر دفتر مدیریت آژانس در صفحه درباره بنیان ملک", "/images/studio-agency-office.jpg", "/images/studio-agency-office.jpg", "دفتر مدرن آژانس املاک بنیان ملک", 7),

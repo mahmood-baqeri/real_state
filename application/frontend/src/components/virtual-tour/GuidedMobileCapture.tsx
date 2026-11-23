@@ -338,7 +338,7 @@ export function GuidedMobileCapture({ scene, onUpdated }: GuidedMobileCapturePro
             عکاسی هدایت‌شده موبایل / آپلود تصویر ۳۶۰ درجه: {scene.title}
           </h3>
           <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
-            با ۱۲ گام افقی (هر ۳۰ درجه) + سقف/کف اختیاری، یا آپلود مستقیم فایل ۳۶۰ درجه Equirectangular.
+            الگوی عکاسی کامل شامل نماهای افقی، بالایی، پایینی و چند زاویه از سقف و کف است؛ یا فایل پانورامای واقعی ۳۶۰ درجه با نسبت ۲:۱ بارگذاری کنید.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -374,9 +374,12 @@ export function GuidedMobileCapture({ scene, onUpdated }: GuidedMobileCapturePro
               onChange={(e) => setAllowPartial(e.target.checked)}
               className="h-4 w-4 accent-teal-700"
             />
-            اجازه دوخت آزمایشی با حداقل ۲ فریم (مناسب برای فضاهای محدود یا تست سریع)
+            اجازه ساخت پیش‌نمایش آزمایشی با حداقل ۲ تصویر (برای انتشار نهایی کافی نیست)
           </label>
-          <div>برای ثبت گام‌به‌گام فریم‌ها با دوربین گوشی، روی «شروع عکاسی هدایت‌شده» کلیک کنید.</div>
+          <div className="mx-auto max-w-2xl text-[11px] leading-6 text-amber-700 dark:text-amber-300">
+            اگر فقط چند تصویر ثبت کنید، ممکن است بخش‌هایی از پانوراما خالی یا تیره بماند. پیش‌نمایش ناقص قابل مشاهده است، اما تا تکمیل پوشش ۳۶۰ درجه و سقف/کف تأیید و منتشر نمی‌شود.
+          </div>
+          <div>برای ثبت مرحله‌به‌مرحله تصاویر با دوربین گوشی، روی «شروع عکاسی هدایت‌شده» کلیک کنید.</div>
         </div>
       )}
 

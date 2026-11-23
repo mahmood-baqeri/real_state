@@ -369,7 +369,7 @@ async def admin_security_events(ctx: RequestContext = Depends(get_current_contex
         return [
             {
                 "id": str(ev.id),
-                "phone_number": ev.phone_number,
+                "identifier": ev.identifier,
                 "user_name": ev.user.full_name if ev.user else None,
                 "ip_address": ev.ip_address,
                 "succeeded": ev.succeeded,

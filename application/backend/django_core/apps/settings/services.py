@@ -323,8 +323,13 @@ def _validate_and_coerce_setting_value(setting: SystemSetting, raw_value: Any) -
 
     if vtype == SystemSetting.ValueType.SELECT:
         val_str = str(raw_value).strip()
-        choices = schema.get("choices") or []
-        valid_vals = [c.get("value") if isinstance(c, dict) else c for c in choices]
+        # Keep the visual-style registry forward-compatible on existing databases:
+        # deployments must not require a seed run just to accept the new presets.
+        if setting.key == "branding.default_theme_preset":
+            valid_vals = ["glass", "neo", "organic", "custom"]
+        else:
+            choices = schema.get("choices") or []
+            valid_vals = [c.get("value") if isinstance(c, dict) else c for c in choices]
         if valid_vals and val_str not in valid_vals:
             raise ValidationDomainError(f"مقدار انتخاب‌شده برای «{setting.title_fa}» در گزینه‌های مجاز نیست.")
         return val_str

@@ -5,8 +5,6 @@ import * as THREE from "three";
 import {
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
-  ChevronRight,
   Compass,
   Expand,
   Info,
@@ -147,6 +145,7 @@ export function PanoramaViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [webglError, setWebglError] = useState<string | null>(null);
   const [textureLoading, setTextureLoading] = useState(false);
+  const [panoramaFormatWarning, setPanoramaFormatWarning] = useState<string | null>(null);
   const [selectedHotspot, setSelectedHotspot] = useState<PanoramaViewerHotspot | null>(null);
   const [markers, setMarkers] = useState<ProjectedMarker[]>([]);
   const [fovDisplay, setFovDisplay] = useState(72);
@@ -499,7 +498,22 @@ export function PanoramaViewer({
   useEffect(() => {
     const url = activeScene?.panorama_url;
     const mat = threeRef.current.material;
-    if (!url || !mat) return;
+    setPanoramaFormatWarning(null);
+
+    // Never leave the previous room's panorama visible while a new room is loading
+    // or when the selected room has no approved panorama.
+    if (mat) {
+      mat.map = null;
+      mat.needsUpdate = true;
+      const previousTexture = threeRef.current.currentTexture;
+      threeRef.current.currentTexture = null;
+      previousTexture?.dispose();
+      threeRef.current.requestRender();
+    }
+    if (!url || !mat) {
+      setTextureLoading(false);
+      return;
+    }
 
     let cancelled = false;
     setTextureLoading(true);
@@ -512,6 +526,17 @@ export function PanoramaViewer({
           tex.dispose();
           return;
         }
+        const image = tex.image as { width?: number; height?: number } | undefined;
+        const imageAspect = (image?.width || 0) / Math.max(1, image?.height || 1);
+        if (!image?.width || !image?.height || imageAspect < 1.95 || imageAspect > 2.05) {
+          tex.dispose();
+          setTextureLoading(false);
+          setPanoramaFormatWarning(
+            "ابعاد این تصویر با استاندارد پانورامای ۳۶۰ درجه (نسبت نزدیک به ۲:۱) سازگار نیست؛ نمایش آن روی کره باعث کشیدگی می‌شود. فایل صحیح ۳۶۰ درجه را دوباره بارگذاری کنید."
+          );
+          return;
+        }
+        setPanoramaFormatWarning(null);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.minFilter = THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
@@ -530,6 +555,9 @@ export function PanoramaViewer({
       () => {
         if (!cancelled) {
           setTextureLoading(false);
+          setPanoramaFormatWarning(
+            "بارگذاری تصویر این فضا ناموفق بود. آدرس فایل، دسترسی ذخیره‌سازی و وضعیت پردازش پانوراما را بررسی کنید."
+          );
         }
       }
     );
@@ -581,14 +609,6 @@ export function PanoramaViewer({
   };
 
   const activeSceneIndex = Math.max(0, scenes.findIndex((scene) => scene.id === activeSceneId));
-  const previousScene = scenes[activeSceneIndex - 1];
-  const nextScene = scenes[activeSceneIndex + 1];
-
-  const floorScenes = useMemo(() => {
-    if (!selectedFloorId || floors.length <= 1) return scenes;
-    const filtered = scenes.filter((s) => s.floor_id === selectedFloorId);
-    return filtered.length > 0 ? filtered : scenes;
-  }, [scenes, floors.length, selectedFloorId]);
 
   if (!activeScene) {
     return (
@@ -630,6 +650,13 @@ export function PanoramaViewer({
       {textureLoading && activeScene.panorama_url && !webglError && (
         <div className="pointer-events-none absolute top-4 left-4 z-10 rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-1.5 text-xs font-medium text-slate-100">
           در حال بارگذاری تصویر ۳۶۰ درجه...
+        </div>
+      )}
+
+      {panoramaFormatWarning && (
+        <div className="absolute inset-x-3 top-16 z-30 mx-auto max-w-2xl rounded-xl border border-amber-400/70 bg-amber-950/95 p-3 text-xs leading-6 text-amber-100 shadow-xl">
+          <div className="font-bold">تصویر انتخاب‌شده پانورامای استاندارد نیست</div>
+          <p>{panoramaFormatWarning}</p>
         </div>
       )}
 
@@ -694,6 +721,43 @@ export function PanoramaViewer({
           </button>
         </div>
       </div>
+
+      {/* Room navigation buttons replace the old thumbnail carousel as the primary navigation. */}
+      {scenes.length > 1 && (
+        <div className="absolute top-[3.65rem] right-3 left-3 z-20 max-h-28 overflow-y-auto rounded-xl border border-slate-700/80 bg-slate-950/90 p-2.5 shadow-xl">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-100">رفتن به فضای دیگر</span>
+            <span className="text-[10px] text-slate-400">فضاهای دارای مسیر اتصال با نشان «مجاور» مشخص‌اند</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {scenes.filter((target) => target.id !== activeScene.id).map((target) => {
+              const connectedLink = (activeScene.links || []).find((link) => link.target_scene_id === target.id);
+              return (
+                <button
+                  key={target.id}
+                  type="button"
+                  onClick={() => onSceneChange(target.id)}
+                  className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                    connectedLink
+                      ? "border-teal-400/80 bg-teal-900/90 text-white hover:bg-teal-700"
+                      : "border-slate-600 bg-slate-800 text-slate-200 hover:border-slate-400 hover:bg-slate-700"
+                  }`}
+                  title={connectedLink ? `مسیر متصل: ${connectedLink.title}` : `دسترسی مستقیم به ${target.title}؛ مسیر مجاور هنوز تعریف نشده است`}
+                >
+                  <Navigation className={`h-3.5 w-3.5 ${connectedLink ? "text-teal-300" : "text-slate-400"}`} />
+                  <span>{target.title}</span>
+                  {connectedLink && <span className="rounded bg-teal-500/20 px-1 text-[9px] text-teal-200">مجاور</span>}
+                </button>
+              );
+            })}
+          </div>
+          {(!activeScene.links || activeScene.links.length === 0) && (
+            <p className="mt-2 text-[10px] leading-5 text-amber-200">
+              برای نمایش مسیرهای واقعی از داخل اتاق، در ویرایشگر ۳۶۰° نقاط اتصال را روی محل درگاه‌ها ثبت کنید. دکمه‌های بالا فعلاً دسترسی مستقیم به فضاها هستند.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Projected 3D Scene Links & Info Hotspots */}
       <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
@@ -771,20 +835,15 @@ export function PanoramaViewer({
         {!dockCollapsed && (
           <div className="pointer-events-auto flex w-full max-w-4xl flex-col gap-2 rounded-xl border border-slate-700/80 bg-slate-950/92 p-2.5 text-slate-100">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={!previousScene}
-                onClick={() => previousScene && onSceneChange(previousScene.id)}
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-700 px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="رفتن به فضای قبلی"
-              >
-                <ChevronRight className="h-3.5 w-3.5" /> قبلی
-              </button>
+              <label htmlFor="panorama-scene-jump" className="shrink-0 text-[11px] font-semibold text-slate-300">
+                رفتن مستقیم به فضا
+              </label>
               <select
+                id="panorama-scene-jump"
                 value={activeScene.id}
                 onChange={(event) => onSceneChange(event.target.value)}
                 aria-label="انتخاب مستقیم فضای خانه"
-                className="h-8 min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 text-[11px] font-semibold text-slate-100"
+                className="h-9 min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900 px-2 text-xs font-semibold text-slate-100"
               >
                 {scenes.map((scene) => (
                   <option key={scene.id} value={scene.id}>
@@ -792,16 +851,7 @@ export function PanoramaViewer({
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                disabled={!nextScene}
-                onClick={() => nextScene && onSceneChange(nextScene.id)}
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-700 px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="رفتن به فضای بعدی"
-              >
-                بعدی <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <span className="text-[10px] tabular-nums text-slate-400">{activeSceneIndex + 1} از {scenes.length}</span>
+              <span className="shrink-0 text-[10px] tabular-nums text-slate-400">فضای {activeSceneIndex + 1} از {scenes.length}</span>
             </div>
             {floors.length > 1 && (
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -811,10 +861,10 @@ export function PanoramaViewer({
                     type="button"
                     onClick={() => {
                       setSelectedFloorId(fl.id);
-                      const firstInFloor = scenes.find((s) => s.floor_id === fl.id);
+                      const firstInFloor = scenes.find((scene) => scene.floor_id === fl.id);
                       if (firstInFloor) onSceneChange(firstInFloor.id);
                     }}
-                    className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
                       selectedFloorId === fl.id
                         ? "bg-teal-600 text-white"
                         : "bg-slate-800 text-slate-300 hover:bg-slate-700"
@@ -825,40 +875,6 @@ export function PanoramaViewer({
                 ))}
               </div>
             )}
-
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {floorScenes.map((sc) => {
-                const isActive = sc.id === activeScene.id;
-                return (
-                  <button
-                    key={sc.id}
-                    type="button"
-                    onClick={() => onSceneChange(sc.id)}
-                    className={`group flex shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-right transition-colors ${
-                      isActive
-                        ? "border-teal-400 bg-teal-950/80 text-white"
-                        : "border-slate-700/80 bg-slate-900/90 text-slate-300 hover:border-slate-500"
-                    }`}
-                  >
-                    {sc.thumbnail_url ? (
-                      <img
-                        src={sc.thumbnail_url}
-                        alt={sc.title}
-                        className="h-9 w-14 shrink-0 rounded object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-9 w-14 shrink-0 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-400">
-                        ۳۶۰°
-                      </div>
-                    )}
-                    <div className="max-w-[120px]">
-                      <div className="truncate text-xs font-semibold">{sc.title}</div>
-                      <div className="truncate text-[10px] text-slate-400">{sc.floor_title}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
           </div>
         )}
       </div>

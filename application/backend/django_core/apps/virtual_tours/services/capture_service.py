@@ -24,7 +24,7 @@ def _build_guide_steps_blueprint(policy: dict[str, Any]) -> list[dict[str, Any]]
     for i in range(h_count):
         yaw = round(i * step_deg, 1)
         steps.append({
-            "sequence": i + 1,
+            "sequence": len(steps) + 1,
             "yaw": yaw,
             "pitch": 0.0,
             "label": f"نمای افقی {int(yaw)}°",
@@ -32,25 +32,37 @@ def _build_guide_steps_blueprint(policy: dict[str, Any]) -> list[dict[str, Any]]
             "expected_overlap_percent": overlap,
             "guidance": f"دوربین را در ارتفاع چشم به سمت زاویه {int(yaw)} درجه بچرخانید و با حدود {int(overlap)}٪ همپوشانی ثبت کنید.",
         })
+
+    # Two overlapping elevation rings prevent the large blank bands produced by
+    # stitching only eye-level frames plus a single stretched ceiling/floor image.
+    for pitch, label in ((40.0, "نمای بالایی"), (-40.0, "نمای پایینی")):
+        for i in range(6):
+            yaw = float(i * 60)
+            steps.append({
+                "sequence": len(steps) + 1,
+                "yaw": yaw,
+                "pitch": pitch,
+                "label": f"{label} {int(yaw)}°",
+                "required": True,
+                "expected_overlap_percent": overlap,
+                "guidance": f"دوربین را در جهت {int(yaw)} درجه و با شیب {int(pitch)} درجه بگیرید؛ بخشی از دیوار و سقف/کف در تصویر هم‌پوشانی داشته باشد.",
+            })
+
     if policy["require_ceiling_floor"]:
-        steps.append({
-            "sequence": h_count + 1,
-            "yaw": 0.0,
-            "pitch": 75.0,
-            "label": "تصویر سقف",
-            "required": False,
-            "expected_overlap_percent": overlap,
-            "guidance": "دوربین را حدود ۷۵ درجه به سمت بالا (سقف و روشنایی فضا) بگیرید.",
-        })
-        steps.append({
-            "sequence": h_count + 2,
-            "yaw": 0.0,
-            "pitch": -75.0,
-            "label": "تصویر کف",
-            "required": False,
-            "expected_overlap_percent": overlap,
-            "guidance": "دوربین را حدود ۷۵ درجه به سمت پایین (کف‌پوش فضا) بگیرید.",
-        })
+        for pitch, label, guidance in (
+            (80.0, "سقف", "دوربین را نزدیک به ۸۰ درجه به سمت بالا بگیرید."),
+            (-80.0, "کف", "دوربین را نزدیک به ۸۰ درجه به سمت پایین بگیرید."),
+        ):
+            for yaw in (0.0, 120.0, 240.0):
+                steps.append({
+                    "sequence": len(steps) + 1,
+                    "yaw": yaw,
+                    "pitch": pitch,
+                    "label": f"{label} · زاویه {int(yaw)}°",
+                    "required": True,
+                    "expected_overlap_percent": overlap,
+                    "guidance": f"{guidance} گوشی را به جهت {int(yaw)} درجه بچرخانید تا ناحیه قطب تصویر کامل پوشش داده شود.",
+                })
     return steps
 
 

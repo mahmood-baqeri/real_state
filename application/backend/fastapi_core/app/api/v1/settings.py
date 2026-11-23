@@ -368,7 +368,7 @@ async def list_branding_endpoint(include_inactive: bool = False):
 
         return [
             {
-                "id": str(s.id),
+                "id": str(s.slot_key),
                 "slot_key": s.slot_key,
                 "category": s.category,
                 "title_fa": s.title_fa,
@@ -396,7 +396,7 @@ async def update_branding_slot_endpoint(
             user=ctx.user, slot_key=slot_key, data=body.model_dump(exclude_none=True)
         )
         return {
-            "id": str(s.id),
+            "id": str(s.slot_key),
             "slot_key": s.slot_key,
             "image_url": s.image_url,
             "dark_image_url": s.dark_image_url,
@@ -430,7 +430,7 @@ async def upload_branding_slot_endpoint(
             alt_text=alt_text,
         )
         return {
-            "id": str(s.id),
+            "id": str(s.slot_key),
             "slot_key": s.slot_key,
             "image_url": s.image_url,
             "dark_image_url": s.dark_image_url,
@@ -451,7 +451,7 @@ async def delete_branding_slot_image_endpoint(
 
         s = clear_brand_media_slot_image(user=ctx.user, slot_key=slot_key, dark_variant=dark_variant)
         return {
-            "id": str(s.id),
+            "id": str(s.slot_key),
             "slot_key": s.slot_key,
             "image_url": s.image_url,
             "dark_image_url": s.dark_image_url,
@@ -470,7 +470,7 @@ async def list_content_blocks_endpoint(
 
         return [
             {
-                "id": str(b.id),
+                "id": str(b.pk),
                 "slug_key": b.slug_key,
                 "page_key": b.page_key,
                 "section_key": b.section_key,
@@ -499,7 +499,7 @@ async def upsert_content_block_endpoint(
 
         b = upsert_site_content_block(user=ctx.user, slug_key=slug_key, data=body.model_dump())
         return {
-            "id": str(b.id),
+            "id": str(b.pk),
             "slug_key": b.slug_key,
             "page_key": b.page_key,
             "section_key": b.section_key,

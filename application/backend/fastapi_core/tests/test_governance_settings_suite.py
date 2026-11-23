@@ -503,3 +503,77 @@ def test_7_customer_export_pii_masking_and_subscription_quotas():
             json={"name": "شعبه مازاد بر سهمیه", "code": f"BR-{uuid.uuid4().hex[:4]}"},
         )
         assert quota_err.status_code in (400, 403), quota_err.text
+
+
+def test_site_content_blocks_use_slug_key_as_primary_key_in_api():
+    """Regression: SiteContentBlock uses slug_key (not an implicit id) as its PK."""
+    client = TestClient(app)
+    super_admin = _login(client, "09120000001", "Admin@12345")
+    admin_headers = {"Authorization": f"Bearer {super_admin['access']}"}
+    slug = f"regression-content-{uuid.uuid4().hex[:10]}"
+
+    saved = client.put(
+        f"/api/v1/settings/content-blocks/{slug}",
+        headers=admin_headers,
+        json={
+            "page_key": "HOME",
+            "section_key": "REGRESSION",
+            "title_fa": "آزمون شناسه بلوک محتوا",
+            "body_html": "<p>Regression test</p>",
+            "status": "PUBLISHED",
+            "is_active": True,
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    saved_data = saved.json()["data"]
+    assert saved_data["id"] == slug
+    assert saved_data["slug_key"] == slug
+
+    listed = client.get("/api/v1/settings/content-blocks?published_only=false")
+    assert listed.status_code == 200, listed.text
+    listed_data = next(item for item in listed.json()["data"] if item["slug_key"] == slug)
+    assert listed_data["id"] == slug
+
+def test_branding_endpoints_use_slot_key_as_primary_key():
+    """BrandMediaSlot has a string PK named slot_key, not an implicit id."""
+    client = TestClient(app)
+
+    listing = client.get("/api/v1/settings/branding?include_inactive=true")
+    assert listing.status_code == 200, listing.text
+    slots = listing.json()["data"]
+    assert slots
+    assert all(item["id"] == item["slot_key"] for item in slots)
+
+    super_admin = _login(client, "09120000001", "Admin@12345")
+    headers = {"Authorization": f"Bearer {super_admin['access']}"}
+    slot_key = slots[0]["slot_key"]
+    updated = client.put(
+        f"/api/v1/settings/branding/{slot_key}",
+        headers=headers,
+        json={"title_fa": slots[0]["title_fa"]},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["data"]["id"] == slot_key
+    assert updated.json()["data"]["slot_key"] == slot_key
+
+
+
+def test_platform_visual_presets_and_custom_palette_can_be_saved_and_bootstrapped():
+    client = TestClient(app)
+    super_admin = _login(client, "09120000001", "Admin@12345")
+    headers = {"Authorization": f"Bearer {super_admin['access']}"}
+    presets = ["glass", "neo", "organic", "custom"]
+
+    for preset in presets:
+        response = client.put(
+            "/api/v1/settings/registry",
+            headers=headers,
+            json={
+                "updates": [{"key": "branding.default_theme_preset", "value": preset}],
+                "change_reason": "تست سبک‌های بصری و پالت اختصاصی",
+            },
+        )
+        assert response.status_code == 200, f"preset={preset}: {response.text}"
+        bootstrap = client.get("/api/v1/settings/public-bootstrap")
+        assert bootstrap.status_code == 200, bootstrap.text
+        assert bootstrap.json()["data"]["public_settings"]["branding.default_theme_preset"] == preset
