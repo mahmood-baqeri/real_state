@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 from django.db import models, transaction
 from django.db.models import Avg, Count
 from django.utils import timezone
@@ -84,7 +84,7 @@ def create_ticket(*, user: User, agency_id: Optional[UUID], data: dict) -> Ticke
 
     priority = data.get("priority", Ticket.Priority.NORMAL)
     sla_hours = PRIORITY_SLA_HOURS.get(priority, 24)
-    ticket_number = f"TKT-{timezone.now().strftime('%y%m%d')}-{str(user.id)[:4].upper()}-{Ticket.objects.count() + 101}"
+    ticket_number = f"TKT-{timezone.now().strftime('%y%m%d')}-{uuid4().hex[:8].upper()}"
 
     ticket = Ticket.objects.create(
         ticket_number=ticket_number,
@@ -177,6 +177,9 @@ def update_ticket_status(
     if not is_staff and not (ticket.created_by_user_id == user.id and to_status == Ticket.Status.CLOSED):
         raise PermissionDeniedDomainError("تغییر وضعیت تیکت فقط برای مسئول پشتیبانی مجاز است.")
 
+    valid_statuses = {choice for choice, _label in Ticket.Status.choices}
+    if to_status not in valid_statuses:
+        raise ValidationDomainError("وضعیت انتخاب‌شده برای تیکت معتبر نیست.")
     prev = ticket.status
     ticket.status = to_status
     if to_status == Ticket.Status.RESOLVED and not ticket.resolved_at:

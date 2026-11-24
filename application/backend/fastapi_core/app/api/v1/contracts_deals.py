@@ -94,6 +94,11 @@ class DealCloseBody(BaseModel):
     auto_calculate_commission: bool = True
 
 
+class DealRoomBody(BaseModel):
+    checklist: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+
+
 def _ser_contract(c) -> dict:
     return {
         "id": str(c.id),
@@ -161,6 +166,7 @@ def _ser_deal(d) -> dict:
         "status": d.status,
         "closed_at": d.closed_at.isoformat() if d.closed_at else None,
         "created_at": d.created_at.isoformat(),
+        "deal_room": (d.contract.obligations_json or {}).get("deal_room", {"checklist": [], "events": []}),
     }
 
 
@@ -393,7 +399,7 @@ async def get_deal_endpoint(deal_id: UUID, ctx: RequestContext = Depends(require
                 "deal_amount": str(ledger.deal_amount),
                 "total_received": str(ledger.total_received),
                 "total_paid": str(ledger.total_paid),
-                "receivable_balance": str(ledger.receivable_balance),
+                "receivable_balance": str(max(Decimal("0.00"), ledger.deal_amount - ledger.total_received)),
             }
             if ledger
             else None
@@ -430,4 +436,46 @@ async def close_deal_endpoint(
         )
         return _ser_deal(d)
 
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+@router.put("/deals/{deal_id}/room")
+async def update_deal_room_endpoint(
+    deal_id: UUID,
+    body: DealRoomBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.contracts.services import get_deal
+        from common.permissions import can_edit_property
+        from apps.audit.services import record_audit_event
+
+        deal = get_deal(user=ctx.user, agency_id=ctx.agency_id, deal_id=deal_id)
+        if not can_edit_property(ctx.user, deal.property):
+            from common.exceptions import PermissionDeniedDomainError, ValidationDomainError
+            raise PermissionDeniedDomainError("مجوز ویرایش اتاق معامله را ندارید.")
+        if len(body.checklist) > 100 or len(body.events) > 100:
+            from common.exceptions import ValidationDomainError
+            raise ValidationDomainError("حداکثر ۱۰۰ مورد برای چک‌لیست و تقویم مجاز است.")
+        checklist = []
+        for item in body.checklist:
+            title = str(item.get("title", "")).strip()[:160]
+            if not title:
+                continue
+            checklist.append({"id": str(item.get("id", ""))[:64], "title": title, "done": bool(item.get("done", False))})
+        events = []
+        for event in body.events:
+            title = str(event.get("title", "")).strip()[:160]
+            date = str(event.get("date", ""))[:10]
+            if not title or len(date) != 10:
+                continue
+            events.append({"id": str(event.get("id", ""))[:64], "title": title, "date": date, "note": str(event.get("note", ""))[:500]})
+        obligations = dict(deal.contract.obligations_json or {})
+        room = {"checklist": checklist, "events": events}
+        obligations["deal_room"] = room
+        deal.contract.obligations_json = obligations
+        deal.contract.updated_by = ctx.user
+        deal.contract.save(update_fields=["obligations_json", "updated_by", "updated_at"])
+        record_audit_event(action="DEAL_ROOM_UPDATED", resource_type="Deal", resource_id=str(deal.id), actor=ctx.user, agency_id=deal.agency_id, after_state=room)
+        return room
     return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

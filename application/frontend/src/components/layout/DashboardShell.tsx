@@ -198,7 +198,21 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     if (!accessToken || typeof window === "undefined") return;
     let ws: WebSocket | null = null;
     let cancelled = false;
-    (async () => {
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let stableConnectionTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelay = 1000;
+    const scheduleReconnect = () => {
+      if (cancelled || reconnectTimer) return;
+      // Keep increasing the backoff even if the socket opens briefly and immediately fails.
+      const delay = reconnectDelay + Math.round(Math.random() * reconnectDelay * 0.2);
+      reconnectDelay = Math.min(reconnectDelay * 2, 30_000);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        void connect();
+      }, delay);
+    };
+    const connect = async () => {
+      if (cancelled) return;
       try {
         const ticketResponse = await apiFetch<{ ticket: string }>("/api/v1/auth/ws-ticket", {
           method: "POST",
@@ -209,6 +223,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         const proto = window.location.protocol === "https:" ? "wss" : "ws";
         const wsUrl = `${proto}://${window.location.hostname}:8020/api/v1/ws/notifications`;
         ws = new WebSocket(wsUrl, ["bonyan.auth", `ticket.${ticketResponse.data.ticket}`]);
+        ws.onopen = () => {
+          // Only reset backoff after a genuinely stable connection, not on every brief open.
+          stableConnectionTimer = setTimeout(() => { reconnectDelay = 1000; }, 30_000);
+        };
+        ws.onclose = () => {
+          if (stableConnectionTimer) clearTimeout(stableConnectionTimer);
+          stableConnectionTimer = null;
+          scheduleReconnect();
+        };
         ws.onmessage = (evt) => {
           try {
             const parsed = JSON.parse(evt.data);
@@ -221,11 +244,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         };
         ws.onerror = () => ws?.close();
       } catch {
-        // REST notification polling remains the fallback.
+        scheduleReconnect();
       }
-    })();
+    };
+    void connect();
     return () => {
       cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (stableConnectionTimer) clearTimeout(stableConnectionTimer);
       ws?.close();
     };
   }, [accessToken, activeAgencyId]);
@@ -240,8 +266,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       );
       return env.meta?.pagination?.total_count ?? env.data.length;
     },
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: Infinity,
+    refetchInterval: false,
   });
 
   const unreadCount = wsUnreadCount ?? restUnreadCount;

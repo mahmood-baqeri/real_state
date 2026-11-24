@@ -554,7 +554,6 @@ def get_agency_analytics(
             raise PermissionDeniedDomainError("دسترسی به گزارش شعبه دیگر مجاز نیست.")
         branch_id = membership.branch_id
         if agent_membership_id:
-            from apps.accounts.models import AgencyMembership
             if not AgencyMembership.objects.filter(
                 id=agent_membership_id, agency_id=agency_id, branch_id=membership.branch_id,
                 status=AgencyMembership.Status.ACTIVE,

@@ -271,12 +271,22 @@ def test_phase5_tickets_complaints_surveys_push_and_ai_isolation():
     )
     assert t_res.status_code == 201
     t_id = t_res.json()["data"]["id"]
+    # Regression: ticket retrieval must call QuerySet.first(), not return its method.
+    detail_res = client.get(f"/api/v1/tickets/{t_id}", headers=headers)
+    assert detail_res.status_code == 200, detail_res.text
+    assert detail_res.json()["data"]["id"] == t_id
     rep_res = client.post(
         f"/api/v1/tickets/{t_id}/messages",
         headers=headers,
         json={"body": "پاسخ همکار", "is_internal_note": False},
     )
     assert rep_res.status_code == 201
+    invalid_status_res = client.post(
+        f"/api/v1/tickets/{t_id}/status",
+        headers=headers,
+        json={"status": "NOT_A_STATUS"},
+    )
+    assert invalid_status_res.status_code == 422
 
     # Public complaint submission & tracking
     cmp_res = client.post(

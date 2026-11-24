@@ -326,7 +326,7 @@ def list_agency_properties(
         "status_history",
     )
     if not agency_id:
-        return Property.objects.none()
+        return Property.objects.all_tenants().none()
     qs = (
         Property.objects.all_tenants()
         .filter(agency_id=agency_id, is_deleted=False)
@@ -336,10 +336,10 @@ def list_agency_properties(
     if not is_super_admin(user):
         membership = get_active_membership(user, agency_id)
         if not membership:
-            return Property.objects.none()
+            return Property.objects.all_tenants().none()
         if membership.role.code == "BRANCH_MANAGER":
             if not membership.branch_id:
-                return Property.objects.none()
+                return Property.objects.all_tenants().none()
             qs = qs.filter(branch_id=membership.branch_id)
         elif not has_agency_permission(user, agency_id, "property.view_all_agency"):
             policy = get_agency_policy(agency_id)
@@ -700,6 +700,7 @@ def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID,
         raise PermissionDeniedDomainError("شما مجوز ویرایش این ملک را ندارید.")
 
     prev_price = prop.total_price
+    prev_rent_amount = prop.rent_amount
     if "branch_id" in data and data["branch_id"] is not None:
         from apps.branches.models import Branch
         if not Branch.objects.filter(id=data["branch_id"], agency_id=prop.agency_id, is_active=True).exists():
@@ -744,6 +745,22 @@ def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID,
             currency_code=prop.currency_id,
             changed_by=user,
         )
+    if prop.rent_amount != prev_rent_amount:
+        PropertyPriceHistory.objects.create(
+            property=prop,
+            previous_price=prev_rent_amount,
+            new_price=prop.rent_amount,
+            currency_code=f"RENT:{prop.currency_id}",
+            changed_by=user,
+        )
+    if prop.total_price != prev_price or prop.rent_amount != prev_rent_amount:
+        # Phase 4 saved-search price alerts are best-effort; notification failures
+        # never invalidate the property price update.
+        try:
+            from apps.search.phase4 import notify_saved_search_price_change
+            notify_saved_search_price_change(prop, actor=user)
+        except Exception:
+            pass
 
     if amenity_codes is not None or amenity_values is not None:
         _sync_property_amenities(prop=prop, amenity_codes=amenity_codes, amenity_values=amenity_values, user=user)

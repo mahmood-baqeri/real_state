@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CheckCircle2, Handshake, Wallet } from "lucide-react";
+import { ArrowRight, CheckCircle2, Handshake, Wallet, CalendarDays, ClipboardCheck, Plus } from "lucide-react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { DealItem } from "@/lib/types";
@@ -22,6 +22,7 @@ interface DealDetail extends DealItem {
     total_paid: string;
     receivable_balance: string;
   } | null;
+  deal_room?: { checklist?: { id: string; title: string; done: boolean }[]; events?: { id: string; title: string; date: string; note?: string }[] };
   commission: {
     id: string;
     gross_commission: string;
@@ -35,6 +36,9 @@ export default function DealDetailPage() {
   const { accessToken, activeAgencyId } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventNote, setEventNote] = useState("");
 
   const detailQ = useQuery({
     queryKey: ["deal-detail", id, activeAgencyId],
@@ -45,6 +49,14 @@ export default function DealDetailPage() {
         agencyId: activeAgencyId,
       })).data,
   });
+
+  const roomMut = useMutation({
+    mutationFn: async (room: { checklist: { id: string; title: string; done: boolean }[]; events: { id: string; title: string; date: string; note?: string }[] }) =>
+      apiFetch(`/api/v1/deals/${id}/room`, { method: "PUT", token: accessToken, agencyId: activeAgencyId, body: JSON.stringify(room) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["deal-detail", id, activeAgencyId] }); toast.success("اتاق معامله ذخیره شد."); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const closeWonMut = useMutation({
     mutationFn: async () =>
@@ -194,6 +206,45 @@ export default function DealDetailPage() {
           </div>
         </section>
       </div>
+      <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+        <h2 className="flex items-center gap-2 text-sm font-bold"><ClipboardCheck className="h-4 w-4 text-teal-700" /> اتاق معامله — چک‌لیست و تقویم</h2>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold">چک‌لیست پیشرفت</h3>
+            {((deal.deal_room?.checklist?.length ? deal.deal_room.checklist : [
+              { id: "docs", title: "تکمیل و بررسی مدارک طرفین", done: false },
+              { id: "deposit", title: "ثبت پرداخت‌ها و بیعانه", done: false },
+              { id: "inspection", title: "تأیید بازدید و بررسی ملک", done: false },
+              { id: "contract", title: "بررسی و امضای قرارداد", done: false },
+              { id: "handover", title: "تحویل ملک و کلید", done: false },
+            ])).map((item) => (
+              <label key={item.id} className="flex items-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 p-2 text-xs">
+                <input type="checkbox" checked={item.done} disabled={roomMut.isPending} onChange={(e) => {
+                  const current = deal.deal_room?.checklist?.length ? deal.deal_room.checklist : [
+                    { id: "docs", title: "تکمیل و بررسی مدارک طرفین", done: false }, { id: "deposit", title: "ثبت پرداخت‌ها و بیعانه", done: false }, { id: "inspection", title: "تأیید بازدید و بررسی ملک", done: false }, { id: "contract", title: "بررسی و امضای قرارداد", done: false }, { id: "handover", title: "تحویل ملک و کلید", done: false },
+                  ];
+                  roomMut.mutate({ checklist: current.map((x) => x.id === item.id ? { ...x, done: e.target.checked } : x), events: deal.deal_room?.events || [] });
+                }} />
+                <span className={item.done ? "line-through text-slate-500" : ""}>{item.title}</span>
+              </label>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-1 text-xs font-semibold"><CalendarDays className="h-4 w-4" /> برنامه و رویدادهای معامله</h3>
+            <form className="grid grid-cols-1 gap-2" onSubmit={(e) => { e.preventDefault(); if (!eventTitle.trim() || !eventDate) return; const ev = { id: `ev-${Date.now()}`, title: eventTitle.trim(), date: eventDate, note: eventNote.trim() }; roomMut.mutate({ checklist: deal.deal_room?.checklist || [{ id: "docs", title: "تکمیل و بررسی مدارک طرفین", done: false }, { id: "deposit", title: "ثبت پرداخت‌ها و بیعانه", done: false }, { id: "inspection", title: "تأیید بازدید و بررسی ملک", done: false }, { id: "contract", title: "بررسی و امضای قرارداد", done: false }, { id: "handover", title: "تحویل ملک و کلید", done: false }], events: [...(deal.deal_room?.events || []), ev] }); setEventTitle(""); setEventDate(""); setEventNote(""); }}>
+              <input value={eventTitle} onChange={(e) => setEventTitle(e.target.value)} placeholder="عنوان رویداد (مثلاً دفترخانه)" required className="h-9 rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className="h-9 rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+              <input value={eventNote} onChange={(e) => setEventNote(e.target.value)} placeholder="یادداشت اختیاری" className="h-9 rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+              <button type="submit" disabled={roomMut.isPending} className="inline-flex h-9 items-center justify-center gap-1 rounded-md bg-teal-700 px-3 text-xs font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" /> افزودن رویداد</button>
+            </form>
+            <ul className="space-y-2">
+              {(deal.deal_room?.events || []).slice().sort((a,b) => a.date.localeCompare(b.date)).map((ev) => <li key={ev.id} className="rounded-md border border-slate-200 dark:border-slate-700 p-2 text-xs"><div className="font-semibold">{ev.title} — {ev.date}</div>{ev.note && <div className="mt-1 text-slate-500">{ev.note}</div>}<button type="button" onClick={() => roomMut.mutate({ checklist: deal.deal_room?.checklist || [], events: (deal.deal_room?.events || []).filter(x => x.id !== ev.id) })} className="mt-1 text-rose-600">حذف</button></li>)}
+              {!deal.deal_room?.events?.length && <li className="text-xs text-slate-500">رویدادی ثبت نشده است.</li>}
+            </ul>
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

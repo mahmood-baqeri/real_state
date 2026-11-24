@@ -64,6 +64,13 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT", "AGENT"],
   },
   {
+    key: "work-hub",
+    label: "مرکز کار روزانه",
+    href: "/dashboard/daily-work",
+    group: "core",
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+  },
+  {
     key: "customers",
     label: "مشتریان و اشتراک‌گذاری",
     href: "/dashboard/customers",

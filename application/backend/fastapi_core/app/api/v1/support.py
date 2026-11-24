@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -10,29 +10,29 @@ router = APIRouter(prefix="/tickets", tags=["Support & Ticketing"])
 
 
 class TicketAttachmentBody(BaseModel):
-    file_name: str
-    file_url: str
-    mime_type: str = "application/octet-stream"
-    file_size_bytes: int = 0
+    file_name: str = Field(min_length=1, max_length=255)
+    file_url: str = Field(min_length=1, max_length=500)
+    mime_type: str = Field(default="application/octet-stream", max_length=120)
+    file_size_bytes: int = Field(default=0, ge=0, le=25 * 1024 * 1024)
 
 
 class TicketCreateBody(BaseModel):
-    scope: str = "AGENCY"
-    category: str = "GENERAL"
-    priority: str = "NORMAL"
+    scope: Literal["AGENCY", "PLATFORM"] = "AGENCY"
+    category: Literal["TECHNICAL", "BILLING", "ACCOUNT", "AGENCY_OPS", "GENERAL"] = "GENERAL"
+    priority: Literal["LOW", "NORMAL", "HIGH", "URGENT"] = "NORMAL"
     subject: str = Field(min_length=3, max_length=200)
     body: str = Field(min_length=3)
-    attachments: list[TicketAttachmentBody] = []
+    attachments: list[TicketAttachmentBody] = Field(default_factory=list)
 
 
 class TicketMessageBody(BaseModel):
-    body: str = Field(min_length=1)
+    body: str = Field(min_length=1, max_length=20000)
     is_internal_note: bool = False
-    attachments: list[TicketAttachmentBody] = []
+    attachments: list[TicketAttachmentBody] = Field(default_factory=list)
 
 
 class TicketStatusBody(BaseModel):
-    status: str
+    status: Literal["OPEN", "IN_PROGRESS", "WAITING_USER", "RESOLVED", "CLOSED"]
     note: str = ""
 
 

@@ -40,6 +40,13 @@ class InteractionCreateBody(BaseModel):
     is_private: bool = True
 
 
+class IntelligenceFollowUpBody(BaseModel):
+    customer_id: UUID
+    title: str
+    due_at: datetime
+    assigned_membership_id: Optional[UUID] = None
+
+
 def _ser_pipeline_item(it) -> dict:
     return {
         "id": str(it.id),
@@ -190,4 +197,21 @@ async def post_interaction(body: InteractionCreateBody, ctx: RequestContext = De
         i = add_interaction_log(user=ctx.user, agency_id=ctx.agency_id, **body.model_dump())
         return {"id": str(i.id), "channel": i.channel}
 
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+@router.get("/intelligence")
+async def get_sales_intelligence(ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.crm.intelligence import get_sales_intelligence
+        return get_sales_intelligence(user=ctx.user, agency_id=ctx.agency_id)
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+@router.post("/intelligence/follow-up", status_code=201)
+async def create_intelligence_follow_up(body: IntelligenceFollowUpBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.crm.services import create_follow_up_task
+        task = create_follow_up_task(user=ctx.user, agency_id=ctx.agency_id, customer_id=body.customer_id, title=body.title, due_at=body.due_at, assigned_membership_id=body.assigned_membership_id)
+        return {"id": str(task.id), "title": task.title, "due_at": task.due_at.isoformat(), "status": task.status}
     return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

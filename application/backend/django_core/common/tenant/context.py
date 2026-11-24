@@ -20,6 +20,7 @@ _ALLOWED_BYPASS_REASONS = {
     "private_media_migration",
     "system_configuration",
     "system_notification",
+    "notification_websocket_snapshot",
     "public_content",
     "public_complaint_tracking",
     "payment_callback",

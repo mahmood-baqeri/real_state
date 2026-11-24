@@ -373,7 +373,7 @@ def send_notification(
             else NotificationMessage.DeliveryStatus.QUEUED
         )
 
-    return NotificationMessage.objects.create(
+    message = NotificationMessage.objects.create(
         recipient=recipient,
         agency_id=agency_id,
         channel=channel,
@@ -383,6 +383,14 @@ def send_notification(
         error_message=err_msg,
         created_by=actor,
     )
+    try:
+        import redis
+        client = redis.Redis.from_url(os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0"), socket_connect_timeout=0.5)
+        client.publish(f"bonyan:notifications:{recipient.id}", "new_notification")
+        client.close()
+    except Exception:
+        pass
+    return message
 
 
 def mark_notification_read(*, user: User, notification_id: UUID) -> NotificationMessage:

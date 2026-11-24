@@ -20,6 +20,13 @@ def score_property_for_requirement(prop: dict[str, Any], req: dict[str, Any]) ->
     Deterministic multi-criteria matching engine (0..100) using Decimal arithmetic.
     Lives inside Django Core per architectural single-source-of-truth rules.
     """
+    import re
+    def _normalize(value: Any) -> str:
+        text = str(value or "").replace("ي", "ی").replace("ك", "ک").replace("ة", "ه").replace("\u200c", " ").replace("\u200f", " ").lower()
+        return re.sub(r"[\u200c\u200f\u0640\s]+", " ", text).strip()
+    def _same_place(a: Any, b: Any) -> bool:
+        aa, bb = _normalize(a), _normalize(b)
+        return bool(aa and bb and (aa == bb or aa in bb or bb in aa))
     score = 0
     reasons: list[str] = []
     mismatches: list[str] = []
@@ -37,14 +44,14 @@ def score_property_for_requirement(prop: dict[str, Any], req: dict[str, Any]) ->
         mismatches.append("نوع ملک متفاوت است")
 
     target_city = (req.get("target_city") or "").strip()
-    if target_city and prop.get("city") == target_city:
+    if target_city and _same_place(prop.get("city"), target_city):
         score += 10
         reasons.append("تطابق شهر")
     elif target_city:
         mismatches.append("شهر متفاوت")
 
     districts = req.get("target_districts") or []
-    if prop.get("district") and prop.get("district") in districts:
+    if prop.get("district") and any(_same_place(prop.get("district"), d) for d in districts):
         score += 15
         reasons.append(f"منطقه مطلوب ({prop['district']})")
     elif districts:
@@ -52,16 +59,24 @@ def score_property_for_requirement(prop: dict[str, Any], req: dict[str, Any]) ->
 
     min_b = Decimal(str(req.get("min_budget") or 0))
     max_b = Decimal(str(req.get("max_budget") or 0))
-    price = Decimal(str(prop.get("total_price") or 0))
+    price_key = "rent_amount" if req.get("is_rental") else "total_price"
+    if max_b > 0 and req.get("currency_id") and prop.get("currency_id") and req.get("currency_id") != prop.get("currency_id") and prop.get("normalized_price") is None:
+        mismatches.append("نرخ تبدیل ارز برای مقایسه موجود نیست")
+        price = Decimal("0")
+    else:
+        price = Decimal(str(prop.get("normalized_price") if prop.get("normalized_price") is not None else prop.get(price_key) or 0))
     if max_b > 0 and price > 0:
         if min_b <= price <= max_b:
             score += 25
             reasons.append("کاملاً در محدوده بودجه")
+        elif min_b > 0 and min_b * Decimal("0.90") <= price < min_b:
+            score += 12
+            reasons.append("کمی پایین‌تر از بودجه هدف")
         elif price <= max_b * Decimal("1.10"):
             score += 12
             reasons.append("نزدیک به سقف بودجه (حداکثر ۱۰٪ اختلاف)")
         else:
-            mismatches.append("بالاتر از بودجه هدف")
+            mismatches.append("خارج از بودجه هدف")
 
     min_a = Decimal(str(req.get("min_area_sqm") or 0))
     max_a = Decimal(str(req.get("max_area_sqm") or 99999))
@@ -96,6 +111,12 @@ def score_property_for_requirement(prop: dict[str, Any], req: dict[str, Any]) ->
         "city": prop.get("city", ""),
         "district": prop.get("district", ""),
         "total_price": str(prop.get("total_price", "0")),
+        "price": str(prop.get("normalized_price") if prop.get("normalized_price") is not None else prop.get(price_key, "0")),
+        "price_currency": prop.get("normalized_currency") or prop.get("currency_id"),
+        "normalized_price": str(prop.get("normalized_price")) if prop.get("normalized_price") is not None else None,
+        "normalized_currency": prop.get("normalized_currency"),
+        "original_currency": prop.get("currency_id"),
+        "price_type": "RENT" if req.get("is_rental") else "SALE",
         "built_area_sqm": str(prop.get("built_area_sqm", "0")),
         "match_score": min(100, score),
         "reasons": reasons,

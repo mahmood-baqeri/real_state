@@ -94,45 +94,48 @@ async def notifications_ws(websocket: WebSocket):
     session_jti = str(payload["session_jti"])
     agency_id = UUID(str(payload["agency_id"])) if payload.get("agency_id") else None
     await websocket.accept(subprotocol="bonyan.auth")
+    import redis.asyncio as redis_async
+    client = redis_async.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    pubsub = client.pubsub()
+    channel = f"bonyan:notifications:{user_id}"
     try:
+        def _snapshot():
+            from apps.notifications.models import NotificationMessage
+            def _read():
+                qs = NotificationMessage.objects.filter(recipient_id=user_id, is_read=False)
+                latest = list(qs.order_by("-created_at")[:5])
+                return {"unread_count": qs.count(), "latest": [
+                    {"id": str(n.id), "title": n.title, "body": n.body, "created_at": n.created_at.isoformat()}
+                    for n in latest
+                ]}
+            if agency_id:
+                return _read()
+            from common.tenant.context import tenant_bypass
+            with tenant_bypass(reason="notification_websocket_snapshot"):
+                return _read()
+        await pubsub.subscribe(channel)
+        snap = await run_django(_snapshot, agency_id=agency_id, user_id=user_id)
+        await websocket.send_json({"event": "notification_snapshot", "data": snap})
+        last_session_check = asyncio.get_running_loop().time()
         while True:
-            if not await _socket_session_is_active(user_id=user_id, session_jti=session_jti, agency_id=agency_id):
-                await websocket.close(code=4001, reason="Session revoked or expired")
-                return
-            def _fetch():
-                from apps.notifications.models import NotificationMessage
-                def _snapshot():
-                    qs = NotificationMessage.objects.filter(recipient_id=user_id, is_read=False)
-                    latest = list(qs.order_by("-created_at")[:5])
-                    return {
-                        "unread_count": qs.count(),
-                        "latest": [
-                            {
-                                "id": str(n.id),
-                                "title": n.title,
-                                "body": n.body,
-                                "created_at": n.created_at.isoformat(),
-                            }
-                            for n in latest
-                        ],
-                    }
-                if agency_id:
-                    return _snapshot()
-                from common.tenant.context import tenant_bypass
-                with tenant_bypass(reason="customer_portal"):
-                    return _snapshot()
-            try:
-                snap = await run_django(_fetch, agency_id=agency_id, user_id=UUID(str(user_id)))
-            except Exception as exc:
-                from django.db.utils import OperationalError, ProgrammingError
-                if not isinstance(exc, (OperationalError, ProgrammingError)):
-                    raise
-                snap = {"unread_count": 0, "latest": [], "temporarily_unavailable": True}
-                await asyncio.sleep(3)
-            await websocket.send_json({"event": "notification_snapshot", "data": snap})
-            await asyncio.sleep(15)
+            if asyncio.get_running_loop().time() - last_session_check >= 60:
+                if not await _socket_session_is_active(user_id=user_id, session_jti=session_jti, agency_id=agency_id):
+                    await websocket.close(code=4001, reason="Session revoked or expired")
+                    return
+                last_session_check = asyncio.get_running_loop().time()
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message and message.get("type") == "message":
+                snap = await run_django(_snapshot, agency_id=agency_id, user_id=user_id)
+                await websocket.send_json({"event": "notification_snapshot", "data": snap})
     except WebSocketDisconnect:
         return
+    finally:
+        try:
+            await pubsub.unsubscribe(channel)
+            await pubsub.aclose()
+            await client.aclose()
+        except Exception:
+            pass
 
 
 @router.websocket("/ws/virtual-tours/{tour_id}/jobs")

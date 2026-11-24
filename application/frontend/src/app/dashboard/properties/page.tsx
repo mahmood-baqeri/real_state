@@ -121,6 +121,9 @@ export default function DashboardPropertiesPage() {
         breadcrumbs={[{ label: "میز کار", href: "/dashboard" }, { label: "فهرست املاک" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Link href="/dashboard/property-intelligence" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 px-3 text-xs font-semibold hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+              <AlertCircle className="h-4 w-4" /> هوشمندی فایل
+            </Link>
             <ImportExportDialog
               module="properties"
               moduleLabel="املاک"
