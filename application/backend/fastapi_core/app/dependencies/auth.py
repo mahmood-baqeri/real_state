@@ -83,6 +83,22 @@ def _resolve_auth_sync(token: str, header_agency_id: Optional[str]) -> RequestCo
         except ValueError:
             pass
 
+    if resolved_agency_id is None and not is_super_admin(user):
+        own_membership = AgencyMembership.objects.filter(
+            user=user, status=AgencyMembership.Status.ACTIVE
+        ).order_by("joined_at").first()
+        if own_membership:
+            resolved_agency_id = own_membership.agency_id
+
+    if resolved_agency_id:
+        from django.db import connection
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('app.current_agency_id', %s, true)",
+                    [str(resolved_agency_id)],
+                )
+
     membership = None
     if resolved_agency_id:
         membership = (
@@ -90,14 +106,6 @@ def _resolve_auth_sync(token: str, header_agency_id: Optional[str]) -> RequestCo
             .filter(user=user, agency_id=resolved_agency_id, status=AgencyMembership.Status.ACTIVE)
             .first()
         )
-    elif not is_super_admin(user):
-        membership = (
-            AgencyMembership.objects.select_related("agency", "role", "branch")
-            .filter(user=user, status=AgencyMembership.Status.ACTIVE)
-            .first()
-        )
-        if membership:
-            resolved_agency_id = membership.agency_id
 
     return RequestContext(
         user=user,
@@ -115,7 +123,14 @@ async def get_optional_context(
     if not authorization or not authorization.startswith("Bearer "):
         return RequestContext(is_authenticated=False)
     token = authorization.split(" ", 1)[1].strip()
-    return await run_django(_resolve_auth_sync, token, x_agency_id)
+    try:
+        token_payload = decode_jwt_token(token, expected_type="access")
+        token_user_id = token_payload.get("user_id")
+    except jwt.PyJWTError:
+        token_user_id = None
+    return await run_django(
+        _resolve_auth_sync, token, x_agency_id, user_id=token_user_id
+    )
 
 
 async def get_current_context(

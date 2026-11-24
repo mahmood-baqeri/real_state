@@ -3,6 +3,7 @@ from typing import Optional
 from uuid import UUID
 import uuid as uuid_lib
 from django.db import transaction
+from django.conf import settings
 from django.utils import timezone
 from apps.accounts.models import User
 from apps.audit.services import record_audit_event
@@ -130,10 +131,19 @@ def initiate_gateway_payment(
 
     if cfg and not cfg.is_active:
         raise ValidationDomainError("درگاه پرداخت انتخاب‌شده در حال حاضر غیرفعال است.")
+    is_sandbox = cfg.is_sandbox if cfg else True
+    if not settings.DEBUG:
+        if not cfg or not cfg.is_active:
+            raise ValidationDomainError("درگاه پرداخت واقعی فعال و پیکربندی‌شده‌ای برای این آژانس وجود ندارد.")
+        if is_sandbox or resolved_key in {"sandbox", "mock", "test", "console"}:
+            raise ValidationDomainError("استفاده از درگاه آزمایشی در Production ممنوع است.")
+        if resolved_key != settings.ACTIVE_PAYMENT_PROVIDER:
+            raise ValidationDomainError("درگاه انتخاب‌شده با درگاه فعال Production مطابقت ندارد.")
 
     adapter = get_payment_provider(resolved_key)
     creds = parse_provider_credentials(cfg)
-    is_sandbox = cfg.is_sandbox if cfg else True
+    if not creds and not settings.DEBUG:
+        raise ValidationDomainError("اطلاعات احراز هویت درگاه پرداخت در Production تنظیم نشده است.")
 
     # Server determines authoritative amount from DB plan — never from client input!
     cycle_months = {"MONTH_1": 1, "MONTH_2": 2, "MONTH_3": 3, "MONTH_6": 6, "MONTH_12": 12, "MONTHLY": 1, "ANNUAL": 12}
@@ -260,7 +270,12 @@ def verify_gateway_payment(
     )
     adapter = get_payment_provider(tx.provider_key)
     creds = parse_provider_credentials(cfg)
+    if not creds and not settings.DEBUG:
+        raise ValidationDomainError("اطلاعات احراز هویت درگاه پرداخت در Production تنظیم نشده است.")
     is_sandbox = cfg.is_sandbox if cfg else True
+    if not settings.DEBUG:
+        if not cfg or not cfg.is_active or is_sandbox or tx.provider_key != settings.ACTIVE_PAYMENT_PROVIDER:
+            raise ValidationDomainError("تأیید پرداخت Sandbox یا درگاه غیرفعال در Production مجاز نیست.")
 
     res = adapter.verify_payment(
         authority=tx.authority,

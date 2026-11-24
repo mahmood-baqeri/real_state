@@ -15,6 +15,7 @@ from apps.settings.services import get_setting_value, resolve_location_hierarchy
 from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
 from common.permissions import (
     can_edit_property,
+    can_view_property,
     can_view_owner_pii,
     get_active_membership,
     get_agency_policy,
@@ -190,7 +191,7 @@ def list_public_properties(
         min_lng = max(min_lng, p_min_lng) if min_lng is not None else p_min_lng
         max_lng = min(max_lng, p_max_lng) if max_lng is not None else p_max_lng
 
-    with tenant_bypass():
+    with tenant_bypass(reason="public_catalog"): 
         qs = (
             Property.objects.all_tenants()
             .filter(
@@ -214,8 +215,6 @@ def list_public_properties(
                 "amenities__category",
                 "amenity_values__amenity__category",
                 "media_items",
-                "price_history",
-                "status_history",
             )
         )
         if province_id:
@@ -286,8 +285,6 @@ def list_public_properties(
                 "amenities__category",
                 "amenity_values__amenity__category",
                 "media_items",
-                "price_history",
-                "status_history",
             ).order_by("-is_featured", "-created_at")
 
         return qs
@@ -328,26 +325,23 @@ def list_agency_properties(
         "price_history",
         "status_history",
     )
-    if is_super_admin(user) and not agency_id:
-        qs = (
-            Property.objects.all_tenants()
-            .filter(is_deleted=False)
-            .select_related(*selects)
-            .prefetch_related(*prefetches)
-        )
-    else:
-        if not agency_id:
+    if not agency_id:
+        return Property.objects.none()
+    qs = (
+        Property.objects.all_tenants()
+        .filter(agency_id=agency_id, is_deleted=False)
+        .select_related(*selects)
+        .prefetch_related(*prefetches)
+    )
+    if not is_super_admin(user):
+        membership = get_active_membership(user, agency_id)
+        if not membership:
             return Property.objects.none()
-        qs = (
-            Property.objects.all_tenants()
-            .filter(agency_id=agency_id, is_deleted=False)
-            .select_related(*selects)
-            .prefetch_related(*prefetches)
-        )
-        if not is_super_admin(user) and not has_agency_permission(user, agency_id, "property.view_all_agency"):
-            membership = get_active_membership(user, agency_id)
-            if not membership:
+        if membership.role.code == "BRANCH_MANAGER":
+            if not membership.branch_id:
                 return Property.objects.none()
+            qs = qs.filter(branch_id=membership.branch_id)
+        elif not has_agency_permission(user, agency_id, "property.view_all_agency"):
             policy = get_agency_policy(agency_id)
             if policy.property_view_scope == AgencyAccessPolicy.PropertyViewScope.PUBLIC_AGENCY:
                 qs = qs.filter(
@@ -386,11 +380,20 @@ def list_agency_properties(
 
 
 def get_property_for_context(*, user: Optional[User], agency_id: Optional[UUID], property_id: UUID) -> tuple[Property, bool]:
-    if user and user.is_authenticated and (agency_id or is_super_admin(user)):
+    if user and user.is_authenticated and is_super_admin(user):
+        if agency_id:
+            prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
+        else:
+            with tenant_bypass(reason="platform_reports"):
+                prop = Property.objects.all_tenants().filter(id=property_id, is_deleted=False).first()
+        if prop:
+            return prop, True
+    if user and user.is_authenticated and agency_id:
         prop = list_agency_properties(user=user, agency_id=agency_id).filter(id=property_id).first()
         if prop:
             return prop, True
-    prop = list_public_properties().filter(id=property_id).first()
+    with tenant_bypass(reason="public_catalog"):
+        prop = list_public_properties().filter(id=property_id).first()
     if not prop:
         raise NotFoundDomainError("ملک مورد نظر یافت نشد.")
     return prop, False
@@ -407,22 +410,23 @@ def get_property_timeline(*, user: Optional[User], agency_id: Optional[UUID], pr
             "occurred_at": prop.created_at.isoformat(),
         }
     ]
-    for ph in prop.price_history.all().order_by("-changed_at")[:10]:
-        events.append({
-            "id": f"price-{ph.id}",
-            "type": "PRICE_CHANGE",
-            "title": "تغییر قیمت ملک",
-            "detail": f"از {ph.previous_price} به {ph.new_price} {ph.currency_code}",
-            "occurred_at": ph.changed_at.isoformat(),
-        })
-    for sh in prop.status_history.all().order_by("-changed_at")[:10]:
-        events.append({
-            "id": f"status-{sh.id}",
-            "type": "STATUS_CHANGE",
-            "title": f"تغییر وضعیت از {sh.from_status} به {sh.to_status}",
-            "detail": sh.reason or "",
-            "occurred_at": sh.changed_at.isoformat(),
-        })
+    if is_internal:
+        for ph in prop.price_history.all().order_by("-changed_at")[:10]:
+            events.append({
+                "id": f"price-{ph.id}",
+                "type": "PRICE_CHANGE",
+                "title": "تغییر قیمت ملک",
+                "detail": f"از {ph.previous_price} به {ph.new_price} {ph.currency_code}",
+                "occurred_at": ph.changed_at.isoformat(),
+            })
+        for sh in prop.status_history.all().order_by("-changed_at")[:10]:
+            events.append({
+                "id": f"status-{sh.id}",
+                "type": "STATUS_CHANGE",
+                "title": f"تغییر وضعیت از {sh.from_status} به {sh.to_status}",
+                "detail": sh.reason or "",
+                "occurred_at": sh.changed_at.isoformat(),
+            })
     if is_internal:
         for ap in ViewingAppointment.objects.all_tenants().filter(property=prop).select_related("customer")[:10]:
             events.append({
@@ -446,12 +450,13 @@ def get_property_timeline(*, user: Optional[User], agency_id: Optional[UUID], pr
 
 def get_related_properties(*, prop: Property, limit: int = 4) -> list[Property]:
     loc = getattr(prop, "location", None)
-    qs = list_public_properties(
-        city_id=loc.city_ref_id if loc and loc.city_ref_id else None,
-        city=loc.city if (loc and not loc.city_ref_id) else None,
-        deal_type=prop.deal_type_id,
-    ).exclude(id=prop.id)
-    return list(qs[:limit])
+    with tenant_bypass(reason="public_catalog"):
+        qs = list_public_properties(
+            city_id=loc.city_ref_id if loc and loc.city_ref_id else None,
+            city=loc.city if (loc and not loc.city_ref_id) else None,
+            deal_type=prop.deal_type_id,
+        ).exclude(id=prop.id)
+        return list(qs[:limit])
 
 
 def serialize_property_owners(user: User, prop: Property) -> list[dict]:
@@ -564,6 +569,22 @@ def create_property(*, user: User, agency_id: Optional[UUID], data: dict) -> Pro
     membership = get_active_membership(user, agency_id)
     if not membership and not is_super_admin(user):
         raise PermissionDeniedDomainError("برای ثبت ملک باید عضو فعال یک آژانس باشید.")
+    if not (is_super_admin(user) or has_agency_permission(user, agency_id, "property.create")):
+        raise PermissionDeniedDomainError("مجوز ثبت ملک را ندارید.")
+    requested_branch_id = data.get("branch_id") or (membership.branch_id if membership else None)
+    if requested_branch_id:
+        from apps.branches.models import Branch
+        if not Branch.objects.filter(id=requested_branch_id, agency_id=agency_id, is_active=True).exists():
+            raise ValidationDomainError("شعبه انتخاب‌شده متعلق به این آژانس نیست یا فعال نیست.")
+    if membership and membership.role.code == "BRANCH_MANAGER":
+        if not membership.branch_id or requested_branch_id != membership.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند در شعبه خودش ملک ثبت کند.")
+    elif membership and not has_agency_permission(user, agency_id, "property.view_all_agency"):
+        if requested_branch_id != membership.branch_id:
+            raise PermissionDeniedDomainError("ثبت ملک خارج از شعبه تخصیص‌یافته مجاز نیست.")
+    if data.get("visibility") == Property.Visibility.PUBLIC_PORTAL or data.get("is_featured"):
+        if not has_agency_permission(user, agency_id, "property.publish"):
+            raise PermissionDeniedDomainError("مجوز انتشار یا ویژه‌سازی ملک را ندارید.")
 
     if Property.objects.all_tenants().filter(agency_id=agency_id, property_code=data["property_code"]).exists():
         raise ConflictDomainError("کد فایل ملک در این آژانس تکراری است.")
@@ -633,6 +654,11 @@ def create_property(*, user: User, agency_id: Optional[UUID], data: dict) -> Pro
         PropertyLocation.objects.create(property=prop, **loc_payload)
 
     if owner_customer_id:
+        from apps.customers.models import Customer
+        if not Customer.objects.all_tenants().filter(
+            id=owner_customer_id, agency_id=agency_id, is_deleted=False
+        ).exists():
+            raise ValidationDomainError("مالک ملک باید مشتری همین آژانس باشد.")
         PropertyOwner.objects.create(
             property=prop,
             owner_customer_id=owner_customer_id,
@@ -674,6 +700,18 @@ def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID,
         raise PermissionDeniedDomainError("شما مجوز ویرایش این ملک را ندارید.")
 
     prev_price = prop.total_price
+    if "branch_id" in data and data["branch_id"] is not None:
+        from apps.branches.models import Branch
+        if not Branch.objects.filter(id=data["branch_id"], agency_id=prop.agency_id, is_active=True).exists():
+            raise ValidationDomainError("شعبه انتخاب‌شده متعلق به این آژانس نیست یا فعال نیست.")
+        membership = get_active_membership(user, prop.agency_id)
+        if membership and membership.role.code == "BRANCH_MANAGER" and data["branch_id"] != membership.branch_id:
+            raise PermissionDeniedDomainError("انتقال ملک به شعبه دیگر مجاز نیست.")
+        if membership and not has_agency_permission(user, prop.agency_id, "property.view_all_agency") and data["branch_id"] != membership.branch_id:
+            raise PermissionDeniedDomainError("انتقال ملک خارج از شعبه تخصیص‌یافته مجاز نیست.")
+    if data.get("visibility") == Property.Visibility.PUBLIC_PORTAL or data.get("is_featured") is True:
+        if not has_agency_permission(user, prop.agency_id, "property.publish"):
+            raise PermissionDeniedDomainError("مجوز انتشار یا ویژه‌سازی ملک را ندارید.")
     location_data = data.pop("location", None)
     amenity_codes = data.pop("amenity_codes", None)
     amenity_values = data.pop("amenity_values", None)
@@ -858,7 +896,7 @@ def upload_property_media_file(
     )
     storage = get_storage_provider()
     stored = storage.put_bytes(
-        key_prefix=f"agencies/{prop.agency_id}/properties/{property_id}",
+        key_prefix=f"private/agencies/{prop.agency_id}/properties/{property_id}",
         safe_filename=safe_name,
         content=content,
         mime_type=verified_mime,
@@ -866,17 +904,69 @@ def upload_property_media_file(
     if is_cover:
         PropertyMedia.objects.filter(property=prop).update(is_cover=False)
     next_sort = PropertyMedia.objects.filter(property=prop).count() + 1
-    return PropertyMedia.objects.create(
+    media = PropertyMedia.objects.create(
         property=prop,
         media_type="IMAGE" if verified_mime.startswith("image/") else "DOCUMENT",
         file_key=stored.file_key,
-        url=stored.url,
+        url="",
         title=title or safe_name or prop.title,
         is_cover=is_cover,
         is_public=is_public,
         sort_order=next_sort,
         created_by=user,
     )
+    media.url = f"/api/v1/properties/{prop.id}/media/{media.id}/file"
+    media.save(update_fields=["url", "updated_at"])
+    return media
+
+
+def get_property_media_file(*, user: Optional[User], agency_id: Optional[UUID], property_id: UUID, media_id: UUID):
+    from apps.property_media.models import PropertyMedia
+    if user and is_super_admin(user):
+        with tenant_bypass(reason="platform_reports"):
+            prop = Property.objects.all_tenants().filter(id=property_id, is_deleted=False).first()
+            media = PropertyMedia.objects.filter(id=media_id, property=prop).first() if prop else None
+    elif user and agency_id:
+        prop = list_agency_properties(user=user, agency_id=agency_id).filter(id=property_id).first()
+        media = PropertyMedia.objects.filter(id=media_id, property=prop).first() if prop else None
+    else:
+        with tenant_bypass(reason="public_catalog"):
+            prop = Property.objects.all_tenants().filter(
+                id=property_id, is_deleted=False, status=Property.Status.PUBLISHED,
+                visibility=Property.Visibility.PUBLIC_PORTAL,
+            ).first()
+            media = PropertyMedia.objects.filter(id=media_id, property=prop).first() if prop else None
+    if not prop:
+        raise NotFoundDomainError("ملک یافت نشد یا دسترسی به رسانه آن مجاز نیست.")
+    if not media or not media.file_key:
+        raise NotFoundDomainError("فایل رسانه یافت نشد.")
+    is_public_listing = (
+        prop.status == Property.Status.PUBLISHED
+        and prop.visibility == Property.Visibility.PUBLIC_PORTAL
+        and media.is_public
+    )
+    if not is_public_listing and not (
+        user and (agency_id or is_super_admin(user))
+    ):
+        raise PermissionDeniedDomainError("دسترسی عمومی به این رسانه مجاز نیست.")
+    storage = get_storage_provider()
+    try:
+        content = storage.get_bytes(file_key=media.file_key)
+    except FileNotFoundError as exc:
+        raise NotFoundDomainError("فایل رسانه در مخزن یافت نشد.") from exc
+    import mimetypes
+    mime_type = mimetypes.guess_type(media.file_key)[0] or (
+        "image/jpeg" if media.media_type == "IMAGE" else "application/octet-stream"
+    )
+    if not is_public_listing and user:
+        record_audit_event(
+            action="PRIVATE_PROPERTY_MEDIA_DOWNLOADED",
+            resource_type="PropertyMedia",
+            resource_id=str(media.id),
+            actor=user,
+            agency_id=prop.agency_id,
+        )
+    return content, mime_type, media.title or f"property-{property_id}-media-{media_id}"
 
 
 @transaction.atomic
@@ -914,7 +1004,7 @@ def detect_property_anomalies(prop: Property) -> list[dict]:
     if not bool(get_setting_value("compliance.enable_duplicate_and_price_anomaly_detection", True)):
         return flags
 
-    with tenant_bypass():
+    with tenant_bypass(reason="compliance_duplicate_detection"): 
         if prop.deal_type_id == "SALE" and prop.total_price > Decimal("0") and prop.total_price < Decimal("50000000"):
             flags.append({
                 "code": "SUSPICIOUS_LOW_PRICE",
@@ -988,8 +1078,8 @@ def get_property_verification(*, user: User, agency_id: Optional[UUID], property
     prop = qs.first()
     if not prop:
         raise NotFoundDomainError("ملک یافت نشد.")
-    if not is_super_admin(user) and not get_active_membership(user, prop.agency_id):
-        raise PermissionDeniedDomainError("شما عضو آژانس این ملک نیستید.")
+    if not is_super_admin(user) and not can_view_property(user, prop):
+        raise PermissionDeniedDomainError("دسترسی به پرونده احراز اصالت این ملک مجاز نیست.")
 
     ver = PropertyVerification.objects.select_related(
         "verified_by", "override_by", "evidence_document"

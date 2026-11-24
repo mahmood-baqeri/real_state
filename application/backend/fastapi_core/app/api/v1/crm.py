@@ -73,7 +73,7 @@ async def get_stages(ctx: RequestContext = Depends(require_agency_context)):
             for s in list_pipeline_stages(ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/pipeline")
@@ -83,7 +83,7 @@ async def get_pipeline(ctx: RequestContext = Depends(require_agency_context)):
 
         return [_ser_pipeline_item(it) for it in list_pipeline_items(user=ctx.user, agency_id=ctx.agency_id)]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/pipeline", status_code=201)
@@ -94,7 +94,7 @@ async def upsert_pipeline(body: PipelineUpsertBody, ctx: RequestContext = Depend
         it = upsert_pipeline_item(user=ctx.user, agency_id=ctx.agency_id, **body.model_dump())
         return _ser_pipeline_item(it)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/pipeline/{item_id}")
@@ -109,7 +109,7 @@ async def move_pipeline_stage(
         )
         return _ser_pipeline_item(it)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/tasks")
@@ -131,7 +131,7 @@ async def get_tasks(ctx: RequestContext = Depends(require_agency_context)):
             for t in list_follow_up_tasks(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/tasks", status_code=201)
@@ -142,7 +142,7 @@ async def post_task(body: TaskCreateBody, ctx: RequestContext = Depends(require_
         t = create_follow_up_task(user=ctx.user, agency_id=ctx.agency_id, **body.model_dump())
         return {"id": str(t.id), "title": t.title, "status": t.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/tasks/{task_id}")
@@ -155,7 +155,7 @@ async def patch_task(task_id: UUID, body: TaskPatchBody, ctx: RequestContext = D
         )
         return {"id": str(t.id), "status": t.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/interactions")
@@ -179,7 +179,7 @@ async def get_interactions(
             for i in list_interactions(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/interactions", status_code=201)
@@ -190,4 +190,4 @@ async def post_interaction(body: InteractionCreateBody, ctx: RequestContext = De
         i = add_interaction_log(user=ctx.user, agency_id=ctx.agency_id, **body.model_dump())
         return {"id": str(i.id), "channel": i.channel}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

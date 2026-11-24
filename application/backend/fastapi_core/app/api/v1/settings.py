@@ -7,6 +7,8 @@ from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, get_current_context, get_optional_context
 from app.schemas.common import ok
 
+from app.core.uploads import read_upload_limited
+
 router = APIRouter(prefix="/settings", tags=["Global Settings, Localization & Providers"])
 
 
@@ -221,7 +223,7 @@ async def public_bootstrap_endpoint(ctx: RequestContext = Depends(get_optional_c
 
         return get_public_bootstrap(agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/localization")
@@ -241,7 +243,7 @@ async def localization_endpoint(ctx: RequestContext = Depends(get_optional_conte
             "available_adapters": meta["available_adapters"],
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # ==============================================================================
@@ -268,7 +270,7 @@ async def list_settings_registry_endpoint(
         )
         return [serialize_system_setting(s) for s in items]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.put("/registry")
@@ -286,7 +288,7 @@ async def bulk_update_settings_endpoint(
         )
         return [serialize_system_setting(s) for s in items]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/registry/{setting_id}/reset")
@@ -303,7 +305,7 @@ async def reset_setting_endpoint(
         )
         return serialize_system_setting(s)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/registry/history")
@@ -331,7 +333,7 @@ async def list_setting_history_endpoint(
             )
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/registry/rollback/{history_id}")
@@ -343,7 +345,7 @@ async def rollback_setting_endpoint(
 
         return serialize_system_setting(rollback_system_setting(user=ctx.user, history_id=history_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/health")
@@ -353,7 +355,7 @@ async def system_health_endpoint(ctx: RequestContext = Depends(get_current_conte
 
         return get_system_health(user=ctx.user)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # ==============================================================================
@@ -404,7 +406,7 @@ async def update_branding_slot_endpoint(
             "is_active": s.is_active,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/branding/{slot_key}/upload")
@@ -415,7 +417,7 @@ async def upload_branding_slot_endpoint(
     alt_text: Optional[str] = Form(None),
     ctx: RequestContext = Depends(get_current_context),
 ):
-    content = await file.read()
+    content = await read_upload_limited(file)
 
     def _op():
         from apps.settings.services import upload_brand_media_slot
@@ -437,7 +439,7 @@ async def upload_branding_slot_endpoint(
             "alt_text": s.alt_text,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/branding/{slot_key}/image")
@@ -457,7 +459,7 @@ async def delete_branding_slot_image_endpoint(
             "dark_image_url": s.dark_image_url,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/content-blocks")
@@ -514,7 +516,7 @@ async def upsert_content_block_endpoint(
             "is_active": b.is_active,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # ==============================================================================
@@ -541,7 +543,7 @@ async def upsert_calendar_endpoint(
 
         return _ser_calendar(upsert_calendar(user=ctx.user, data=body.model_dump()))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/calendars/{code}/toggle")
@@ -555,7 +557,7 @@ async def toggle_calendar_endpoint(
             toggle_calendar(user=ctx.user, code=code, is_active=body.is_active, is_default=body.is_default)
         )
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/countries")
@@ -577,7 +579,7 @@ async def upsert_country_endpoint(
 
         return _ser_country(upsert_country(user=ctx.user, data=body.model_dump()))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/countries/{code}/toggle")
@@ -589,7 +591,7 @@ async def toggle_country_endpoint(
 
         return _ser_country(toggle_country(user=ctx.user, code=code, is_active=body.is_active))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/currencies")
@@ -611,7 +613,7 @@ async def upsert_currency_endpoint(
 
         return _ser_currency(upsert_currency(user=ctx.user, data=body.model_dump()))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/currencies/{code}/toggle")
@@ -623,7 +625,7 @@ async def toggle_currency_endpoint(
 
         return _ser_currency(toggle_currency(user=ctx.user, code=code, is_active=body.is_active))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/exchange-rates")
@@ -645,7 +647,7 @@ async def upsert_exchange_rate_endpoint(
 
         return _ser_fx(upsert_exchange_rate(user=ctx.user, data=body.model_dump()))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/exchange-rates/history")
@@ -668,7 +670,7 @@ async def list_exchange_rate_history_endpoint(ctx: RequestContext = Depends(get_
             for h in list_exchange_rate_history(user=ctx.user)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # ==============================================================================
@@ -689,7 +691,7 @@ async def list_providers_endpoint(
             for c in list_provider_configs(user=ctx.user, agency_id=ctx.agency_id, category=category)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/providers")
@@ -706,7 +708,7 @@ async def upsert_provider_endpoint(
         )
         return _ser_provider(c)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/providers/{config_id}/test")
@@ -718,4 +720,4 @@ async def test_provider_endpoint(
 
         return test_provider_config(user=ctx.user, agency_id=ctx.agency_id, config_id=config_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

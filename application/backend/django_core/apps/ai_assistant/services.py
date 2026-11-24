@@ -1,12 +1,15 @@
 from decimal import Decimal
 import ipaddress
 import socket
+import http.client
+import ssl
 from typing import Optional
 from urllib.parse import urlparse
 import urllib.request
 from uuid import UUID
 import xml.etree.ElementTree as ET
 from django.conf import settings as dj_settings
+from django.db import models
 from django.db.models import Count, Sum
 from apps.accounts.models import AgencyMembership, User
 from apps.cms.models import Article
@@ -18,7 +21,7 @@ from apps.settings.models import ProviderConfiguration
 from apps.settings.services import parse_provider_credentials, resolve_active_provider_config
 from apps.transactions.models import Deal
 from common.exceptions import NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
-from common.permissions import get_active_membership, get_effective_permissions, is_super_admin
+from common.permissions import get_active_membership, get_effective_permissions, has_agency_permission, is_super_admin
 from integrations.registry import get_ai_provider
 from .models import AiInteractionLog
 
@@ -68,7 +71,8 @@ def _build_grounded_agency_context(*, user: User, agency_id: Optional[UUID], tas
     ]
 
     cust_lines = []
-    if "*" in perms or "customer.view_all_agency" in perms or True:
+    customer_context_modes = {"CRM_SUMMARY", "CUSTOMER_SUMMARY", "NEGOTIATION_ADVICE"}
+    if task_mode.upper() in customer_context_modes and ("*" in perms or "customer.view_all_agency" in perms):
         custs = list(list_customers(user=user, agency_id=agency_id)[:6])
         cust_lines = [
             f"- {c.full_name} | نوع: {c.customer_type} | امتیاز آمادگی: {c.lead_score} ({c.readiness_level})"
@@ -76,7 +80,7 @@ def _build_grounded_agency_context(*, user: User, agency_id: Optional[UUID], tas
         ]
 
     finance_summary = "دسترسی مالی برای این نقش محدود است."
-    if "*" in perms or "deal.view_all_agency" in perms or "accounting.view" in perms:
+    if "*" in perms or "accounting.view" in perms:
         deals_agg = Deal.objects.all_tenants().filter(agency_id=agency_id).aggregate(
             count=Count("id"), total=Sum("deal_value")
         )
@@ -123,7 +127,29 @@ def _deterministic_grounded_fallback(*, user: User, agency_id: Optional[UUID], t
             "۲) پس از توافق روی عدد میانی، مرحله مذاکره را به «توافق اولیه» منتقل کرده و پیش‌نویس قرارداد را یکجا صادر کنید."
         )
     if task_mode == "AD_COPY":
+        if not props:
+            return "برای تولید متن آگهی مبتنی بر واقعیت، ابتدا یک ملک در محدوده دسترسی خود انتخاب کنید."
+        prop = props[0]
+        facts = [f"عنوان فایل: {prop.title}", f"کد فایل: {prop.property_code}"]
+        if prop.built_area_sqm:
+            facts.append(f"متراژ ثبت‌شده: {prop.built_area_sqm} مترمربع")
+        if prop.bedrooms is not None:
+            facts.append(f"تعداد اتاق: {prop.bedrooms}")
+        if prop.total_price:
+            facts.append(f"قیمت ثبت‌شده: {prop.total_price} {prop.currency_id}")
+        location = getattr(prop, "location", None)
+        if location:
+            if location.city:
+                facts.append(f"شهر: {location.city}")
+            if location.district:
+                facts.append(f"محله: {location.district}")
         return (
+            f"پیشنهاد متن آگهی بر اساس اطلاعات ثبت‌شده برای «{prop.title}»:\\n"
+            + "\\n".join(facts)
+            + "\\nبرای دریافت جزئیات تکمیلی و هماهنگی بازدید با مشاور تماس بگیرید. "
+            "ویژگی‌هایی که در پرونده ملک ثبت نشده‌اند عمداً به متن اضافه نشده‌اند."
+        )
+    return (
             f"پیشنهاد متن آگهی حرفه‌ای برای «{top_prop}»:\n"
             "عنوان: فرصت کم‌نظیر سرمایه‌گذاری و سکونت — نقشه مهندسی بدون پرتی\n"
             "متن: واحد خوش‌نقشه با نورگیری مستقیم، سند تک‌برگ آماده انتقال، دسترسی ممتاز به شریان‌های اصلی و مشاعات کامل. جهت دریافت جدول شرایط پرداخت و هماهنگی بازدید اختصاصی تماس بگیرید."
@@ -252,21 +278,73 @@ def summarize_negotiation_with_ai(
     )
 
 
-def _assert_ssrf_safe_https_url(url: str) -> str:
-    parsed = urlparse((url or "").strip())
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise ValidationDomainError("فقط نشانی‌های HTTPS معتبر برای دریافت فید مجاز هستند.")
-    host = parsed.hostname.lower()
-    if host in ("localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254") or host.endswith(".local"):
-        raise ValidationDomainError("دسترسی به نشانی‌های داخلی مجاز نیست (SSRF Protection).")
+def _resolve_public_feed_ips(host: str, port: int) -> list[str]:
     try:
-        ip_str = socket.gethostbyname(host)
-        ip = ipaddress.ip_address(ip_str)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            raise ValidationDomainError("دسترسی به شبکه خصوصی از طریق فید RSS مسدود است.")
+        records = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         raise ValidationDomainError("امکان تفکیک دامنه فید RSS وجود ندارد.") from exc
+    addresses = sorted({record[4][0] for record in records})
+    if not addresses:
+        raise ValidationDomainError("دامنه فید RSS به IP معتبر resolve نشد.")
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if not ip.is_global:
+            raise ValidationDomainError("دامنه فید RSS به IP خصوصی/رزروشده resolve شده است.")
+    return addresses
+
+
+def _assert_ssrf_safe_https_url(url: str) -> str:
+    try:
+        parsed = urlparse((url or "").strip())
+        port = parsed.port
+    except ValueError as exc:
+        raise ValidationDomainError("ساختار URL فید RSS نامعتبر است.") from exc
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.fragment or port not in (None, 443)):
+        raise ValidationDomainError("فقط URL استاندارد HTTPS بدون اطلاعات ورود یا پورت سفارشی مجاز است.")
+    host = parsed.hostname.rstrip(".").lower()
+    if host in ("localhost",) or host.endswith((".localhost", ".local", ".internal", ".test")):
+        raise ValidationDomainError("دسترسی به نام میزبان داخلی مجاز نیست.")
+    _resolve_public_feed_ips(host, 443)
     return parsed.geturl()
+
+
+def _fetch_safe_https_bytes(url: str, *, max_bytes: int = 250_000) -> bytes:
+    """Fetch HTTPS with DNS validation, pinned destination IP and redirects disabled."""
+    safe_url = _assert_ssrf_safe_https_url(url)
+    parsed = urlparse(safe_url)
+    host = parsed.hostname
+    pinned_ip = _resolve_public_feed_ips(host, 443)[0]
+
+    class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+        def connect(self):
+            raw = socket.create_connection((pinned_ip, 443), timeout=5)
+            self.sock = ssl.create_default_context().wrap_socket(raw, server_hostname=host)
+
+    connection = _PinnedHTTPSConnection(host, 443, timeout=5, context=ssl.create_default_context())
+    path = parsed.path or "/"
+    if parsed.query:
+        path += "?" + parsed.query
+    try:
+        connection.request("GET", path, headers={"Host": host, "User-Agent": "BonyanMelk-RSSReader/1.0", "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml"})
+        response = connection.getresponse()
+        if response.status in (301, 302, 303, 307, 308):
+            raise ValidationDomainError("تغییر مسیر در دریافت RSS مجاز نیست.")
+        if response.status != 200:
+            raise ValidationDomainError(f"دریافت فید RSS با وضعیت HTTP {response.status} ناموفق بود.")
+        content_length = response.getheader("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > max_bytes:
+                    raise ValidationDomainError("حجم فید RSS از سقف مجاز بیشتر است.")
+            except ValueError as exc:
+                raise ValidationDomainError("هدر Content-Length فید RSS نامعتبر است.") from exc
+        data = response.read(max_bytes + 1)
+        if len(data) > max_bytes:
+            raise ValidationDomainError("حجم فید RSS از سقف مجاز بیشتر است.")
+        return data
+    finally:
+        connection.close()
 
 
 def draft_property_listing(*, user: User, agency_id: UUID, property_id: UUID, tone: str = "FORMAL") -> dict:
@@ -275,11 +353,11 @@ def draft_property_listing(*, user: User, agency_id: UUID, property_id: UUID, to
     if not prop:
         raise NotFoundDomainError("ملک در آژانس شما یافت نشد.")
     loc = getattr(prop, "location", None)
-    city = loc.city if loc else "تهران"
+    city = loc.city if loc and loc.city else "موقعیت ثبت‌نشده"
     district = loc.district if loc and loc.district else ""
     loc_label = f"{city}، {district}".strip("، ")
     amenities = [a.name_fa for a in prop.amenities.all()[:5]]
-    amenities_str = "، ".join(amenities) if amenities else "نقشه مهندسی و نورگیری عالی"
+    amenities_str = "، ".join(amenities) if amenities else "امکاناتی در پرونده ثبت نشده است"
 
     tone_intro = (
         "فرصت سرمایه‌گذاری و سکونت ممتاز"
@@ -326,13 +404,17 @@ def summarize_customer_crm(*, user: User, agency_id: UUID, customer_id: UUID) ->
     if not customer:
         raise NotFoundDomainError("مشتری در آژانس شما یافت نشد.")
 
-    interactions = list(
-        CustomerInteractionLog.objects.all_tenants()
-        .filter(agency_id=agency_id, customer=customer)
-        .order_by("-created_at")[:6]
+    interaction_qs = CustomerInteractionLog.objects.all_tenants().filter(
+        agency_id=agency_id, customer=customer
     )
+    if not has_agency_permission(user, agency_id, "crm.private_note.view"):
+        membership = get_active_membership(user, agency_id)
+        interaction_qs = interaction_qs.filter(
+            models.Q(is_private=False) | models.Q(created_by=user) | models.Q(membership=membership)
+        )
+    interactions = list(interaction_qs.order_by("-created_at")[:6])
     open_tasks = FollowUpTask.objects.all_tenants().filter(
-        agency_id=agency_id, customer=customer, status="PENDING"
+        agency_id=agency_id, customer=customer, status=FollowUpTask.Status.OPEN
     ).count()
 
     next_action = (
@@ -459,9 +541,7 @@ def fetch_rss_topic_ideas(*, user: User, agency_id: Optional[UUID], feed_url: Op
         }
 
     safe_url = _assert_ssrf_safe_https_url(feed_url)
-    req = urllib.request.Request(safe_url, headers={"User-Agent": "BonyanMelk-RSSReader/1.0"})
-    with urllib.request.urlopen(req, timeout=5) as resp:
-        xml_bytes = resp.read(250_000)
+    xml_bytes = _fetch_safe_https_bytes(safe_url, max_bytes=250_000)
 
     root = ET.fromstring(xml_bytes)
     topics = []
@@ -555,7 +635,11 @@ def suggest_content_topics(
         ctype = "ARTICLE"
 
     city_label = (focus_city or "").strip()
-    base_topics = [dict(t) for t in CONTENT_TYPE_TOPICS[ctype]]
+    base_topics = [
+        {**dict(t), "keywords": ([k.strip() for k in t.get("keywords", "").split("،") if k.strip()]
+                                  if isinstance(t.get("keywords"), str) else list(t.get("keywords") or []))}
+        for t in CONTENT_TYPE_TOPICS[ctype]
+    ]
     if city_label:
         for item in base_topics:
             item["title"] = f"{item['title']} ({city_label})"
@@ -575,7 +659,7 @@ def suggest_content_topics(
                     0,
                     {
                         "title": f"تحلیل و معرفی فرصت‌های شاخص {top_prop.property_type.name_fa} در {dist}",
-                        "keywords": f"{top_prop.property_type.name_fa}، {dist}، {top_prop.deal_type.name_fa}",
+                        "keywords": [top_prop.property_type.name_fa, dist, top_prop.deal_type.name_fa],
                         "audience": audience or "متقاضیان فعال منطقه",
                     },
                 )
@@ -632,14 +716,12 @@ def _build_domain_content_draft(
         summary = f"توضیحات استاندارد آگهی ملکی جهت جذب {aud}"
         body_html = (
             f"<h2>{title}</h2>"
-            f"<p>یک انتخاب کم‌نظیر با استاندارد معماری مهندسی، نورگیری مطلوب و دسترسی سریع به شریان‌های اصلی شهر. این ملک از نظر مدارک مالکیتی و اصالت فایل به‌طور کامل بررسی شده است.</p>"
-            f"<h3>مشخصات و مزایای کلیدی</h3>"
-            f"<ul>"
-            f"<li>پلان کاربردی بدون فضای پرت و سالن یک‌تکه مناسب چیدمان مدرن</li>"
-            f"<li>وضعیت سند: معتبر و آماده بررسی حقوقی پیش از تنظیم قرارداد</li>"
-            f"<li>شرایط معامله قابل مذاکره با حضور مالک و مشاور پرونده</li>"
-            f"</ul>"
-            f"<p><strong>کلیدواژه‌ها:</strong> {kw_str}</p>"
+            f"<p>این متن یک قالب اولیه است و تا زمان تکمیل و تأیید مشخصات واقعی ملک نباید به‌عنوان آگهی قطعی منتشر شود.</p>"
+            f"<h3>اطلاعاتی که باید از پرونده ملک تکمیل شوند</h3>"
+            f"<ul><li>متراژ، تعداد اتاق، طبقه و سال ساخت</li>"
+            f"<li>موقعیت، امکانات و وضعیت پارکینگ/انباری</li>"
+            f"<li>قیمت، شرایط معامله و وضعیت مستندات مالکیت</li></ul>"
+            f"<p><strong>کلیدواژه‌های پیشنهادی:</strong> {kw_str}</p>"
         )
     else:
         type_headings = {
@@ -760,6 +842,8 @@ def generate_ai_content(*, user: User, agency_id: Optional[UUID], data: dict) ->
         "requires_human_approval": True,
         "provider": provider_used,
         "model": resolved_model,
+        "ai_model": resolved_model,
+        "slug": draft["suggested_slug"],
         "tokens_used": tokens_used,
         "latency_ms": latency_ms,
         "fallback_note": fallback_note,
@@ -838,6 +922,7 @@ def rewrite_ai_content(*, user: User, agency_id: Optional[UUID], data: dict) -> 
         "auto_published": False,
         "provider": provider_used,
         "model": resolved_model,
+        "ai_model": resolved_model,
         "tokens_used": tokens_used,
     }
     AiInteractionLog.objects.create(

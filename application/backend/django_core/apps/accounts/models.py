@@ -210,3 +210,23 @@ class MembershipPermissionOverride(models.Model):
     class Meta:
         db_table = "accounts_membership_permission_override"
         unique_together = ("membership", "permission")
+
+
+class WebSocketTicket(models.Model):
+    """Single-use, 30-second credential for browser WebSocket handshakes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ticket_jti = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="websocket_tickets")
+    session_jti = models.CharField(max_length=64, db_index=True)
+    agency_id = models.UUIDField(null=True, blank=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "accounts_websocket_ticket"
+        indexes = [
+            models.Index(fields=["user", "expires_at"], name="accounts_ws_user_exp_idx"),
+            models.Index(fields=["ticket_jti", "used_at"], name="accounts_ws_jti_used_idx"),
+        ]

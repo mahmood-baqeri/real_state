@@ -1,6 +1,7 @@
 from typing import Optional
+from urllib.parse import quote
 from uuid import UUID
-from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from pydantic import BaseModel
 from app.core.django_bridge import run_django
 from app.core.security import extract_client_ip
@@ -17,7 +18,6 @@ class DocumentCreateBody(BaseModel):
     property_id: Optional[UUID] = None
     customer_id: Optional[UUID] = None
     contract_id: Optional[UUID] = None
-    file_key: Optional[str] = None
     mime_type: str = "application/pdf"
     file_size_bytes: int = 1024
 
@@ -49,7 +49,6 @@ def _ser_doc(d) -> dict:
             {
                 "id": str(v.id),
                 "version_number": v.version_number,
-                "file_key": v.file_key,
                 "mime_type": v.mime_type,
                 "file_size_bytes": v.file_size_bytes,
             }
@@ -85,7 +84,7 @@ async def list_documents_endpoint(
         )
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_doc)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -100,7 +99,7 @@ async def create_document_endpoint(
         doc = create_document(user=ctx.user, agency_id=ctx.agency_id, data=data)
         return _ser_doc(doc)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/upload", status_code=201)
@@ -114,7 +113,24 @@ async def upload_document_endpoint(
     contract_id: Optional[UUID] = Form(None),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    content = await file.read()
+    # Read in bounded chunks. Never call UploadFile.read() without a size limit.
+    from app.core.django_bridge import init_django
+    init_django()
+    from django.conf import settings as django_settings
+
+    max_bytes = int(getattr(django_settings, "MAX_UPLOAD_FILE_BYTES", 10 * 1024 * 1024))
+    chunk_size = 64 * 1024
+    content_buffer = bytearray()
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        if len(content_buffer) + len(chunk) > max_bytes:
+            await file.close()
+            raise HTTPException(status_code=413, detail="حجم فایل از سقف مجاز بیشتر است.")
+        content_buffer.extend(chunk)
+    content = bytes(content_buffer)
+    await file.close()
 
     def _op():
         from apps.documents.services import upload_document_file
@@ -134,7 +150,7 @@ async def upload_document_endpoint(
         )
         return _ser_doc(doc)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{document_id}")
@@ -154,7 +170,7 @@ async def patch_document_endpoint(
         )
         return _ser_doc(doc)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/{document_id}")
@@ -168,7 +184,7 @@ async def delete_document_endpoint(
         doc = soft_delete_document(user=ctx.user, agency_id=ctx.agency_id, document_id=document_id)
         return {"id": str(doc.id), "archived": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{document_id}/download")
@@ -189,11 +205,10 @@ async def download_document_endpoint(
         return {
             "id": str(doc.id),
             "title": doc.title,
-            "file_key": latest.file_key if latest else None,
             "download_logged": True,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{document_id}/content")
@@ -222,10 +237,17 @@ async def get_document_content_endpoint(
             raise NotFoundDomainError("فایل فیزیکی در مخزن ذخیره‌سازی یافت نشد.")
         return raw, latest.mime_type, latest.file_key.split("/")[-1]
 
-    raw, mime, fname = await run_django(_op, agency_id=ctx.agency_id)
+    raw, mime, fname = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     disposition = "inline" if inline else "attachment"
+    safe_name = (fname or "document.bin").replace("\r", "").replace("\n", "").replace('"', "")
+    encoded_name = quote(safe_name, safe="")
     return Response(
         content=raw,
         media_type=mime,
-        headers={"Content-Disposition": f'{disposition}; filename="{fname}"'},
+        headers={
+            "Content-Disposition": f"{disposition}; filename*=UTF-8''{encoded_name}",
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
     )

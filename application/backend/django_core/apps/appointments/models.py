@@ -62,6 +62,11 @@ class ViewingAppointment(TenantScopedModel):
     @classmethod
     @transaction.atomic
     def schedule_safely(cls, **kwargs):
+        # Serialize bookings sharing either the agent or the property.
+        agent = kwargs["agent_membership"]
+        prop = kwargs["property"]
+        type(agent).objects.select_for_update().get(pk=agent.pk)
+        type(prop).objects.all_tenants().select_for_update().get(pk=prop.pk)
         cls.check_conflict(
             agent_membership_id=kwargs["agent_membership"].id,
             property_id=kwargs["property"].id,

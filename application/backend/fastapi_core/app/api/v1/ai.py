@@ -47,7 +47,7 @@ async def ai_status_endpoint(ctx: RequestContext = Depends(get_current_context))
 
         return get_ai_status(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/assistant/chat")
@@ -66,7 +66,7 @@ async def assistant_chat_endpoint(
             history=body.history,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/negotiation-summary")
@@ -83,7 +83,7 @@ async def negotiation_summary_endpoint(
             model=body.model,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/property-copy")
@@ -95,7 +95,7 @@ async def property_copy_endpoint(body: PropertyCopyBody, ctx: RequestContext = D
             user=ctx.user, agency_id=ctx.agency_id, property_id=body.property_id, tone=body.tone
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/crm-summary")
@@ -105,7 +105,7 @@ async def crm_summary_endpoint(body: CrmSummaryBody, ctx: RequestContext = Depen
 
         return summarize_customer_crm(user=ctx.user, agency_id=ctx.agency_id, customer_id=body.customer_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/seo-draft")
@@ -121,7 +121,7 @@ async def seo_draft_endpoint(body: SeoDraftBody, ctx: RequestContext = Depends(g
             target_city=body.target_city,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/rss-topics")
@@ -135,7 +135,7 @@ async def rss_topics_endpoint(body: RssTopicsBody, ctx: RequestContext = Depends
             feed_url=body.feed_url,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/portfolio-insights")
@@ -145,7 +145,7 @@ async def portfolio_insights_endpoint(ctx: RequestContext = Depends(require_agen
 
         return get_portfolio_insights(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/logs")
@@ -169,7 +169,7 @@ async def ai_logs_endpoint(ctx: RequestContext = Depends(get_current_context)):
             for log in list_ai_logs(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 class ContentTopicsBody(BaseModel):
@@ -234,7 +234,7 @@ async def get_ai_content_topics_endpoint(
             audience=audience,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/content/topics")
@@ -252,7 +252,7 @@ async def post_ai_content_topics_endpoint(
             audience=body.audience,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/content/generate")
@@ -266,7 +266,7 @@ async def generate_ai_content_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/content/rewrite")
@@ -280,7 +280,7 @@ async def rewrite_ai_content_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/content/save-draft", status_code=201)
@@ -302,5 +302,5 @@ async def save_ai_content_draft_endpoint(
             "ai_generated": art.ai_generated,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 

@@ -53,7 +53,7 @@ def check_expiring_contracts_and_cheques_task() -> dict:
     from common.tenant.context import tenant_bypass
 
     soon = timezone.now() + timedelta(days=7)
-    with tenant_bypass():
+    with tenant_bypass(reason="scheduled_aggregation"): 
         cheques_count = ChequeInstrument.objects.all_tenants().filter(
             status=ChequeInstrument.Status.HELD, due_date__lte=soon
         ).count()

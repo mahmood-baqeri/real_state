@@ -7,6 +7,7 @@ from django.apps import apps as dj_apps
 from django.core.management.base import BaseCommand
 from django.db import models as dj_models
 from apps.settings.seeding import seed_all_platform_data
+from common.tenant.context import tenant_bypass
 
 
 def _toposort_models(domain_models: list[type[dj_models.Model]]) -> list[type[dj_models.Model]]:
@@ -140,10 +141,11 @@ class Command(BaseCommand):
         quiet = options.get("quiet", False)
         export_sql = (options.get("export_sql") or "").strip()
 
-        res = seed_all_platform_data(
-            log_fn=None if quiet else self.stdout.write,
-            verify_all=True,
-        )
+        with tenant_bypass(reason="platform_seed"):
+            res = seed_all_platform_data(
+                log_fn=None if quiet else self.stdout.write,
+                verify_all=True,
+            )
         if export_sql:
             written = _export_postgresql_seed_sql(Path(export_sql))
             if not quiet:

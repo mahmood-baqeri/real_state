@@ -58,7 +58,7 @@ async def get_property_virtual_tour_endpoint(
             }
         return serialize_virtual_tour_detail(tour)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/properties/{property_id}/virtual-tour", status_code=201)
@@ -80,7 +80,7 @@ async def create_property_virtual_tour_endpoint(
         )
         return serialize_virtual_tour_detail(tour)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/virtual-tours/{tour_id}")
@@ -99,7 +99,7 @@ async def get_virtual_tour_endpoint(
         )
         return serialize_virtual_tour_detail(tour)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/virtual-tours/{tour_id}")
@@ -119,7 +119,7 @@ async def patch_virtual_tour_endpoint(
         )
         return serialize_virtual_tour_detail(tour)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/virtual-tours/{tour_id}")
@@ -137,7 +137,7 @@ async def archive_virtual_tour_endpoint(
         )
         return {"archived": True, "tour_id": str(tour.id), "status": tour.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # Floors
@@ -154,7 +154,7 @@ async def list_floors_endpoint(
             for f in tour_service.list_floors(user=ctx.user, agency_id=ctx.agency_id, tour_id=tour_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/floors", status_code=201)
@@ -177,7 +177,7 @@ async def create_floor_endpoint(
         )
         return serialize_floor(f)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/floors/{floor_id}")
@@ -197,7 +197,7 @@ async def patch_floor_endpoint(
         )
         return serialize_floor(f)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/floors/{floor_id}")
@@ -211,7 +211,7 @@ async def delete_floor_endpoint(
         tour_service.delete_floor(user=ctx.user, agency_id=ctx.agency_id, floor_id=floor_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # Scenes
@@ -228,7 +228,7 @@ async def list_scenes_endpoint(
             for s in tour_service.list_scenes(user=ctx.user, agency_id=ctx.agency_id, tour_id=tour_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/scenes", status_code=201)
@@ -255,7 +255,7 @@ async def create_scene_endpoint(
         )
         return serialize_scene(s, include_details=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/scenes/{scene_id}")
@@ -269,7 +269,7 @@ async def get_scene_endpoint(
         s = get_scene_for_user(user=ctx.user, agency_id=ctx.agency_id, scene_id=scene_id, require_edit=False)
         return serialize_scene(s, include_details=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/scenes/{scene_id}")
@@ -289,7 +289,7 @@ async def patch_scene_endpoint(
         )
         return serialize_scene(s, include_details=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/scenes/{scene_id}")
@@ -303,7 +303,7 @@ async def delete_scene_endpoint(
         tour_service.delete_scene(user=ctx.user, agency_id=ctx.agency_id, scene_id=scene_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # Navigation Links & Hotspots
@@ -320,7 +320,7 @@ async def list_links_endpoint(
             for l in navigation_service.list_tour_links(user=ctx.user, agency_id=ctx.agency_id, tour_id=tour_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/links", status_code=201)
@@ -345,7 +345,7 @@ async def create_link_endpoint(
         )
         return serialize_scene_link(lnk)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/links/{link_id}")
@@ -359,7 +359,7 @@ async def delete_link_endpoint(
         navigation_service.delete_scene_link(user=ctx.user, agency_id=ctx.agency_id, link_id=link_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/scenes/{scene_id}/hotspots")
@@ -375,7 +375,7 @@ async def list_hotspots_endpoint(
             for hs in navigation_service.list_scene_hotspots(user=ctx.user, agency_id=ctx.agency_id, scene_id=scene_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scenes/{scene_id}/hotspots", status_code=201)
@@ -401,7 +401,7 @@ async def create_hotspot_endpoint(
         )
         return serialize_hotspot(hs)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/hotspots/{hotspot_id}")
@@ -421,7 +421,7 @@ async def patch_hotspot_endpoint(
         )
         return serialize_hotspot(hs)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/hotspots/{hotspot_id}")
@@ -435,7 +435,7 @@ async def delete_hotspot_endpoint(
         navigation_service.delete_hotspot(user=ctx.user, agency_id=ctx.agency_id, hotspot_id=hotspot_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # Processing Jobs Monitoring
@@ -454,7 +454,7 @@ async def list_jobs_endpoint(
             qs = qs.filter(state=state)
         return [serialize_processing_job(j) for j in qs[:50]]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/processing-jobs/{job_id}")
@@ -468,7 +468,7 @@ async def get_processing_job_endpoint(
         job = get_processing_job_for_user(user=ctx.user, agency_id=ctx.agency_id, job_id=job_id, require_edit=False)
         return serialize_processing_job(job)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/processing-jobs/{job_id}/retry")
@@ -482,7 +482,7 @@ async def retry_processing_job_endpoint(
         job = panorama_service.retry_processing_job(user=ctx.user, agency_id=ctx.agency_id, job_id=job_id)
         return serialize_processing_job(job)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/processing-jobs/{job_id}/cancel")
@@ -496,7 +496,7 @@ async def cancel_processing_job_endpoint(
         job = panorama_service.cancel_processing_job(user=ctx.user, agency_id=ctx.agency_id, job_id=job_id)
         return serialize_processing_job(job)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # Quality Report, Publication & Internal Analytics Summary
@@ -513,7 +513,7 @@ async def get_quality_report_endpoint(
         report = generate_tour_quality_report(tour, actor=ctx.user)
         return serialize_quality_report(report)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/publish")
@@ -527,7 +527,7 @@ async def publish_virtual_tour_endpoint(
         pub = publication_service.publish_virtual_tour(user=ctx.user, agency_id=ctx.agency_id, tour_id=tour_id)
         return serialize_publication(pub)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/unpublish")
@@ -541,7 +541,7 @@ async def unpublish_virtual_tour_endpoint(
         tour = publication_service.unpublish_virtual_tour(user=ctx.user, agency_id=ctx.agency_id, tour_id=tour_id)
         return {"tour_id": str(tour.id), "status": tour.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/virtual-tours/{tour_id}/publication")
@@ -562,7 +562,7 @@ async def get_publication_status_endpoint(
             "history": [serialize_publication(p) for p in pubs],
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/virtual-tours/{tour_id}/analytics")
@@ -579,4 +579,4 @@ async def get_tour_analytics_endpoint(
             tour_id=tour_id,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

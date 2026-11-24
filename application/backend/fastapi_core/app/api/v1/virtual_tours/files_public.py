@@ -261,7 +261,7 @@ async def serve_virtual_tour_file_endpoint(
 
         raise NotFoundDomainError("نوع فایل درخواستی پشتیبانی نمی‌شود.")
 
-    raw_bytes, mime, filename, cache_ctrl = await run_django(_op, agency_id=ctx.agency_id)
+    raw_bytes, mime, filename, cache_ctrl = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return Response(
         content=raw_bytes,
         media_type=mime,

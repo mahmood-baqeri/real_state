@@ -55,7 +55,7 @@ async def list_subscriptions_endpoint(ctx: RequestContext = Depends(get_current_
             for s in list_user_push_subscriptions(user=ctx.user)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/subscribe", status_code=201)
@@ -73,7 +73,7 @@ async def subscribe_push_endpoint(body: PushSubscribeBody, ctx: RequestContext =
         )
         return {"id": str(sub.id), "device_label": sub.device_label, "is_active": sub.is_active}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/unsubscribe")
@@ -84,7 +84,7 @@ async def unsubscribe_push_endpoint(body: PushUnsubscribeBody, ctx: RequestConte
         count = unregister_push_subscription(user=ctx.user, endpoint=body.endpoint)
         return {"deactivated": count}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/preferences")
@@ -102,7 +102,7 @@ async def get_preferences_endpoint(ctx: RequestContext = Depends(get_current_con
             "quiet_hours_end": p.quiet_hours_end,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/preferences")
@@ -122,7 +122,7 @@ async def patch_preferences_endpoint(
             "quiet_hours_end": p.quiet_hours_end,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/test")
@@ -140,4 +140,4 @@ async def test_push_endpoint(ctx: RequestContext = Depends(get_current_context))
         )
         return {"id": str(msg.id), "delivery_status": msg.delivery_status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

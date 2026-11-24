@@ -196,31 +196,39 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!accessToken || typeof window === "undefined") return;
-    if (window.location.protocol !== "http:") return;
     let ws: WebSocket | null = null;
-    try {
-      const wsUrl = `ws://${window.location.hostname}:8020/api/v1/ws/notifications?token=${encodeURIComponent(accessToken)}`;
-      ws = new WebSocket(wsUrl);
-      ws.onmessage = (evt) => {
-        try {
-          const parsed = JSON.parse(evt.data);
-          if (parsed?.event === "notification_snapshot" && typeof parsed?.data?.unread_count === "number") {
-            setWsUnreadCount(parsed.data.unread_count);
+    let cancelled = false;
+    (async () => {
+      try {
+        const ticketResponse = await apiFetch<{ ticket: string }>("/api/v1/auth/ws-ticket", {
+          method: "POST",
+          token: accessToken,
+          agencyId: activeAgencyId,
+        });
+        if (cancelled) return;
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        const wsUrl = `${proto}://${window.location.hostname}:8020/api/v1/ws/notifications`;
+        ws = new WebSocket(wsUrl, ["bonyan.auth", `ticket.${ticketResponse.data.ticket}`]);
+        ws.onmessage = (evt) => {
+          try {
+            const parsed = JSON.parse(evt.data);
+            if (parsed?.event === "notification_snapshot" && typeof parsed?.data?.unread_count === "number") {
+              setWsUnreadCount(parsed.data.unread_count);
+            }
+          } catch {
+            // ignore malformed event
           }
-        } catch {
-          // ignore malformed event
-        }
-      };
-      ws.onerror = () => {
-        ws?.close();
-      };
-    } catch {
-      // ignore if ws blocked
-    }
+        };
+        ws.onerror = () => ws?.close();
+      } catch {
+        // REST notification polling remains the fallback.
+      }
+    })();
     return () => {
+      cancelled = true;
       ws?.close();
     };
-  }, [accessToken]);
+  }, [accessToken, activeAgencyId]);
 
   const { data: restUnreadCount = 0 } = useQuery({
     queryKey: ["unread-notifications-count", user?.id],

@@ -125,9 +125,10 @@ export default async function BlogArticleDetailPage({
               </div>
             </div>
 
-            <div className="space-y-4 text-sm leading-8 text-slate-800 dark:text-slate-200 whitespace-pre-line">
-              {article.content_body}
-            </div>
+            <div
+              className="prose prose-slate dark:prose-invert max-w-none text-sm leading-8"
+              dangerouslySetInnerHTML={{ __html: article.content_body }}
+            />
 
             {article.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 border-t border-slate-100 dark:border-slate-800 pt-5">

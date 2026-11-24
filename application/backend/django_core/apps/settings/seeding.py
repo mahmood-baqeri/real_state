@@ -208,18 +208,24 @@ def _ensure_user(
 
 
 def collect_domain_model_counts() -> dict[str, int]:
-    """Counts rows across every installed domain model (excluding Django built-ins)."""
+    """Count persistent domain data, excluding framework and transient auth models.
+
+    WebSocketTicket rows are short-lived, single-use credentials. They must not be
+    pre-seeded, and an empty table after a fresh database seed is expected.
+    """
     counts: dict[str, int] = {}
     excluded_apps = {"admin", "auth", "contenttypes", "sessions", "messages"}
+    excluded_models = {"accounts.WebSocketTicket"}
     for model in dj_apps.get_models():
-        if model._meta.app_label in excluded_apps:
+        model_key = f"{model._meta.app_label}.{model.__name__}"
+        if model._meta.app_label in excluded_apps or model_key in excluded_models:
             continue
         manager = model.objects
         if hasattr(manager, "all_tenants"):
             qs = manager.all_tenants()
         else:
             qs = manager.all()
-        counts[f"{model._meta.app_label}.{model.__name__}"] = qs.count()
+        counts[model_key] = qs.count()
     return counts
 
 
@@ -565,6 +571,9 @@ def seed_all_platform_data(
         ("property.view_all_agency", "properties", "مشاهده تمام املاک آژانس"),
         ("property.edit_all_agency", "properties", "ویرایش تمام املاک آژانس"),
         ("property.publish", "properties", "تأیید و انتشار عمومی ملک"),
+        ("customer.create", "customers", "ایجاد پرونده مشتری"),
+        ("customer.related_records.view", "customers", "مشاهده اسناد و فعالیت‌های مرتبط با مشتری"),
+        ("crm.private_note.view", "crm", "مشاهده یادداشت‌های خصوصی CRM"),
         ("customer.view_all_agency", "customers", "مشاهده تمام مشتریان آژانس"),
         ("customer.edit_all_agency", "customers", "ویرایش تمام مشتریان آژانس"),
         ("customer.share", "customers", "اشتراک‌گذاری مشتری با سایر مشاوران"),
@@ -581,6 +590,12 @@ def seed_all_platform_data(
         ("virtual_tour.approve", "virtual_tours", "تأیید یا رد کیفیت پانوراما"),
         ("virtual_tour.publish", "virtual_tours", "انتشار و لغو انتشار عمومی تور مجازی"),
         ("virtual_tour.delete", "virtual_tours", "حذف یا آرشیو تور مجازی"),
+        ("document.view", "documents", "مشاهده اسناد مجاز آژانس"),
+        ("document.upload", "documents", "بارگذاری سند"),
+        ("document.edit", "documents", "ویرایش اطلاعات سند"),
+        ("document.delete", "documents", "حذف یا آرشیو سند"),
+        ("document.download", "documents", "دریافت محتوای سند"),
+        ("document.manage_access", "documents", "تغییر سطح محرمانگی سند"),
     ]
     for code, mod, desc in perm_codes:
         Permission.objects.get_or_create(
@@ -623,21 +638,18 @@ def seed_all_platform_data(
 
     for p in Permission.objects.filter(
         code__in=[
-            "agency.manage_branches",
             "property.create",
-            "property.view_all_agency",
             "property.publish",
-            "customer.view_all_agency",
-            "customer.share",
-            "owner.view_pii",
-            "appointment.view_all_agency",
-            "deal.view_all_agency",
-            "commission.view_all_agency",
+            "customer.create",
+            "customer.related_records.view",
             "virtual_tour.view",
             "virtual_tour.create",
             "virtual_tour.edit",
             "virtual_tour.approve",
             "virtual_tour.publish",
+            "document.view",
+            "document.upload",
+            "document.download",
         ]
     ):
         RolePermission.objects.get_or_create(role=branch_mgr_role, permission=p)
@@ -648,6 +660,8 @@ def seed_all_platform_data(
             "property.view_all_agency",
             "property.edit_all_agency",
             "property.publish",
+            "customer.create",
+            "customer.related_records.view",
             "customer.view_all_agency",
             "customer.edit_all_agency",
             "customer.share",
@@ -658,12 +672,20 @@ def seed_all_platform_data(
             "virtual_tour.create",
             "virtual_tour.edit",
             "virtual_tour.approve",
+            "document.view",
+            "document.upload",
+            "document.edit",
+            "document.download",
+            "document.manage_access",
         ]
     ):
         RolePermission.objects.get_or_create(role=sales_mgr_role, permission=p)
 
     for p in Permission.objects.filter(
-        code__in=["property.create", "virtual_tour.view", "virtual_tour.create", "virtual_tour.edit"]
+        code__in=[
+            "property.create", "customer.create", "virtual_tour.view", "virtual_tour.create", "virtual_tour.edit",
+            "document.view", "document.upload", "document.download",
+        ]
     ):
         RolePermission.objects.get_or_create(role=agent_role, permission=p)
 
@@ -673,6 +695,12 @@ def seed_all_platform_data(
             "accounting.post",
             "commission.view_all_agency",
             "deal.view_all_agency",
+            "document.view",
+            "document.upload",
+            "document.edit",
+            "document.delete",
+            "document.download",
+            "document.manage_access",
         ]
     ):
         RolePermission.objects.get_or_create(role=acct_role, permission=p)
@@ -681,6 +709,15 @@ def seed_all_platform_data(
         code__in=["customer.view_all_agency", "appointment.view_all_agency"]
     ):
         RolePermission.objects.get_or_create(role=support_role, permission=p)
+
+    RolePermission.objects.filter(
+        role=branch_mgr_role,
+        permission__code__in=[
+            "agency.manage_branches", "property.view_all_agency", "customer.view_all_agency",
+            "customer.share", "owner.view_pii", "appointment.view_all_agency",
+            "deal.view_all_agency", "commission.view_all_agency",
+        ],
+    ).delete()
 
     # 4. All 9 Platform, Agency & Customer Demo Accounts
     super_admin = _ensure_user(

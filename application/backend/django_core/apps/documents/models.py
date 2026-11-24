@@ -33,6 +33,7 @@ class DocumentVersion(BaseModel):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="versions")
     version_number = models.PositiveIntegerField()
     file_key = models.CharField(max_length=255)
+    legacy_public_file_key = models.CharField(max_length=255, blank=True, default="")
     mime_type = models.CharField(max_length=80)
     file_size_bytes = models.BigIntegerField()
 

@@ -89,7 +89,7 @@ async def list_coa_endpoint(ctx: RequestContext = Depends(require_agency_context
             for a in list_coa(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/coa", status_code=201)
@@ -102,7 +102,7 @@ async def create_coa_endpoint(
         a = create_coa_account(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"id": str(a.id), "code": a.code, "name": a.name}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/journal-entries")
@@ -120,7 +120,7 @@ async def list_journal_entries_endpoint(
             qs, page=page, page_size=page_size, serializer_fn=_ser_journal_entry
         )
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -136,7 +136,7 @@ async def post_journal_entry_endpoint(
         )
         return _ser_journal_entry(je)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/journal-entries/{entry_id}/reverse")
@@ -151,7 +151,7 @@ async def reverse_journal_entry_endpoint(
         )
         return _ser_journal_entry(rev)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/treasury")
@@ -214,7 +214,7 @@ async def list_treasury_endpoint(ctx: RequestContext = Depends(require_agency_co
             ],
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cheques", status_code=201)
@@ -227,7 +227,7 @@ async def create_cheque_endpoint(
         ch = create_cheque(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"id": str(ch.id), "cheque_number": ch.cheque_number, "status": ch.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/cheques/{cheque_id}")
@@ -242,7 +242,7 @@ async def patch_cheque_endpoint(
         )
         return {"id": str(ch.id), "status": ch.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/trial-balance")
@@ -257,7 +257,7 @@ async def trial_balance_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, fiscal_period_id=fiscal_period_id
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/financial-statements")
@@ -267,7 +267,7 @@ async def financial_statements_endpoint(ctx: RequestContext = Depends(require_ag
 
         return get_financial_statements(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/general-ledger/{account_id}")
@@ -279,7 +279,7 @@ async def general_ledger_endpoint(
 
         return get_general_ledger(user=ctx.user, agency_id=ctx.agency_id, account_id=account_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/fiscal-periods")
@@ -299,7 +299,7 @@ async def list_fiscal_periods_endpoint(ctx: RequestContext = Depends(require_age
             for p in list_fiscal_periods(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/fiscal-periods/{period_id}/close")
@@ -312,4 +312,4 @@ async def close_fiscal_period_endpoint(
         p = close_fiscal_period(user=ctx.user, agency_id=ctx.agency_id, period_id=period_id)
         return {"id": str(p.id), "name": p.name, "is_closed": p.is_closed}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

@@ -17,7 +17,7 @@ from common.exceptions import (
     PermissionDeniedDomainError,
     ValidationDomainError,
 )
-from common.permissions import get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
+from common.permissions import can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
 from .models import Contract, ContractAmendment, ContractParty, ContractStatusHistory, ContractTemplate
 
 EDITABLE_CONTRACT_STATUSES = {
@@ -120,25 +120,25 @@ def list_contracts(*, user: User, agency_id: Optional[UUID], status_filter: Opti
         .select_related("property", "deal_type", "template", "currency", "agency")
         .prefetch_related("parties", "amendments__approved_by")
     )
-    if agency_id:
-        qs = qs.filter(agency_id=agency_id)
-    elif not is_super_admin(user):
-        raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
-
-    if not is_super_admin(user) and agency_id and not has_agency_permission(user, agency_id, "deal.view_all_agency"):
+    if not agency_id:
+        return Contract.objects.none()
+    qs = qs.filter(agency_id=agency_id)
+    if not is_super_admin(user):
         membership = get_active_membership(user, agency_id)
         if not membership:
             return Contract.objects.none()
-        policy = get_agency_policy(agency_id)
-        if policy.contract_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE:
-            if membership.role.code not in ("AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"):
+        if membership.role.code == "BRANCH_MANAGER":
+            qs = qs.filter(property__branch_id=membership.branch_id) if membership.branch_id else qs.none()
+        elif not has_agency_permission(user, agency_id, "deal.view_all_agency"):
+            policy = get_agency_policy(agency_id)
+            if not policy or policy.contract_visibility != AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE:
                 qs = qs.filter(
                     models.Q(created_by=user) | models.Q(property__agent_assignments__membership=membership)
                 ).distinct()
-        else:
-            qs = qs.filter(
-                models.Q(created_by=user) | models.Q(property__agent_assignments__membership=membership)
-            ).distinct()
+            elif membership.role.code not in ("AGENCY_MANAGER", "AGENCY_ACCOUNTANT"):
+                qs = qs.filter(
+                    models.Q(created_by=user) | models.Q(property__agent_assignments__membership=membership)
+                ).distinct()
 
     if status_filter:
         qs = qs.filter(status=status_filter)
@@ -161,6 +161,30 @@ def create_contract(*, user: User, agency_id: Optional[UUID], data: dict) -> Con
         raise PermissionDeniedDomainError("عضو فعال آژانس نیستید.")
     if Contract.objects.all_tenants().filter(agency_id=agency_id, contract_number=data["contract_number"]).exists():
         raise ConflictDomainError("شماره قرارداد در این آژانس تکراری است.")
+    from apps.properties.models import Property
+    from apps.customers.models import Customer
+    prop = Property.objects.all_tenants().filter(id=data["property_id"], agency_id=agency_id, is_deleted=False).first()
+    if not prop:
+        raise NotFoundDomainError("ملک قرارداد متعلق به این آژانس نیست.")
+    if membership and not can_edit_property(user, prop):
+        raise PermissionDeniedDomainError("برای ثبت قرارداد روی این ملک مجوز ندارید.")
+    if membership and membership.role.code == "BRANCH_MANAGER" and (
+        not membership.branch_id or prop.branch_id != membership.branch_id
+    ):
+        raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند برای ملک شعبه خودش قرارداد ثبت کند.")
+    if data.get("template_id") and not ContractTemplate.objects.filter(
+        id=data["template_id"]
+    ).filter(models.Q(agency_id=agency_id) | models.Q(agency__isnull=True)).exists():
+        raise ValidationDomainError("قالب قرارداد باید عمومی یا متعلق به همین آژانس باشد.")
+    for party in data.get("parties", []):
+        if party.get("customer_id"):
+            party_customer = Customer.objects.all_tenants().filter(
+                id=party["customer_id"], agency_id=agency_id, is_deleted=False
+            ).first()
+            if not party_customer:
+                raise ValidationDomainError("طرف قرارداد باید مشتری همین آژانس باشد.")
+            if membership and not can_edit_customer(user, party_customer):
+                raise PermissionDeniedDomainError("دسترسی به پرونده یکی از طرفین قرارداد مجاز نیست.")
 
     init_status = data.get("status", Contract.Status.DRAFT)
     if init_status not in {c[0] for c in Contract.Status.choices}:
@@ -216,10 +240,38 @@ def create_contract(*, user: User, agency_id: Optional[UUID], data: dict) -> Con
 @transaction.atomic
 def update_contract(*, user: User, agency_id: Optional[UUID], contract_id: UUID, data: dict) -> Contract:
     contract = get_contract(user=user, agency_id=agency_id, contract_id=contract_id)
+    if not can_edit_property(user, contract.property):
+        raise PermissionDeniedDomainError("مجوز ویرایش این قرارداد را ندارید.")
     if contract.status not in EDITABLE_CONTRACT_STATUSES:
         raise ConflictDomainError(
             "قرارداد امضا، فعال یا تکمیل‌شده قابل ویرایش مستقیم نیست؛ فقط از طریق الحاقیه مجاز ثبت تغییر ممکن است."
         )
+    from apps.properties.models import Property
+    from apps.customers.models import Customer
+    if data.get("property_id"):
+        target_property = Property.objects.all_tenants().filter(
+            id=data["property_id"], agency_id=contract.agency_id, is_deleted=False
+        ).first()
+        if not target_property or not can_edit_property(user, target_property):
+            raise PermissionDeniedDomainError("ملک جدید قرارداد خارج از محدوده دسترسی شماست.")
+        current_membership = get_active_membership(user, contract.agency_id)
+        if current_membership and current_membership.role.code == "BRANCH_MANAGER" and target_property.branch_id != current_membership.branch_id:
+            raise PermissionDeniedDomainError("انتقال قرارداد به ملک شعبه دیگر مجاز نیست.")
+    if data.get("template_id") and not ContractTemplate.objects.filter(
+        id=data["template_id"]
+    ).filter(models.Q(agency_id=contract.agency_id) | models.Q(agency__isnull=True)).exists():
+        raise ValidationDomainError("قالب قرارداد باید عمومی یا متعلق به همین آژانس باشد.")
+    if "parties" in data:
+        for party in data.get("parties") or []:
+            if party.get("customer_id"):
+                party_customer = Customer.objects.all_tenants().filter(
+                    id=party["customer_id"], agency_id=contract.agency_id, is_deleted=False
+                ).first()
+                if not party_customer:
+                    raise ValidationDomainError("طرف قرارداد باید مشتری همین آژانس باشد.")
+                if not is_super_admin(user) and not can_edit_customer(user, party_customer):
+                    raise PermissionDeniedDomainError("دسترسی به پرونده یکی از طرفین قرارداد مجاز نیست.")
+
     editable_fields = [
         "contract_type",
         "property_id",
@@ -377,20 +429,18 @@ def list_deals(*, user: User, agency_id: Optional[UUID]):
         Deal.objects.all_tenants()
         .select_related("contract", "property", "primary_agent__user", "co_agent__user", "currency", "agency")
     )
-    if agency_id:
-        qs = qs.filter(agency_id=agency_id)
-    elif not is_super_admin(user):
-        raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
-
-    if is_super_admin(user) or (agency_id and has_agency_permission(user, agency_id, "deal.view_all_agency")):
+    if not agency_id:
+        return Deal.objects.none()
+    qs = qs.filter(agency_id=agency_id)
+    if is_super_admin(user):
         return qs.order_by("-created_at")
     membership = get_active_membership(user, agency_id)
     if not membership:
         return Deal.objects.none()
-    policy = get_agency_policy(agency_id)
-    if policy and policy.financial_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE:
-        if membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT"):
-            return qs.order_by("-created_at")
+    if membership.role.code == "BRANCH_MANAGER":
+        return qs.filter(property__branch_id=membership.branch_id).order_by("-created_at") if membership.branch_id else qs.none()
+    if has_agency_permission(user, agency_id, "deal.view_all_agency"):
+        return qs.order_by("-created_at")
     return qs.filter(models.Q(primary_agent=membership) | models.Q(co_agent=membership)).order_by("-created_at")
 
 
@@ -407,6 +457,10 @@ def create_deal(*, user: User, agency_id: Optional[UUID], data: dict) -> Deal:
         raise NotFoundDomainError("قرارداد مرتبط یافت نشد.")
     eff_agency_id = contract.agency_id
     membership = get_active_membership(user, eff_agency_id)
+    if not membership and not is_super_admin(user):
+        raise PermissionDeniedDomainError("عضو فعال آژانس معامله نیستید.")
+    if membership and not can_edit_property(user, contract.property):
+        raise PermissionDeniedDomainError("برای ثبت معامله روی این ملک مجوز ندارید.")
     if Deal.objects.all_tenants().filter(contract=contract).exists():
         raise ConflictDomainError("برای این قرارداد قبلاً معامله ثبت شده است.")
     if Deal.objects.all_tenants().filter(agency_id=eff_agency_id, deal_code=data["deal_code"]).exists():
@@ -415,6 +469,36 @@ def create_deal(*, user: User, agency_id: Optional[UUID], data: dict) -> Deal:
     primary_agent_id = data.get("primary_agent_id") or (membership.id if membership else None)
     if not primary_agent_id:
         raise PermissionDeniedDomainError("مشاور اصلی معامله مشخص نیست.")
+    from apps.accounts.models import AgencyMembership
+    primary_agent = AgencyMembership.objects.filter(
+        id=primary_agent_id, agency_id=eff_agency_id, status=AgencyMembership.Status.ACTIVE
+    ).first()
+    if not primary_agent:
+        raise ValidationDomainError("مشاور اصلی باید عضو فعال همین آژانس باشد.")
+    if membership and not has_agency_permission(user, eff_agency_id, "deal.view_all_agency") and primary_agent.id != membership.id:
+        raise PermissionDeniedDomainError("تخصیص معامله به مشاور دیگر مجاز نیست.")
+    if membership and membership.role.code == "BRANCH_MANAGER" and (
+        not membership.branch_id or contract.property.branch_id != membership.branch_id
+        or primary_agent.branch_id != membership.branch_id
+    ):
+        raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند معامله را در محدوده شعبه خودش ثبت کند.")
+    co_agent_id = data.get("co_agent_id")
+    if co_agent_id:
+        co_agent = AgencyMembership.objects.filter(
+            id=co_agent_id, agency_id=eff_agency_id, status=AgencyMembership.Status.ACTIVE
+        ).first()
+        if not co_agent:
+            raise ValidationDomainError("مشاور همکار باید عضو فعال همین آژانس باشد.")
+        if membership and not has_agency_permission(user, eff_agency_id, "deal.view_all_agency") and co_agent.id != membership.id:
+            raise PermissionDeniedDomainError("تخصیص مشاور همکار مجاز نیست.")
+        if membership and membership.role.code == "BRANCH_MANAGER" and co_agent.branch_id != membership.branch_id:
+            raise PermissionDeniedDomainError("مشاور همکار باید از شعبه خودتان باشد.")
+    if data.get("negotiation_id"):
+        from apps.negotiations.models import Negotiation
+        if not Negotiation.objects.all_tenants().filter(
+            id=data["negotiation_id"], agency_id=eff_agency_id, property=contract.property
+        ).exists():
+            raise ValidationDomainError("مذاکره انتخاب‌شده با آژانس یا ملک قرارداد تطبیق ندارد.")
 
     deal_currency_id = data.get("currency_id") or contract.currency_id
     base_currency = str(get_setting_value("finance.base_currency", "IRT") or "IRT").upper()

@@ -104,6 +104,13 @@ def score_property_for_requirement(prop: dict[str, Any], req: dict[str, Any]) ->
 
 
 def global_search(*, user: User, agency_id: Optional[UUID], query: str, limit: int = 5) -> dict:
+    if is_super_admin(user) and not agency_id:
+        with tenant_bypass(reason="platform_reports"):
+            return _global_search_impl(user=user, agency_id=agency_id, query=query, limit=limit)
+    return _global_search_impl(user=user, agency_id=agency_id, query=query, limit=limit)
+
+
+def _global_search_impl(*, user: User, agency_id: Optional[UUID], query: str, limit: int = 5) -> dict:
     """
     Permission-aware, tenant-isolated Global Search across 8 enterprise modules:
     properties, customers, owners, agents, contracts, tickets, documents, cms_articles.
@@ -126,36 +133,39 @@ def global_search(*, user: User, agency_id: Optional[UUID], query: str, limit: i
     super_admin = is_super_admin(user)
     membership = get_active_membership(user, agency_id) if agency_id else None
 
-    # 1. Properties
+    # 1. Properties: materialize public results while the public-catalog bypass is active.
+    def _property_results(prop_qs):
+        return [
+            {
+                "id": str(p.id),
+                "title": p.title,
+                "subtitle": f"{p.property_code} — {p.location.city if getattr(p, 'location', None) else ''}",
+                "href": f"/dashboard/properties" if (agency_id or super_admin) else f"/properties/{p.id}",
+            }
+            for p in prop_qs.select_related("location").filter(
+                Q(title__icontains=q) | Q(property_code__icontains=q) | Q(location__district__icontains=q)
+            )[:cap]
+        ]
+
     if super_admin and not agency_id:
         prop_qs = Property.objects.all_tenants().filter(is_deleted=False)
-    elif agency_id and membership:
+        properties = _property_results(prop_qs)
+    elif agency_id and (membership or super_admin):
         prop_qs = Property.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False)
-        if not has_agency_permission(user, agency_id, "property.view_all_agency"):
+        if not super_admin and not has_agency_permission(user, agency_id, "property.view_all_agency"):
             prop_qs = prop_qs.filter(
                 Q(agent_assignments__membership=membership)
                 | Q(created_by=user)
                 | Q(visibility=Property.Visibility.PUBLIC_PORTAL)
             ).distinct()
+        properties = _property_results(prop_qs)
     else:
-        with tenant_bypass():
+        with tenant_bypass(reason="public_catalog"):
             prop_qs = Property.objects.all_tenants().filter(
-                is_deleted=False,
-                status=Property.Status.PUBLISHED,
+                is_deleted=False, status=Property.Status.PUBLISHED,
                 visibility=Property.Visibility.PUBLIC_PORTAL,
             )
-
-    properties = [
-        {
-            "id": str(p.id),
-            "title": p.title,
-            "subtitle": f"{p.property_code} — {p.location.city if getattr(p, 'location', None) else ''}",
-            "href": f"/dashboard/properties" if (agency_id or super_admin) else f"/properties/{p.id}",
-        }
-        for p in prop_qs.select_related("location").filter(
-            Q(title__icontains=q) | Q(property_code__icontains=q) | Q(location__district__icontains=q)
-        )[:cap]
-    ]
+            properties = _property_results(prop_qs)
 
     # 2. Customers & Owners (Agency Staff / Super Admin only)
     customers_list: list[dict] = []
@@ -169,8 +179,11 @@ def global_search(*, user: User, agency_id: Optional[UUID], query: str, limit: i
         if agency_id:
             cust_base = cust_base.filter(agency_id=agency_id)
         if not super_admin and agency_id and not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+            from django.utils import timezone
             cust_base = cust_base.filter(
-                Q(assigned_membership=membership) | Q(shares__membership=membership)
+                Q(assigned_membership=membership)
+                | Q(shares__membership=membership, shares__expires_at__isnull=True)
+                | Q(shares__membership=membership, shares__expires_at__gt=timezone.now())
             ).distinct()
 
         for c in cust_base.filter(Q(full_name__icontains=q) | Q(primary_phone__icontains=q))[:cap]:
@@ -189,6 +202,8 @@ def global_search(*, user: User, agency_id: Optional[UUID], query: str, limit: i
         mem_qs = AgencyMembership.objects.select_related("user", "role").filter(status="ACTIVE")
         if agency_id:
             mem_qs = mem_qs.filter(agency_id=agency_id)
+            if membership and membership.role.code == "BRANCH_MANAGER":
+                mem_qs = mem_qs.filter(branch_id=membership.branch_id)
         agents_list = [
             {
                 "id": str(m.id),
@@ -221,25 +236,13 @@ def global_search(*, user: User, agency_id: Optional[UUID], query: str, limit: i
             for c in con_qs.filter(Q(contract_number__icontains=q) | Q(property__title__icontains=q))[:cap]
         ]
 
-        # Documents
-        doc_qs = Document.objects.all_tenants()
-        if agency_id:
-            doc_qs = doc_qs.filter(agency_id=agency_id)
-        if not (
-            super_admin
-            or (agency_id and has_agency_permission(user, agency_id, "accounting.view"))
-            or (agency_id and has_agency_permission(user, agency_id, "deal.view_all_agency"))
-        ):
-            doc_qs = doc_qs.exclude(access_level=Document.AccessLevel.CONFIDENTIAL)
+        # Documents use the same granular ACL and branch/agent scope as the document module.
+        from apps.documents.services import list_documents
+        visible_docs = list_documents(user=user, agency_id=agency_id)
         documents_list = [
-            {
-                "id": str(d.id),
-                "title": d.title,
-                "subtitle": d.category,
-                "href": "/dashboard/documents",
-            }
-            for d in doc_qs.filter(Q(title__icontains=q) | Q(category__icontains=q))[:cap]
-        ]
+            {"id": str(d.id), "title": d.title, "subtitle": d.category, "href": "/dashboard/documents"}
+            for d in visible_docs if q.casefold() in (d.title or "").casefold() or q.casefold() in (d.category or "").casefold()
+        ][:cap]
 
     # 3. Tickets (User's tickets or Agency/Platform tickets)
     t_qs = Ticket.objects.all()

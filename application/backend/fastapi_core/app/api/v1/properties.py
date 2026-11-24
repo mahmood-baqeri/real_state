@@ -1,11 +1,13 @@
 from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, Response
 from pydantic import BaseModel
 from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, get_current_context, get_optional_context, require_agency_context
 from app.schemas.common import ok
+
+from app.core.uploads import read_upload_limited
 
 router = APIRouter(prefix="/properties", tags=["Properties & Media"])
 
@@ -192,21 +194,23 @@ def _get_virtual_tour_brief(p, *, public_only: bool) -> dict:
     if public_only:
         if not is_property_publicly_publishable(p):
             return {"virtual_tour_id": None, "virtual_tour_status": None, "has_virtual_tour": False}
-        row = (
-            VirtualTour.objects.filter(
-                property_id=p.id,
-                status=VirtualTour.Status.PUBLISHED,
-                publications__is_active=True,
+        from common.tenant.context import tenant_bypass
+        with tenant_bypass(reason="public_catalog"):
+            row = (
+                VirtualTour.objects.filter(
+                    property_id=p.id,
+                    status=VirtualTour.Status.PUBLISHED,
+                    publications__is_active=True,
+                )
+                .order_by("-created_at")
+                .values("id", "status")
+                .first()
             )
-            .order_by("-created_at")
-            .values("id", "status")
-            .first()
-        )
-        return {
-            "virtual_tour_id": str(row["id"]) if row else None,
-            "virtual_tour_status": row["status"] if row else None,
-            "has_virtual_tour": bool(row),
-        }
+            return {
+                "virtual_tour_id": str(row["id"]) if row else None,
+                "virtual_tour_status": row["status"] if row else None,
+                "has_virtual_tour": bool(row),
+            }
 
     row = (
         VirtualTour.objects.filter(property_id=p.id)
@@ -306,27 +310,6 @@ def _ser_public_property(p, include_history: bool = False) -> dict:
         "view_count": p.view_count,
         "created_at": p.created_at.isoformat(),
     }
-    if include_history:
-        data["price_history"] = [
-            {
-                "id": str(ph.id),
-                "previous_price": str(ph.previous_price),
-                "new_price": str(ph.new_price),
-                "currency_code": ph.currency_code,
-                "changed_at": ph.changed_at.isoformat(),
-            }
-            for ph in p.price_history.all().order_by("changed_at")
-        ]
-        data["status_history"] = [
-            {
-                "id": str(sh.id),
-                "from_status": sh.from_status,
-                "to_status": sh.to_status,
-                "reason": sh.reason,
-                "changed_at": sh.changed_at.isoformat(),
-            }
-            for sh in p.status_history.all().order_by("-changed_at")
-        ]
     return data
 
 
@@ -462,7 +445,7 @@ async def create_amenity_category_endpoint(
         c = create_amenity_category(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"code": c.code, "name_fa": c.name_fa, "is_active": c.is_active}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/amenities", status_code=201)
@@ -482,7 +465,7 @@ async def upsert_amenity_endpoint(
             "is_active": am.is_active,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/amenities/{code}")
@@ -497,7 +480,7 @@ async def toggle_amenity_endpoint(
         )
         return {"code": am.code, "is_active": am.is_active}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/compare")
@@ -520,13 +503,13 @@ async def compare_properties(
                 items.append(
                     _ser_agency_property(prop, ctx.user, include_history=True)
                     if is_internal
-                    else _ser_public_property(prop, include_history=True)
+                    else _ser_public_property(prop, include_history=False)
                 )
             except Exception:
                 continue
         return items
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/public")
@@ -560,30 +543,32 @@ async def list_public(
         from common.pagination import paginate_queryset
 
         amenity_codes = [s.strip() for s in amenities.split(",") if s.strip()] if amenities else None
-        qs = list_public_properties(
-            province_id=province_id,
-            city_id=city_id,
-            district_id=district_id,
-            neighborhood_id=neighborhood_id,
-            city=city,
-            district=district,
-            deal_type=deal_type,
-            property_type=property_type,
-            min_price=min_price,
-            max_price=max_price,
-            min_area=min_area,
-            max_area=max_area,
-            min_bedrooms=min_bedrooms,
-            amenity_codes=amenity_codes,
-            min_lat=min_lat,
-            max_lat=max_lat,
-            min_lng=min_lng,
-            max_lng=max_lng,
-            polygon=polygon,
-            q=q,
-            featured_only=featured,
-        )
-        return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_public_property)
+        from common.tenant.context import tenant_bypass
+        with tenant_bypass(reason="public_catalog"):
+            qs = list_public_properties(
+                province_id=province_id,
+                city_id=city_id,
+                district_id=district_id,
+                neighborhood_id=neighborhood_id,
+                city=city,
+                district=district,
+                deal_type=deal_type,
+                property_type=property_type,
+                min_price=min_price,
+                max_price=max_price,
+                min_area=min_area,
+                max_area=max_area,
+                min_bedrooms=min_bedrooms,
+                amenity_codes=amenity_codes,
+                min_lat=min_lat,
+                max_lat=max_lat,
+                min_lng=min_lng,
+                max_lng=max_lng,
+                polygon=polygon,
+                q=q,
+                featured_only=featured,
+            )
+            return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_public_property)
 
     items, meta = await run_django(_op)
     return ok(items, meta=meta)
@@ -608,16 +593,18 @@ async def list_properties(
         from common.pagination import paginate_queryset
 
         if not ctx.is_authenticated or (not ctx.agency_id and ctx.user.platform_role == "CUSTOMER"):
-            qs = list_public_properties(
-                province_id=province_id,
-                city_id=city_id,
-                district_id=district_id,
-                neighborhood_id=neighborhood_id,
-                deal_type=deal_type,
-                property_type=property_type,
-                q=q,
-            )
-            return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_public_property)
+            from common.tenant.context import tenant_bypass
+            with tenant_bypass(reason="public_catalog"):
+                qs = list_public_properties(
+                    province_id=province_id,
+                    city_id=city_id,
+                    district_id=district_id,
+                    neighborhood_id=neighborhood_id,
+                    deal_type=deal_type,
+                    property_type=property_type,
+                    q=q,
+                )
+                return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_public_property)
 
         qs = list_agency_properties(
             user=ctx.user,
@@ -635,7 +622,7 @@ async def list_properties(
             qs, page=page, page_size=page_size, serializer_fn=lambda p: _ser_agency_property(p, ctx.user)
         )
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -650,7 +637,7 @@ async def create_property_endpoint(
         prop = create_property(user=ctx.user, agency_id=ctx.agency_id, data=data)
         return _ser_agency_property(prop, ctx.user, include_history=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/violations")
@@ -681,7 +668,7 @@ async def list_property_violations_endpoint(
             for r in list_violation_reports(user=ctx.user, agency_id=ctx.agency_id, status_filter=status)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/violations/{report_id}/resolve")
@@ -708,7 +695,7 @@ async def resolve_property_violation_endpoint(
             "property_status": r.property.status,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{property_id}")
@@ -722,12 +709,12 @@ async def get_property(property_id: UUID, ctx: RequestContext = Depends(get_opti
         payload = (
             _ser_agency_property(prop, ctx.user, include_history=True)
             if is_internal
-            else _ser_public_property(prop, include_history=True)
+            else _ser_public_property(prop, include_history=False)
         )
         payload["related_properties"] = [_ser_public_property(rp) for rp in get_related_properties(prop=prop, limit=3)]
         return payload
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{property_id}/timeline")
@@ -737,7 +724,7 @@ async def get_property_timeline_endpoint(property_id: UUID, ctx: RequestContext 
 
         return get_property_timeline(user=ctx.user, agency_id=ctx.agency_id, property_id=property_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{property_id}/related")
@@ -748,7 +735,7 @@ async def get_related_properties_endpoint(property_id: UUID, ctx: RequestContext
         prop, _ = get_property_for_context(user=ctx.user, agency_id=ctx.agency_id, property_id=property_id)
         return [_ser_public_property(rp) for rp in get_related_properties(prop=prop, limit=4)]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{property_id}")
@@ -766,7 +753,7 @@ async def patch_property(
         )
         return _ser_agency_property(prop, ctx.user, include_history=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/{property_id}")
@@ -777,7 +764,7 @@ async def delete_property(property_id: UUID, ctx: RequestContext = Depends(requi
         soft_delete_property(user=ctx.user, agency_id=ctx.agency_id, property_id=property_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{property_id}/submit")
@@ -794,7 +781,7 @@ async def submit_property(property_id: UUID, ctx: RequestContext = Depends(requi
         )
         return _ser_agency_property(prop, ctx.user, include_history=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{property_id}/publish")
@@ -811,7 +798,7 @@ async def publish_property(property_id: UUID, ctx: RequestContext = Depends(requ
         )
         return _ser_agency_property(prop, ctx.user, include_history=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{property_id}/status")
@@ -830,7 +817,7 @@ async def set_property_status(
         )
         return _ser_agency_property(prop, ctx.user, include_history=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{property_id}/media", status_code=201)
@@ -848,7 +835,31 @@ async def add_media(
         )
         return {"id": str(m.id), "url": m.url, "is_cover": m.is_cover, "sort_order": m.sort_order}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+@router.get("/{property_id}/media/{media_id}/file")
+async def get_property_media_file_endpoint(
+    property_id: UUID,
+    media_id: UUID,
+    ctx: RequestContext = Depends(get_optional_context),
+):
+    def _op():
+        from apps.properties.services import get_property_media_file
+        return get_property_media_file(
+            user=ctx.user, agency_id=ctx.agency_id, property_id=property_id, media_id=media_id
+        )
+
+    content, mime_type, filename = await run_django(
+        _op, agency_id=ctx.agency_id
+    , user_id=ctx.user.id if ctx.user else None)
+    import re
+    safe_filename = re.sub(r"[\r\n\\\"]", "_", filename.split("/")[-1])
+    return Response(
+        content=content,
+        media_type=mime_type,
+        headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+    )
 
 
 @router.post("/{property_id}/media/upload", status_code=201)
@@ -860,7 +871,7 @@ async def upload_media_file(
     is_public: bool = Form(True),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    content = await file.read()
+    content = await read_upload_limited(file)
 
     def _op():
         from apps.properties.services import upload_property_media_file
@@ -886,7 +897,7 @@ async def upload_media_file(
             "sort_order": m.sort_order,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{property_id}/media/reorder")
@@ -914,7 +925,7 @@ async def reorder_media_endpoint(
             for m in items
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/{property_id}/media/{media_id}")
@@ -927,7 +938,7 @@ async def remove_media(
         delete_property_media(user=ctx.user, agency_id=ctx.agency_id, property_id=property_id, media_id=media_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{property_id}/verification")
@@ -941,7 +952,7 @@ async def get_property_verification_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, property_id=property_id
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.put("/{property_id}/verification")
@@ -960,7 +971,7 @@ async def upsert_property_verification_endpoint(
             data=body.model_dump(exclude_none=True),
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{property_id}/violations", status_code=201)
@@ -986,4 +997,4 @@ async def submit_property_violation_endpoint(
             "created_at": r.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

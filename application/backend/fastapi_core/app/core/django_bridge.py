@@ -33,6 +33,7 @@ async def run_django(
     fn: Callable[..., Any],
     *args: Any,
     agency_id: Optional[UUID] = None,
+    user_id: Optional[UUID] = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -45,8 +46,20 @@ async def run_django(
     def _wrapped():
         close_old_connections()
         set_current_agency_id(agency_id)
+        from django.db import connection, transaction
         try:
-            return fn(*args, **kwargs)
+            with transaction.atomic():
+                if connection.vendor == "postgresql":
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('app.current_agency_id', %s, true)",
+                            [str(agency_id) if agency_id else ""],
+                        )
+                        cursor.execute(
+                            "SELECT set_config('app.current_user_id', %s, true)",
+                            [str(user_id) if user_id else ""],
+                        )
+                return fn(*args, **kwargs)
         finally:
             set_current_agency_id(None)
             close_old_connections()

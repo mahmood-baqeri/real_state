@@ -163,30 +163,39 @@ export default function PropertyVirtualTourStudioPage() {
   });
 
   // WebSocket live processing jobs monitor when Jobs tab is open
+  // One-time WebSocket ticket keeps access credentials out of URLs and is single-use.
   useEffect(() => {
     if (!tour?.id || !accessToken || tab !== "jobs") return;
     if (typeof window === "undefined") return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsUrl = `${proto}://${window.location.hostname}:8020/api/v1/ws/virtual-tours/${tour.id}/jobs?token=${encodeURIComponent(
-      accessToken
-    )}${activeAgencyId ? `&agency_id=${encodeURIComponent(activeAgencyId)}` : ""}`;
     let ws: WebSocket | null = null;
-    try {
-      ws = new WebSocket(wsUrl);
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg?.event === "tour_jobs_snapshot" && Array.isArray(msg?.data?.jobs)) {
-            setLiveJobs(msg.data.jobs);
+    let cancelled = false;
+    (async () => {
+      try {
+        const ticketResponse = await apiFetch<{ ticket: string }>("/api/v1/auth/ws-ticket", {
+          method: "POST",
+          token: accessToken,
+          agencyId: activeAgencyId,
+        });
+        if (cancelled) return;
+        const wsUrl = `${proto}://${window.location.hostname}:8020/api/v1/ws/virtual-tours/${tour.id}/jobs`;
+        ws = new WebSocket(wsUrl, ["bonyan.auth", `ticket.${ticketResponse.data.ticket}`]);
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg?.event === "tour_jobs_snapshot" && Array.isArray(msg?.data?.jobs)) {
+              setLiveJobs(msg.data.jobs);
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
-        }
-      };
-    } catch {
-      // fallback silently to HTTP state
-    }
+        };
+      } catch {
+        // fallback silently to HTTP state
+      }
+    })();
     return () => {
+      cancelled = true;
       if (ws && ws.readyState < 2) ws.close();
     };
   }, [tour?.id, accessToken, activeAgencyId, tab]);

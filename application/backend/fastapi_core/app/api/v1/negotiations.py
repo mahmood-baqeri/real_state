@@ -168,7 +168,7 @@ async def negotiation_analytics_endpoint(ctx: RequestContext = Depends(require_a
 
         return get_negotiation_analytics(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("")
@@ -193,7 +193,7 @@ async def list_negotiations_endpoint(
         )
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=lambda n: _ser_neg(n, False))
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -207,7 +207,7 @@ async def get_negotiation_endpoint(
         n = get_negotiation_detail(user=ctx.user, agency_id=ctx.agency_id, negotiation_id=negotiation_id)
         return _ser_neg(n, include_activities=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("", status_code=201)
@@ -220,7 +220,7 @@ async def create_negotiation_endpoint(
         n = create_negotiation(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_neg(n, include_activities=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{negotiation_id}")
@@ -240,7 +240,7 @@ async def update_negotiation_endpoint(
         )
         return _ser_neg(n, include_activities=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{negotiation_id}/offers", status_code=201)
@@ -265,7 +265,7 @@ async def add_offer_endpoint(
             "status": o.status,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{negotiation_id}/respond")
@@ -289,7 +289,7 @@ async def respond_negotiation_endpoint(
         )
         return {"id": str(n.id), "status": n.status, "agreed_price": str(n.agreed_price or "")}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{negotiation_id}/activities", status_code=201)
@@ -314,7 +314,7 @@ async def add_activity_endpoint(
             "created_at": a.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{negotiation_id}/convert-to-contract", status_code=201)
@@ -339,4 +339,4 @@ async def convert_to_contract_endpoint(
             "amount": str(c.amount),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

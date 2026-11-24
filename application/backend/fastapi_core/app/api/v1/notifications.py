@@ -92,7 +92,7 @@ async def list_notifications_endpoint(
         qs = list_notifications_for_user(user=ctx.user, unread_only=unread_only)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_notif)
 
-    items, meta = await run_django(_op)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -117,7 +117,7 @@ async def send_notification_endpoint(
         )
         return _ser_notif(msg)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{notification_id}/read")
@@ -130,7 +130,7 @@ async def read_notification_endpoint(
         msg = mark_notification_read(user=ctx.user, notification_id=notification_id)
         return _ser_notif(msg)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/read-all")
@@ -141,7 +141,7 @@ async def read_all_notifications_endpoint(ctx: RequestContext = Depends(get_curr
         count = mark_all_notifications_read(user=ctx.user)
         return {"marked_count": count}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/sms/templates")
@@ -151,7 +151,7 @@ async def list_sms_templates_endpoint(ctx: RequestContext = Depends(get_current_
 
         return [_ser_sms_template(t) for t in list_sms_templates(user=ctx.user)]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/sms/templates", status_code=201)
@@ -163,7 +163,7 @@ async def upsert_sms_template_endpoint(
 
         return _ser_sms_template(upsert_sms_template(user=ctx.user, data=body.model_dump()))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/sms/logs")
@@ -183,7 +183,7 @@ async def list_sms_logs_endpoint(
         )
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_sms_log)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -194,7 +194,7 @@ async def get_sms_settings_endpoint(ctx: RequestContext = Depends(get_current_co
 
         return get_sms_settings_and_stats(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/sms/test")
@@ -212,4 +212,4 @@ async def send_test_sms_endpoint(
             message=body.message,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

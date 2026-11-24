@@ -2,6 +2,9 @@
 -- Bonyan Melk (بنیان ملک) — Idempotent PostgreSQL Seed Script (All 29 Apps)
 -- Generated directly from Django ORM models via `python manage.py seed_all`
 -- Usage: psql "$DATABASE_URL" -f scripts/seed_all.sql
+-- NOTE: accounts.WebSocketTicket is intentionally not seeded. It stores short-lived,
+-- single-use authentication credentials and must be created only by live auth flows.
+-- Its table is created by Django migrations; zero rows is the correct initial state.
 -- =============================================================================
 BEGIN;
 

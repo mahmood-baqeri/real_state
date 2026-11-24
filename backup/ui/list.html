@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>خانه‌یار | لیست املاک</title>
+
+     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+
+     <style>
+          /* ============================================
+             THEME VARIABLES (همان تم index.html)
+          ============================================ */
+          :root {
+               --primary: #6366f1;
+               --primary-dark: #4f46e5;
+               --secondary: #8b5cf6;
+               --accent: #06b6d4;
+               --accent-2: #22d3ee;
+               --success: #10b981;
+               --warning: #f59e0b;
+               --danger: #ef4444;
+
+               --bg-primary: #ffffff;
+               --bg-secondary: #f8fafc;
+               --bg-elevated: #ffffff;
+               --bg-glass: rgba(255, 255, 255, .75);
+               --text-primary: #0f172a;
+               --text-secondary: #64748b;
+               --text-muted: #94a3b8;
+               --border-color: rgba(0, 0, 0, .06);
+               --border-strong: rgba(0, 0, 0, .1);
+               --shadow-sm: 0 4px 12px rgba(15, 23, 42, .05);
+               --shadow-md: 0 12px 30px -8px rgba(15, 23, 42, .12);
+               --shadow-lg: 0 25px 60px -20px rgba(15, 23, 42, .2);
+          }
+
+          body.dark {
+               --bg-primary: #0a0e1a;
+               --bg-secondary: #111827;
+               --bg-elevated: #1a2031;
+               --bg-glass: rgba(26, 32, 49, .75);
+               --text-primary: #f1f5f9;
+               --text-secondary: #94a3b8;
+               --text-muted: #64748b;
+               --border-color: rgba(255, 255, 255, .06);
+               --border-strong: rgba(255, 255, 255, .12);
+               --shadow-sm: 0 4px 12px rgba(0, 0, 0, .25);
+               --shadow-md: 0 12px 30px -8px rgba(0, 0, 0, .4);
+               --shadow-lg: 0 25px 60px -20px rgba(0, 0, 0, .6);
+          }
+
+          * {
+               font-family: 'Vazirmatn', sans-serif;
+          }
+
+          html {
+               scroll-behavior: smooth;
+          }
+
+          body {
+               background: var(--bg-primary);
+               color: var(--text-primary);
+               overflow-x: hidden;
+               transition: background .4s ease, color .4s ease;
+               padding-bottom: 70px;
+          }
+
+          ::selection {
+               background: var(--primary);
+               color: #fff;
+          }
+
+          ::-webkit-scrollbar {
+               width: 10px;
+          }
+
+          ::-webkit-scrollbar-track {
+               background: var(--bg-secondary);
+          }
+
+          ::-webkit-scrollbar-thumb {
+               background: linear-gradient(180deg, var(--primary), var(--accent));
+               border-radius: 20px;
+               border: 2px solid var(--bg-secondary);
+          }
+
+          @keyframes gradMove {
+
+               0%,
+               100% {
+                    background-position: 0% 50%;
+               }
+
+               50% {
+                    background-position: 100% 50%;
+               }
+          }
+
+          /* ============ SCROLL PROGRESS ============ */
+          .scroll-progress {
+               position: fixed;
+               top: 0;
+               right: 0;
+               height: 3px;
+               background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+               z-index: 10000;
+               width: 0%;
+               box-shadow: 0 0 10px rgba(99, 102, 241, .7);
+          }
+
+          /* ============ NAVBAR ============ */
+          .navbar {
+               padding: 1rem 0;
+               transition: all .4s cubic-bezier(.22, 1, .36, 1);
+               background: transparent;
+               z-index: 1000;
+          }
+
+          .navbar.scrolled {
+               background: var(--bg-glass);
+               backdrop-filter: blur(20px) saturate(180%);
+               -webkit-backdrop-filter: blur(20px) saturate(180%);
+               box-shadow: var(--shadow-sm);
+               border-bottom: 1px solid var(--border-color);
+               padding: .6rem 0;
+          }
+
+          .navbar-brand {
+               font-weight: 900;
+               font-size: 1.45rem;
+               color: var(--text-primary) !important;
+               display: flex;
+               align-items: center;
+               gap: .6rem;
+          }
+
+          .navbar-brand .logo-badge {
+               width: 44px;
+               height: 44px;
+               background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+               background-size: 200% 200%;
+               border-radius: 14px;
+               display: grid;
+               place-items: center;
+               color: #fff;
+               font-size: 1.25rem;
+               animation: gradMove 5s ease infinite;
+               box-shadow: 0 8px 24px -6px rgba(99, 102, 241, .5);
+               transition: transform .4s;
+          }
+
+          .navbar-brand:hover .logo-badge {
+               transform: rotate(-8deg) scale(1.05);
+          }
+
+          .navbar-nav .nav-link {
+               color: var(--text-primary);
+               font-weight: 600;
+               margin: 0 .4rem;
+               padding: .5rem .9rem !important;
+               border-radius: 10px;
+               transition: all .3s;
+          }
+
+          .navbar-nav .nav-link:hover,
+          .navbar-nav .nav-link.active {
+               color: var(--primary);
+               background: rgba(99, 102, 241, .08);
+          }
+
+          .nav-icon-btn {
+               position: relative;
+               width: 44px;
+               height: 44px;
+               border-radius: 12px;
+               border: 1px solid var(--border-color);
+               background: var(--bg-elevated);
+               color: var(--text-primary);
+               display: grid;
+               place-items: center;
+               cursor: pointer;
+               transition: all .3s;
+               font-size: 1.1rem;
+          }
+
+          .nav-icon-btn:hover {
+               background: var(--primary);
+               color: #fff;
+               border-color: transparent;
+               transform: translateY(-2px);
+          }
+
+          .nav-icon-btn .badge-count {
+               position: absolute;
+               top: -5px;
+               left: -5px;
+               background: var(--danger);
+               color: #fff;
+               font-size: .65rem;
+               font-weight: 800;
+               min-width: 18px;
+               height: 18px;
+               border-radius: 20px;
+               display: grid;
+               place-items: center;
+               border: 2px solid var(--bg-primary);
+          }
+
+          .theme-toggle {
+               width: 44px;
+               height: 44px;
+               border-radius: 12px;
+               border: 1px solid var(--border-color);
+               background: var(--bg-elevated);
+               color: var(--text-primary);
+               display: grid;
+               place-items: center;
+               cursor: pointer;
+               transition: all .3s;
+               font-size: 1.1rem;
+          }
+
+          .theme-toggle:hover {
+               background: var(--primary);
+               color: #fff;
+               transform: rotate(20deg) scale(1.05);
+               border-color: transparent;
+          }
+
+          /* ============ BUTTONS ============ */
+          .btn-primary-custom {
+               background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+               border: none;
+               padding: .7rem 1.7rem;
+               border-radius: 12px;
+               color: #fff;
+               font-weight: 700;
+               transition: all .35s cubic-bezier(.22, 1, .36, 1);
+               box-shadow: 0 8px 20px -8px rgba(99, 102, 241, .6);
+               position: relative;
+               z-index: 1;
+          }
+
+          .btn-primary-custom:hover {
+               transform: translateY(-3px);
+               box-shadow: 0 15px 35px -10px rgba(99, 102, 241, .8);
+               color: #fff;
+          }
+
+          .btn-outline-custom {
+               border: 2px solid var(--primary);
+               color: var(--primary);
+               padding: .65rem 1.6rem;
+               border-radius: 12px;
+               font-weight: 700;
+               background: transparent;
+               transition: all .35s cubic-bezier(.22, 1, .36, 1);
+          }
+
+          .btn-outline-custom:hover {
+               background: var(--primary);
+               color: #fff;
+               border-color: var(--primary);
+          }
+
+          /* ============ PAGE HEADER ============ */
+          .page-header {
+               padding: 150px 0 60px;
+               position: relative;
+               overflow: hidden;
+               background: linear-gradient(180deg, #fafbff 0%, #f0f4ff 100%);
+               isolation: isolate;
+          }
+
+          body.dark .page-header {
+               background: linear-gradient(180deg, #0a0e1a 0%, #0d1424 100%);
+          }
+
+          .page-header::before {
+               content: '';
+               position: absolute;
+               width: 500px;
+               height: 500px;
+               background: radial-gradient(circle, rgba(99, 102, 241, .2), transparent 70%);
+               border-radius: 50%;
+               top: -200px;
+               right: -150px;
+               filter: blur(60px);
+               z-index: -1;
+          }
+
+          .page-header::after {
+               content: '';
+               position: absolute;
+               width: 400px;
+               height: 400px;
+               background: radial-gradient(circle, rgba(6, 182, 212, .15), transparent 70%);
+               border-radius: 50%;
+               bottom: -150px;
+               left: -100px;
+               filter: blur(60px);
+               z-index: -1;
+          }
+
+          .breadcrumb-custom {
+               display: flex;
+               align-items: center;
+               gap: .5rem;
+               font-size: .88rem;
+               color: var(--text-secondary);
+               margin-bottom: 1rem;
+               flex-wrap: wrap;
+          }
+
+          .breadcrumb-custom a {
+               color: var(--text-secondary);
+               text-decoration: none;
+               transition: color .3s;
+               font-weight: 600;
+          }
+
+          .breadcrumb-custom a:hover {
+               color: var(--primary);
+          }
+
+          .breadcrumb-custom i {
+               font-size: .7rem;
+               opacity: .5;
+          }
+
+          .breadcrumb-custom span {
+               color: var(--primary);
+               font-weight: 700;
+          }
+
+          .page-title {
+               font-size: clamp(1.9rem, 4vw, 2.8rem);
+               font-weight: 900;
+               margin-bottom: .8rem;
+               letter-spacing: -.02em;
+          }
+
+          .page-subtitle {
+               color: var(--text-secondary);
+               font-size: 1rem;
+               line-height: 1.9;
+               max-width: 620px;
+          }
+
+          .gradient-text {
+               background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--accent) 100%);
+               background-size: 200% 200%;
+               -webkit-background-clip: text;
+               background-clip: text;
+               -webkit-text-fill-color: transparent;
+               animation: gradMove 4s ease infinite;
+          }
+
+          /* ============ TOOLBAR ============ */
+          .toolbar {
+               background: var(--bg-elevated);
+               border: 1px solid var(--border-color);
+               border-radius: 16px;
+               padding: .9rem 1.2rem;
+               margin-bottom: 1.5rem;
+               display: flex;
+               align-items: center;
+               justify-content: space-between;
+               flex-wrap: wrap;
+               gap: 1rem;
+               box-shadow: var(--shadow-sm);
+          }
+
+          .results-count {
+               font-weight: 700;
+               color: var(--text-primary);
+               font-size: .95rem;
+          }
+
+          .results-count span {
+               color: var(--primary);
+          }
+
+          .sort-select {
+               border: 1px solid var(--border-color);
+               background: var(--bg-secondary);
+               color: var(--text-primary);
+               padding: .55rem 2.4rem .55rem 1rem;
+               border-radius: 10px;
+               font-size: .88rem;
+               font-weight: 600;
+               cursor: pointer;
+               transition: all .3s;
+               appearance: none;
+               -webkit-appearance: none;
+               background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%2364748b' d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+               background-repeat: no-repeat;
+               background-position: left 12px center;
+          }
+
+          .sort-select:focus {
+               outline: none;
+               border-color: var(--primary);
+          }
+
+          .view-toggle {
+               display: inline-flex;
+               background: var(--bg-secondary);
+               border: 1px solid var(--border-color);
+               border-radius: 10px;
+               padding: 3px;
+          }
+
+          .view-btn {
+               width: 36px;
+               height: 36px;
+               border: none;
+               background: transparent;
+               color: var(--text-secondary);
+               border-radius: 8px;
+               display: grid;
+               place-items: center;
+               cursor: pointer;
+               transition: all .3s;
+               font-size: 1rem;
+          }
+
+          .view-btn.active {
+               background: var(--primary);
+               color: #fff;
+               box-shadow: 0 4px 12px -2px rgba(99, 102, 241, .5);
+          }
+
+          /* ============ FILTER SIDEBAR ============ */
+          .filter-sidebar {
+               background: var(--bg-elevated);
+               border: 1px solid var(--border-color);
+               border-radius: 20px;
+               padding: 1.5rem;
+               box-shadow: var(--shadow-sm);
+               position: sticky;
+               top: 100px;
+          }
+
+          .filter-header {
+               display: flex;
+               align-items: center;
+               justify-content: space-between;
+               margin-bottom: 1.5rem;
+               padding-bottom: 1rem;
+               border-bottom: 1px solid var(--border-color);
+          }
+
+          .filter-header h5 {
+               font-weight: 800;
+               font-size: 1.1rem;
+               margin: 0;
+               display: flex;
+               align-items: center;
+               gap: .5rem;
+          }
+
+          .filter-reset {
+               background: transparent;
+               border: none;
+               color: var(--text-secondary);
+               font-size: .82rem;
+               font-weight: 700;
+               cursor: pointer;
+               padding: .3rem .6rem;
+               border-radius: 8px;
+               transition: all .3s;
+               display: flex;
+               align-items: center;
+               gap: .3rem;
+          }
+
+          .filter-reset:hover {
+               color: var(--danger);
+               background: rgba(239, 68, 68, .08);
+          }
+
+          .filter-group {
+               margin-bottom: 1.5rem;
+               padding-bottom: 1.5rem;
+               border-bottom: 1px solid var(--border-color);
+          }
+
+          .filter-group:last-child {
+               border-bottom: none;
+               margin-bottom: 0;
+               padding-bottom: 0;
+          }
+
+          .filter-label {
+               font-weight: 700;
+               font-size: .85rem;
+               color: var(--text-primary);
+               margin-bottom: .8rem;
+               display: block;
+          }
+
+          .filter-options {
+               display: flex;
+               flex-wrap: wrap;
+               gap: .5rem;
+          }
+
+          .filter-chip {
+               padding: .45rem .9rem;
+               background: var(--bg-secondary);
+               border: 1px solid var(--border-color);
+               border-radius: 50px;
+               font-size: .8rem;
+               font-weight: 600;
+               color: var(--text-secondary);
+               cursor: pointer;
+               transition: all .25s;
+          }
+
+          .filter-chip:hover {
+               border-color: var(--primary);
+               color: var(--primary);
+          }
+
+          .filter-chip.active {
+               background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+               color: #fff;
+               border-color: transparent;
+               box-shadow: 0 4px 10px -3px rgba(99, 102, 241, .5);
+          }
+
+          .range-inputs {
+               display: flex;
+               gap: .5rem;
+               align-items: center;
+               margin-bottom: .7rem;
+          }
+
+          .range-inputs input {
+               flex: 1;
+               min-width: 0;
+               padding: .55rem .7rem;
+               border-radius: 10px;
+               border: 1px solid var(--border-color);
+               background: var(--bg-secondary);
+               color: var(--text-primary);
+               font-size: .82rem;
+               font-weight: 600;
+          }
+
+          .range-inputs input:focus {
+               outline: none;
+               border-color: var(--primary);
+               box-shadow: 0 0 0 3px rgba(99, 102, 241, .15);
+          }
+
+          .range-inputs span {
+               color: var(--text-muted);
+               font-size: .8rem;
+               font-weight: 700;
+          }
+
+          .form-switch .form-check-input {
+               cursor: pointer;
+               width: 2.4em;
+               height: 1.3em;
+          }
+
+          .form-switch .form-check-input:checked {
+               background-color: var(--primary);
+               border-color: var(--primary);
+          }
+
+          .form-switch .form-check-label {
+               font-size: .88rem;
+               font-weight: 600;
+               color: var(--text-secondary);
+               cursor: pointer;
+          }
+
+          /* ============ PROPERTY GRID ============ */
+          .property-card {
+               background: var(--bg-elevated);
+               border-radius: 20px;
+               overflow: hidden;
+               transition: all .4s cubic-bezier(.22, 1, .36, 1);
+               border: 1px solid var(--border-color);
+               height: 100%;
+               position: relative;
+          }
+
+          .property-card:hover {
+               box-shadow: var(--shadow-lg);
+               border-color: rgba(99, 102, 241, .2);
+               transform: translateY(-4px);
+          }
+
+          .property-img {
+               position: relative;
+               height: 220px;
+               overflow: hidden;
+               background: var(--bg-secondary);
+          }
+
+          .property-img img {
+               width: 100%;
+               height: 100%;
+               object-fit: cover;
+               transition: transform .8s;
+          }
+
+          .property-card:hover .property-img img {
+               transform: scale(1.06);
+          }
+
+          .property-tag {
+               position: absolute;
+               top: 14px;
+               right: 14px;
+               background: rgba(99, 102, 241, .95);
+               backdrop-filter: blur(8px);
+               color: #fff;
+               padding: .35rem .9rem;
+               border-radius: 50px;
+               font-size: .72rem;
+               font-weight: 800;
+               z-index: 2;
+               box-shadow: 0 6px 16px -4px rgba(99, 102, 241, .5);
+          }
+
+          .property-tag.rent {
+               background: rgba(16, 185, 129, .95);
+          }
+
+          .property-tag.mortgage {
+               background: rgba(245, 158, 11, .95);
+          }
+
+          .property-fav {
+               position: absolute;
+               top: 14px;
+               left: 14px;
+               width: 38px;
+               height: 38px;
+               border-radius: 50%;
+               background: rgba(255, 255, 255, .92);
+               backdrop-filter: blur(8px);
+               display: grid;
+               place-items: center;
+               color: var(--text-secondary);
+               cursor: pointer;
+               transition: all .3s;
+               z-index: 2;
+               border: none;
+               font-size: .95rem;
+          }
+
+          .property-fav:hover,
+          .property-fav.liked {
+               color: var(--danger);
+               transform: scale(1.1);
+          }
+
+          .property-body {
+               padding: 1.2rem;
+          }
+
+          .property-price {
+               font-size: 1.1rem;
+               font-weight: 900;
+               color: var(--primary);
+               margin-bottom: .5rem;
+          }
+
+          .property-title {
+               font-size: 1rem;
+               font-weight: 800;
+               margin-bottom: .5rem;
+               color: var(--text-primary);
+               transition: color .3s;
+          }
+
+          .property-card:hover .property-title {
+               color: var(--primary);
+          }
+
+          .property-location {
+               color: var(--text-secondary);
+               font-size: .82rem;
+               margin-bottom: .9rem;
+               display: flex;
+               align-items: center;
+               gap: .35rem;
+          }
+
+          .property-meta {
+               display: flex;
+               justify-content: space-between;
+               padding-top: .8rem;
+               border-top: 1px solid var(--border-color);
+               color: var(--text-secondary);
+               font-size: .8rem;
+               font-weight: 600;
+               gap: .3rem;
+          }
+
+          .property-meta span {
+               display: flex;
+               align-items: center;
+               gap: .3rem;
+          }
+
+          .property-meta i {
+               color: var(--primary);
+               font-size: .85rem;
+          }
+
+          /* ============ LIST VIEW ============ */
+          .property-card.list-view {
+               display: grid;
+               grid-template-columns: 280px 1fr;
+               height: auto;
+          }
+
+          .property-card.list-view .property-img {
+               height: 100%;
+               min-height: 200px;
+          }
+
+          .property-card.list-view .property-body {
+               display: flex;
+               flex-direction: column;
+               justify-content: space-between;
+          }
+
+          .property-card.list-view .property-actions {
+               display: flex;
+               gap: .5rem;
+               margin-top: .8rem;
+          }
+
+          @media (max-width: 767px) {
+               .property-card.list-view {
+                    grid-template-columns: 1fr;
+               }
+
+               .property-card.list-view .property-img {
+                    height: 200px;
+               }
+          }
+
+          .btn-details {
+               flex: 1;
+               padding: .55rem;
+               border: 1px solid var(--primary);
+               background: var(--primary);
+               color: #fff;
+               border-radius: 10px;
+               font-size: .82rem;
+               font-weight: 700;
+               cursor: pointer;
+               transition: all .3s;
+               text-decoration: none;
+               text-align: center;
+          }
+
+          .btn-details:hover {
+               background: var(--primary-dark);
+               color: #fff;
+          }
+
+          .btn-compare {
+               flex: 1;
+               padding: .55rem;
+               border: 1px solid var(--border-color);
+               background: transparent;
+               color: var(--text-secondary);
+               border-radius: 10px;
+               font-size: .82rem;
+               font-weight: 700;
+               cursor: pointer;
+               transition: all .3s;
+          }
+
+          .btn-compare:hover {
+               background: var(--primary);
+               color: #fff;
+               border-color: var(--primary);
+          }
+
+          .btn-compare.added {
+               background: var(--success);
+               color: #fff;
+               border-color: var(--success);
+          }
+
+          /* ============ PAGINATION ============ */
+          .pagination-custom {
+               display: flex;
+               justify-content: center;
+               align-items: center;
+               gap: .5rem;
+               margin-top: 3rem;
+               flex-wrap: wrap;
+          }
+
+          .page-btn {
+               min-width: 42px;
+               height: 42px;
+               border-radius: 12px;
+               border: 1px solid var(--border-color);
+               background: var(--bg-elevated);
+               color: var(--text-secondary);
+               font-weight: 700;
+               font-size: .9rem;
+               cursor: pointer;
+               transition: all .3s;
+               display: grid;
+               place-items: center;
+               padding: 0 .8rem;
+          }
+
+          .page-btn:hover:not(:disabled) {
+               border-color: var(--primary);
+               color: var(--primary);
+               transform: translateY(-2px);
+          }
+
+          .page-btn.active {
+               background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+               color: #fff;
+               border-color: transparent;
+               box-shadow: 0 8px 20px -8px rgba(99, 102, 241, .6);
+          }
+
+          .page-btn:disabled {
+               opacity: .4;
+               cursor: not-allowed;
+          }
+
+          /* ============ FLOATING BUTTONS ============ */
+          .floating-buttons {
+               position: fixed;
+               bottom: 30px;
+               left: 30px;
+               display: flex;
+               flex-direction: column;
+               gap: .8rem;
+               z-index: 900;
+          }
+
+          .float-btn {
+               width: 54px;
+               height: 54px;
+               border-radius: 16px;
+               border: none;
+               color: #fff;
+               display: grid;
+               place-items: center;
+               font-size: 1.3rem;
+               cursor: pointer;
+               transition: all .35s cubic-bezier(.22, 1, .36, 1);
+               box-shadow: 0 10px 25px -5px rgba(0, 0, 0, .2);
+               position: relative;
+          }
+
+          .float-btn.whatsapp {
+               background: #25D366;
+               box-shadow: 0 10px 25px -5px rgba(37, 211, 102, .6);
+          }
+
+          .float-btn.back-top {
+               background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+               opacity: 0;
+               visibility: hidden;
+               transform: translateY(20px);
+          }
+
+          .float-btn.back-top.visible {
+               opacity: 1;
+               visibility: visible;
+               transform: translateY(0);
+          }
+
+          .float-btn:hover {
+               transform: translateY(-5px) scale(1.05);
+          }
+
+          /* ============ COMPARE BAR ============ */
+          .compare-bar {
+               position: fixed;
+               bottom: -100px;
+               left: 50%;
+               transform: translateX(-50%);
+               background: var(--bg-glass);
+               backdrop-filter: blur(20px);
+               padding: .8rem 1.2rem;
+               border-radius: 20px;
+               box-shadow: var(--shadow-lg);
+               border: 1px solid var(--border-color);
+               display: flex;
+               align-items: center;
+               gap: 1rem;
+               z-index: 950;
+               transition: bottom .4s cubic-bezier(.22, 1, .36, 1);
+               max-width: 90%;
+          }
+
+          .compare-bar.visible {
+               bottom: 30px;
+          }
+
+          .compare-bar .compare-count {
+               background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+               color: #fff;
+               padding: .4rem .8rem;
+               border-radius: 10px;
+               font-weight: 800;
+               font-size: .85rem;
+               white-space: nowrap;
+          }
+
+          .compare-bar .compare-thumb {
+               width: 45px;
+               height: 45px;
+               border-radius: 10px;
+               object-fit: cover;
+               border: 2px solid var(--primary);
+          }
+
+          /* ============ MOBILE BOTTOM NAV ============ */
+          .mobile-nav {
+               position: fixed;
+               bottom: 0;
+               left: 0;
+               right: 0;
+               background: var(--bg-glass);
+               backdrop-filter: blur(20px);
+               border-top: 1px solid var(--border-color);
+               display: none;
+               z-index: 800;
+               padding: .5rem 0;
+               box-shadow: 0 -10px 30px -10px rgba(0, 0, 0, .1);
+          }
+
+          .mobile-nav-item {
+               flex: 1;
+               display: flex;
+               flex-direction: column;
+               align-items: center;
+               gap: .2rem;
+               text-decoration: none;
+               color: var(--text-secondary);
+               font-size: .7rem;
+               font-weight: 700;
+               padding: .3rem;
+               transition: color .3s;
+               position: relative;
+          }
+
+          .mobile-nav-item i {
+               font-size: 1.3rem;
+          }
+
+          .mobile-nav-item.active {
+               color: var(--primary);
+          }
+
+          .mobile-nav-item.active::before {
+               content: '';
+               position: absolute;
+               top: -8px;
+               left: 50%;
+               transform: translateX(-50%);
+               width: 30px;
+               height: 3px;
+               background: linear-gradient(90deg, var(--primary), var(--accent));
+               border-radius: 20px;
+          }
+
+          /* ============ FOOTER ============ */
+          footer {
+               background: var(--bg-secondary);
+               color: var(--text-secondary);
+               padding: 3.5rem 0 2rem;
+               margin-top: 4rem;
+               border-top: 1px solid var(--border-color);
+          }
+
+          footer h6 {
+               color: var(--text-primary);
+               font-weight: 800;
+               margin-bottom: 1.1rem;
+          }
+
+          footer a {
+               color: var(--text-secondary);
+               text-decoration: none;
+               display: block;
+               margin-bottom: .6rem;
+               font-size: .9rem;
+               transition: all .3s;
+          }
+
+          footer a:hover {
+               color: var(--primary);
+               padding-right: 6px;
+          }
+
+          .footer-brand {
+               display: flex;
+               align-items: center;
+               gap: .6rem;
+               color: var(--text-primary);
+               font-weight: 900;
+               font-size: 1.4rem;
+               margin-bottom: 1rem;
+          }
+
+          .footer-brand .logo-badge {
+               width: 42px;
+               height: 42px;
+               background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+               border-radius: 12px;
+               display: grid;
+               place-items: center;
+               color: #fff;
+               font-size: 1.1rem;
+          }
+
+          .footer-bottom {
+               border-top: 1px solid var(--border-color);
+               padding-top: 1.5rem;
+               margin-top: 2rem;
+               text-align: center;
+               font-size: .85rem;
+          }
+
+          /* ============ MOBILE FILTER TOGGLE ============ */
+          .mobile-filter-toggle {
+               display: none;
+               width: 100%;
+               margin-bottom: 1rem;
+               padding: .8rem;
+               border-radius: 12px;
+               border: 1px solid var(--border-color);
+               background: var(--bg-elevated);
+               color: var(--text-primary);
+               font-weight: 700;
+               cursor: pointer;
+               transition: all .3s;
+          }
+
+          .mobile-filter-toggle:hover {
+               border-color: var(--primary);
+               color: var(--primary);
+          }
+
+          @media (max-width: 991px) {
+               .page-header {
+                    padding: 120px 0 40px;
+               }
+
+               .filter-sidebar {
+                    position: fixed;
+                    top: 0;
+                    right: -100%;
+                    width: 85%;
+                    max-width: 340px;
+                    height: 100vh;
+                    z-index: 2000;
+                    overflow-y: auto;
+                    border-radius: 0;
+                    transition: right .4s cubic-bezier(.22, 1, .36, 1);
+                    box-shadow: var(--shadow-lg);
+               }
+
+               .filter-sidebar.open {
+                    right: 0;
+               }
+
+               .mobile-filter-toggle {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: .5rem;
+               }
+
+               .filter-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, .5);
+                    z-index: 1999;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: all .3s;
+               }
+
+               .filter-overlay.show {
+                    opacity: 1;
+                    visibility: visible;
+               }
+
+               .navbar-collapse {
+                    background: var(--bg-elevated);
+                    backdrop-filter: blur(20px);
+                    border-radius: 16px;
+                    padding: 1.2rem;
+                    margin-top: .8rem;
+                    box-shadow: var(--shadow-md);
+                    border: 1px solid var(--border-color);
+               }
+          }
+
+          @media (max-width: 767px) {
+               .mobile-nav {
+                    display: flex;
+               }
+
+               .floating-buttons {
+                    bottom: 90px;
+                    left: 15px;
+               }
+
+               .floating-buttons .float-btn {
+                    width: 46px;
+                    height: 46px;
+                    font-size: 1.1rem;
+               }
+
+               .compare-bar {
+                    bottom: 90px;
+                    padding: .6rem .9rem;
+                    gap: .7rem;
+               }
+
+               .compare-bar.visible {
+                    bottom: 90px;
+               }
+
+               .compare-bar .compare-thumb {
+                    width: 38px;
+                    height: 38px;
+               }
+
+               .toolbar {
+                    flex-direction: column;
+                    align-items: stretch;
+               }
+          }
+
+          /* ============ ANIMATIONS ============ */
+          .animate-fadeup {
+               animation: fadeUp .8s cubic-bezier(.22, 1, .36, 1) forwards;
+               opacity: 0;
+          }
+
+          @keyframes fadeUp {
+               from {
+                    opacity: 0;
+                    transform: translateY(25px);
+               }
+
+               to {
+                    opacity: 1;
+                    transform: translateY(0);
+               }
+          }
+
+          .delay-1 {
+               animation-delay: .15s;
+          }
+
+          .delay-2 {
+               animation-delay: .3s;
+          }
+
+          .delay-3 {
+               animation-delay: .45s;
+          }
+     </style>
+</head>
+
+<body>
+
+     <div class="scroll-progress" id="scrollProgress"></div>
+
+     <!-- ================= NAVBAR ================= -->
+     <nav class="navbar navbar-expand-lg fixed-top" id="navbar">
+          <div class="container">
+               <a class="navbar-brand" href="index.html">
+                    <span class="logo-badge"><i class="bi bi-house-heart-fill"></i></span>
+                    خانه‌یار
+               </a>
+               <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#navMenu">
+                    <i class="bi bi-list fs-2" style="color:var(--text-primary);"></i>
+               </button>
+               <div class="collapse navbar-collapse" id="navMenu">
+                    <ul class="navbar-nav mx-auto">
+                         <li class="nav-item"><a class="nav-link" href="index.html">خانه</a></li>
+                         <li class="nav-item"><a class="nav-link active" href="index2.html">املاک</a></li>
+                         <li class="nav-item"><a class="nav-link" href="index.html#map">نقشه</a></li>
+                         <li class="nav-item"><a class="nav-link" href="index.html#features">خدمات</a></li>
+                         <li class="nav-item"><a class="nav-link" href="index.html#testimonials">نظرات</a></li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
+                         <button class="theme-toggle" id="themeToggle" title="تغییر حالت">
+                              <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+                         </button>
+                         <button class="nav-icon-btn" title="علاقه‌مندی‌ها">
+                              <i class="bi bi-heart"></i>
+                              <span class="badge-count" id="wishlistCount">۲</span>
+                         </button>
+                         <button class="nav-icon-btn" title="اعلان‌ها">
+                              <i class="bi bi-bell"></i>
+                              <span class="badge-count">۳</span>
+                         </button>
+                         <a href="#" class="btn btn-primary-custom ms-1">ثبت‌نام</a>
+                    </div>
+               </div>
+          </div>
+     </nav>
+
+     <!-- ================= PAGE HEADER ================= -->
+     <section class="page-header">
+          <div class="container">
+               <div class="breadcrumb-custom animate-fadeup">
+                    <a href="index.html"><i class="bi bi-house-door me-1"></i> خانه</a>
+                    <i class="bi bi-chevron-left"></i>
+                    <span>لیست املاک</span>
+               </div>
+               <h1 class="page-title animate-fadeup delay-1">
+                    همه‌ی <span class="gradient-text">املاک</span> در یک نگاه
+               </h1>
+               <p class="page-subtitle animate-fadeup delay-2">
+                    با استفاده از فیلترهای هوشمند، ملک مورد نظرت رو دقیق‌تر پیدا کن. از بین هزاران آگهی تأیید شده،
+                    بهترین گزینه رو انتخاب کن.
+               </p>
+          </div>
+     </section>
+
+     <!-- ================= MAIN CONTENT ================= -->
+     <section class="py-5">
+          <div class="container">
+               <div class="row g-4">
+
+                    <!-- ===== FILTER SIDEBAR ===== -->
+                    <div class="col-lg-3">
+                         <button class="mobile-filter-toggle" id="openFilter">
+                              <i class="bi bi-sliders"></i> فیلترها
+                         </button>
+
+                         <div class="filter-overlay" id="filterOverlay"></div>
+
+                         <aside class="filter-sidebar" id="filterSidebar">
+                              <div class="filter-header">
+                                   <h5><i class="bi bi-sliders2"></i> فیلترها</h5>
+                                   <button class="filter-reset" id="resetFilters">
+                                        <i class="bi bi-arrow-counterclockwise"></i> پاک کردن
+                                   </button>
+                              </div>
+
+                              <!-- نوع معامله -->
+                              <div class="filter-group">
+                                   <label class="filter-label">نوع معامله</label>
+                                   <div class="filter-options">
+                                        <button class="filter-chip active" data-filter="deal"
+                                             data-value="all">همه</button>
+                                        <button class="filter-chip" data-filter="deal" data-value="sale">خرید</button>
+                                        <button class="filter-chip" data-filter="deal" data-value="rent">اجاره</button>
+                                        <button class="filter-chip" data-filter="deal"
+                                             data-value="mortgage">رهن</button>
+                                   </div>
+                              </div>
+
+                              <!-- نوع ملک -->
+                              <div class="filter-group">
+                                   <label class="filter-label">نوع ملک</label>
+                                   <div class="filter-options">
+                                        <button class="filter-chip" data-filter="type"
+                                             data-value="apartment">آپارتمان</button>
+                                        <button class="filter-chip" data-filter="type" data-value="villa">ویلا</button>
+                                        <button class="filter-chip" data-filter="type" data-value="land">زمین</button>
+                                        <button class="filter-chip" data-filter="type"
+                                             data-value="office">اداری</button>
+                                        <button class="filter-chip" data-filter="type" data-value="shop">تجاری</button>
+                                   </div>
+                              </div>
+
+                              <!-- شهر -->
+                              <div class="filter-group">
+                                   <label class="filter-label">شهر</label>
+                                   <div class="filter-options">
+                                        <button class="filter-chip active" data-filter="city"
+                                             data-value="all">همه</button>
+                                        <button class="filter-chip" data-filter="city"
+                                             data-value="tehran">تهران</button>
+                                        <button class="filter-chip" data-filter="city" data-value="karaj">کرج</button>
+                                        <button class="filter-chip" data-filter="city"
+                                             data-value="isfahan">اصفهان</button>
+                                        <button class="filter-chip" data-filter="city"
+                                             data-value="mashhad">مشهد</button>
+                                   </div>
+                              </div>
+
+                              <!-- تعداد خواب -->
+                              <div class="filter-group">
+                                   <label class="filter-label">تعداد خواب</label>
+                                   <div class="filter-options">
+                                        <button class="filter-chip" data-filter="beds" data-value="1">۱</button>
+                                        <button class="filter-chip" data-filter="beds" data-value="2">۲</button>
+                                        <button class="filter-chip" data-filter="beds" data-value="3">۳</button>
+                                        <button class="filter-chip" data-filter="beds" data-value="4">۴+</button>
+                                   </div>
+                              </div>
+
+                              <!-- محدوده متراژ -->
+                              <div class="filter-group">
+                                   <label class="filter-label">متراژ (متر مربع)</label>
+                                   <div class="range-inputs">
+                                        <input type="number" placeholder="از" id="areaMin" min="0">
+                                        <span>—</span>
+                                        <input type="number" placeholder="تا" id="areaMax" min="0">
+                                   </div>
+                              </div>
+
+                              <!-- محدوده قیمت -->
+                              <div class="filter-group">
+                                   <label class="filter-label">قیمت (میلیون تومان)</label>
+                                   <div class="range-inputs">
+                                        <input type="number" placeholder="از" id="priceMin" min="0">
+                                        <span>—</span>
+                                        <input type="number" placeholder="تا" id="priceMax" min="0">
+                                   </div>
+                              </div>
+
+                              <!-- امکانات -->
+                              <div class="filter-group">
+                                   <label class="filter-label">امکانات</label>
+                                   <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="optParking">
+                                        <label class="form-check-label" for="optParking">پارکینگ</label>
+                                   </div>
+                                   <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="optElevator">
+                                        <label class="form-check-label" for="optElevator">آسانسور</label>
+                                   </div>
+                                   <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="optBalcony">
+                                        <label class="form-check-label" for="optBalcony">بالکن</label>
+                                   </div>
+                                   <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="optStorage">
+                                        <label class="form-check-label" for="optStorage">انباری</label>
+                                   </div>
+                              </div>
+
+                              <button class="btn btn-primary-custom w-100" id="applyFilters">
+                                   <i class="bi bi-funnel me-1"></i> اعمال فیلترها
+                              </button>
+                         </aside>
+                    </div>
+
+                    <!-- ===== PROPERTIES AREA ===== -->
+                    <div class="col-lg-9">
+
+                         <!-- Toolbar -->
+                         <div class="toolbar">
+                              <div class="results-count">
+                                   <span id="resultCount">۱۲</span> ملک پیدا شد
+                              </div>
+                              <div class="d-flex align-items-center gap-2 flex-wrap">
+                                   <select class="sort-select" id="sortSelect">
+                                        <option value="newest">جدیدترین</option>
+                                        <option value="cheapest">ارزان‌ترین</option>
+                                        <option value="expensive">گران‌ترین</option>
+                                        <option value="largest">بزرگ‌ترین</option>
+                                   </select>
+                                   <div class="view-toggle">
+                                        <button class="view-btn active" data-view="grid" title="نمایش شبکه‌ای">
+                                             <i class="bi bi-grid-3x3-gap-fill"></i>
+                                        </button>
+                                        <button class="view-btn" data-view="list" title="نمایش لیستی">
+                                             <i class="bi bi-list-ul"></i>
+                                        </button>
+                                   </div>
+                              </div>
+                         </div>
+
+                         <!-- Active Filters -->
+                         <div class="mb-3 d-flex flex-wrap gap-2" id="activeFilters"></div>
+
+                         <!-- Grid -->
+                         <div class="row g-4" id="propertyGrid"></div>
+
+                         <!-- Pagination -->
+                         <div class="pagination-custom">
+                              <button class="page-btn" disabled><i class="bi bi-chevron-right"></i></button>
+                              <button class="page-btn active">۱</button>
+                              <button class="page-btn">۲</button>
+                              <button class="page-btn">۳</button>
+                              <button class="page-btn"><i class="bi bi-chevron-left"></i></button>
+                         </div>
+                    </div>
+               </div>
+          </div>
+     </section>
+
+     <!-- ================= FOOTER ================= -->
+     <footer>
+          <div class="container">
+               <div class="row g-4">
+                    <div class="col-lg-4">
+                         <div class="footer-brand">
+                              <span class="logo-badge"><i class="bi bi-house-heart-fill"></i></span>
+                              خانه‌یار
+                         </div>
+                         <p style="font-size:.9rem; line-height:1.9;">
+                              پلتفرم جامع املاک ایران؛ جایی که خرید، فروش و اجاره‌ی ملک تبدیل به تجربه‌ای ساده، مطمئن و
+                              لذت‌بخش می‌شود.
+                         </p>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                         <h6>دسترسی سریع</h6>
+                         <a href="index.html">صفحه اصلی</a>
+                         <a href="index2.html">املاک</a>
+                         <a href="#">مشاوران</a>
+                         <a href="#">وبلاگ</a>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                         <h6>خدمات</h6>
+                         <a href="#">خرید ملک</a>
+                         <a href="#">فروش ملک</a>
+                         <a href="#">اجاره</a>
+                         <a href="#">مشاوره تخصصی</a>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                         <h6>پشتیبانی</h6>
+                         <a href="#">تماس با ما</a>
+                         <a href="#">سوالات متداول</a>
+                         <a href="#">حریم خصوصی</a>
+                         <a href="#">قوانین</a>
+                    </div>
+                    <div class="col-6 col-lg-2">
+                         <h6>ارتباط با ما</h6>
+                         <a href="#"><i class="bi bi-telephone me-2"></i>۰۲۱-۱۲۳۴۵۶۷۸</a>
+                         <a href="#"><i class="bi bi-envelope me-2"></i>info@khanehyar.ir</a>
+                         <a href="#"><i class="bi bi-geo-alt me-2"></i>تهران، ولیعصر</a>
+                    </div>
+               </div>
+               <div class="footer-bottom">
+                    © ۱۴۰۳ خانه‌یار — تمامی حقوق محفوظ است. ساخته شده با <span style="color:#ef4444;">❤</span> در ایران
+               </div>
+          </div>
+     </footer>
+
+     <!-- Floating Buttons -->
+     <div class="floating-buttons">
+          <button class="float-btn whatsapp" title="چت واتساپ"><i class="bi bi-whatsapp"></i></button>
+          <button class="float-btn back-top" id="backTop" title="بازگشت به بالا"><i class="bi bi-arrow-up"></i></button>
+     </div>
+
+     <!-- Compare Bar -->
+     <div class="compare-bar" id="compareBar">
+          <span class="compare-count"><span id="compareCount">۰</span> ملک</span>
+          <div class="d-flex gap-1" id="compareThumbs"></div>
+          <button class="btn btn-primary-custom">مقایسه کن</button>
+          <button class="nav-icon-btn" id="clearCompare" style="width:36px;height:36px;"><i
+                    class="bi bi-x-lg"></i></button>
+     </div>
+
+     <!-- Mobile Bottom Nav -->
+     <nav class="mobile-nav">
+          <a href="index.html" class="mobile-nav-item"><i class="bi bi-house-door-fill"></i><span>خانه</span></a>
+          <a href="index2.html" class="mobile-nav-item active"><i class="bi bi-search"></i><span>جست‌وجو</span></a>
+          <a href="#" class="mobile-nav-item"><i class="bi bi-heart"></i><span>علاقه‌مندی</span></a>
+          <a href="index.html#map" class="mobile-nav-item"><i class="bi bi-geo-alt"></i><span>نقشه</span></a>
+          <a href="#" class="mobile-nav-item"><i class="bi bi-person"></i><span>پروفایل</span></a>
+     </nav>
+
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+     <script>
+          /* ============ THEME ============ */
+          const themeToggle = document.getElementById('themeToggle');
+          const themeIcon = document.getElementById('themeIcon');
+          const savedTheme = localStorage.getItem('theme');
+          if (savedTheme === 'dark') {
+               document.body.classList.add('dark');
+               themeIcon.className = 'bi bi-sun-fill';
+          }
+          themeToggle.addEventListener('click', () => {
+               document.body.classList.toggle('dark');
+               const isDark = document.body.classList.contains('dark');
+               themeIcon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+               localStorage.setItem('theme', isDark ? 'dark' : 'light');
+          });
+
+          /* ============ SCROLL PROGRESS & NAVBAR ============ */
+          const navbar = document.getElementById('navbar');
+          const progress = document.getElementById('scrollProgress');
+          const backTop = document.getElementById('backTop');
+          window.addEventListener('scroll', () => {
+               const y = window.scrollY;
+               navbar.classList.toggle('scrolled', y > 50);
+               const dh = document.documentElement.scrollHeight - window.innerHeight;
+               progress.style.width = (y / dh) * 100 + '%';
+               backTop.classList.toggle('visible', y > 400);
+          });
+          backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+          /* ============ PROPERTIES DATA ============ */
+          const properties = [
+               {
+                    id: 1, title: 'آپارتمان لوکس ۱۴۵ متری', deal: 'sale', type: 'apartment',
+                    price: '۴,۲۰۰,۰۰۰,۰۰۰ تومان', priceNum: 4200, city: 'تهران', cityKey: 'tehran',
+                    location: 'تهران، سعادت‌آباد', beds: 3, baths: 2, area: 145,
+                    img: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: true, storage: true, added: 5
+               },
+               {
+                    id: 2, title: 'ویلای دوبلکس مدرن', deal: 'rent', type: 'villa',
+                    price: '۲۸,۰۰۰,۰۰۰ تومان/ماه', priceNum: 28, city: 'کرج', cityKey: 'karaj',
+                    location: 'کرج، عظیمیه', beds: 4, baths: 3, area: 280,
+                    img: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&auto=format&fit=crop',
+                    parking: true, elevator: false, balcony: true, storage: true, added: 3
+               },
+               {
+                    id: 3, title: 'پنت‌هاوس با ویو شهر', deal: 'sale', type: 'apartment',
+                    price: '۹,۵۰۰,۰۰۰,۰۰۰ تومان', priceNum: 9500, city: 'تهران', cityKey: 'tehran',
+                    location: 'تهران، الهیه', beds: 3, baths: 2, area: 200,
+                    img: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: true, storage: true, added: 8
+               },
+               {
+                    id: 4, title: 'آپارتمان ۸۰ متری نوساز', deal: 'sale', type: 'apartment',
+                    price: '۱,۸۰۰,۰۰۰,۰۰۰ تومان', priceNum: 1800, city: 'اصفهان', cityKey: 'isfahan',
+                    location: 'اصفهان، مرداویج', beds: 2, baths: 1, area: 80,
+                    img: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: false, storage: true, added: 2
+               },
+               {
+                    id: 5, title: 'زمین ۵۰۰ متری مسکونی', deal: 'sale', type: 'land',
+                    price: '۳,۵۰۰,۰۰۰,۰۰۰ تومان', priceNum: 3500, city: 'کرج', cityKey: 'karaj',
+                    location: 'کرج، محمدشهر', beds: 0, baths: 0, area: 500,
+                    img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&auto=format&fit=crop',
+                    parking: false, elevator: false, balcony: false, storage: false, added: 6
+               },
+               {
+                    id: 6, title: 'دفتر کار مدرن ۱۲۰ متری', deal: 'rent', type: 'office',
+                    price: '۴۵,۰۰۰,۰۰۰ تومان/ماه', priceNum: 45, city: 'تهران', cityKey: 'tehran',
+                    location: 'تهران، ونک', beds: 0, baths: 2, area: 120,
+                    img: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: false, storage: false, added: 1
+               },
+               {
+                    id: 7, title: 'ویلای ساحلی لوکس', deal: 'sale', type: 'villa',
+                    price: '۱۵,۰۰۰,۰۰۰,۰۰۰ تومان', priceNum: 15000, city: 'مشهد', cityKey: 'mashhad',
+                    location: 'مشهد، شاندیز', beds: 5, baths: 4, area: 400,
+                    img: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: true, storage: true, added: 4
+               },
+               {
+                    id: 8, title: 'آپارتمان ۱۰۵ متری', deal: 'mortgage', type: 'apartment',
+                    price: 'رهن ۵۰۰ + اجاره ۱۵ میلیون', priceNum: 500, city: 'تهران', cityKey: 'tehran',
+                    location: 'تهران، پونک', beds: 2, baths: 1, area: 105,
+                    img: 'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: true, storage: false, added: 7
+               },
+               {
+                    id: 9, title: 'مغازه تجاری پرتردد', deal: 'rent', type: 'shop',
+                    price: '۶۵,۰۰۰,۰۰۰ تومان/ماه', priceNum: 65, city: 'تهران', cityKey: 'tehran',
+                    location: 'تهران، بازار', beds: 0, baths: 1, area: 45,
+                    img: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&auto=format&fit=crop',
+                    parking: false, elevator: false, balcony: false, storage: true, added: 9
+               },
+               {
+                    id: 10, title: 'آپارتمان لوکس ۱۸۰ متری', deal: 'sale', type: 'apartment',
+                    price: '۷,۲۰۰,۰۰۰,۰۰۰ تومان', priceNum: 7200, city: 'اصفهان', cityKey: 'isfahan',
+                    location: 'اصفهان، چهارباغ', beds: 4, baths: 2, area: 180,
+                    img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: true, storage: true, added: 11
+               },
+               {
+                    id: 11, title: 'ویلای باغ‌ویلا', deal: 'sale', type: 'villa',
+                    price: '۸,۹۰۰,۰۰۰,۰۰۰ تومان', priceNum: 8900, city: 'مشهد', cityKey: 'mashhad',
+                    location: 'مشهد، طرقبه', beds: 3, baths: 2, area: 320,
+                    img: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600&auto=format&fit=crop',
+                    parking: true, elevator: false, balcony: true, storage: true, added: 10
+               },
+               {
+                    id: 12, title: 'آپارتمان ۹۵ متری', deal: 'sale', type: 'apartment',
+                    price: '۲,۴۰۰,۰۰۰,۰۰۰ تومان', priceNum: 2400, city: 'کرج', cityKey: 'karaj',
+                    location: 'کرج، گوهردشت', beds: 2, baths: 1, area: 95,
+                    img: 'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=600&auto=format&fit=crop',
+                    parking: true, elevator: true, balcony: false, storage: true, added: 12
+               }
+          ];
+
+          /* ============ STATE ============ */
+          const state = {
+               deal: 'all', type: null, city: 'all', beds: null,
+               areaMin: null, areaMax: null, priceMin: null, priceMax: null,
+               parking: false, elevator: false, balcony: false, storage: false,
+               sort: 'newest', view: 'grid'
+          };
+
+          const dealLabels = { sale: 'خرید', rent: 'اجاره', mortgage: 'رهن' };
+          const typeLabels = { apartment: 'آپارتمان', villa: 'ویلا', land: 'زمین', office: 'اداری', shop: 'تجاری' };
+          const cityLabels = { tehran: 'تهران', karaj: 'کرج', isfahan: 'اصفهان', mashhad: 'مشهد' };
+
+          /* ============ RENDER ============ */
+          function render() {
+               let list = properties.filter(p => {
+                    if (state.deal !== 'all' && p.deal !== state.deal) return false;
+                    if (state.type && p.type !== state.type) return false;
+                    if (state.city !== 'all' && p.cityKey !== state.city) return false;
+                    if (state.beds) {
+                         if (state.beds === '4' ? p.beds < 4 : p.beds !== +state.beds) return false;
+                    }
+                    if (state.areaMin && p.area < state.areaMin) return false;
+                    if (state.areaMax && p.area > state.areaMax) return false;
+                    if (state.priceMin && p.priceNum < state.priceMin) return false;
+                    if (state.priceMax && p.priceNum > state.priceMax) return false;
+                    if (state.parking && !p.parking) return false;
+                    if (state.elevator && !p.elevator) return false;
+                    if (state.balcony && !p.balcony) return false;
+                    if (state.storage && !p.storage) return false;
+                    return true;
+               });
+
+               switch (state.sort) {
+                    case 'cheapest': list.sort((a, b) => a.priceNum - b.priceNum); break;
+                    case 'expensive': list.sort((a, b) => b.priceNum - a.priceNum); break;
+                    case 'largest': list.sort((a, b) => b.area - a.area); break;
+                    default: list.sort((a, b) => a.added - b.added);
+               }
+
+               document.getElementById('resultCount').textContent = list.length.toLocaleString('fa-IR');
+
+               const grid = document.getElementById('propertyGrid');
+               if (!list.length) {
+                    grid.innerHTML = `
+                         <div class="col-12 text-center py-5">
+                              <i class="bi bi-inbox" style="font-size:3rem;color:var(--text-muted);"></i>
+                              <h4 class="mt-3 fw-bold">ملکی با این فیلترها پیدا نشد</h4>
+                              <p class="text-secondary">لطفاً فیلترها را تغییر دهید.</p>
+                         </div>`;
+                    return;
+               }
+
+               grid.innerHTML = list.map(p => `
+                    <div class="col-md-6 col-lg-4 ${state.view === 'list' ? 'col-12' : ''}">
+                         <div class="property-card ${state.view === 'list' ? 'list-view' : ''}">
+                              <div class="property-img">
+                                   <img src="${p.img}" alt="${p.title}">
+                                   <span class="property-tag ${p.deal === 'rent' ? 'rent' : p.deal === 'mortgage' ? 'mortgage' : ''}">
+                                        ${dealLabels[p.deal]}
+                                   </span>
+                                   <button class="property-fav" data-id="${p.id}"><i class="bi bi-heart"></i></button>
+                              </div>
+                              <div class="property-body">
+                                   <div class="property-price">${p.price}</div>
+                                   <h5 class="property-title">${p.title}</h5>
+                                   <div class="property-location"><i class="bi bi-geo-alt"></i> ${p.location}</div>
+                                   <div class="property-meta">
+                                        ${p.type !== 'land' && p.type !== 'office' && p.type !== 'shop' ?
+                         `<span><i class="bi bi-house"></i> ${p.beds.toLocaleString('fa-IR')} خواب</span>` : ''}
+                                        <span><i class="bi bi-rulers"></i> ${p.area.toLocaleString('fa-IR')} متر</span>
+                                        <span><i class="bi bi-building"></i> ${typeLabels[p.type]}</span>
+                                   </div>
+                                   <div class="property-actions">
+                                        <button class="btn-compare" data-compare="${p.id}">
+                                             <i class="bi bi-shuffle me-1"></i> مقایسه
+                                        </button>
+                                        <a href="#" class="btn-details"><i class="bi bi-eye me-1"></i> جزئیات</a>
+                                   </div>
+                              </div>
+                         </div>
+                    </div>
+               `).join('');
+
+               bindCardEvents();
+               renderActiveFilters();
+          }
+
+          /* ============ ACTIVE FILTERS ============ */
+          function renderActiveFilters() {
+               const wrap = document.getElementById('activeFilters');
+               const chips = [];
+               if (state.deal !== 'all') chips.push({ key: 'deal', label: `معامله: ${dealLabels[state.deal]}` });
+               if (state.type) chips.push({ key: 'type', label: `نوع: ${typeLabels[state.type]}` });
+               if (state.city !== 'all') chips.push({ key: 'city', label: `شهر: ${cityLabels[state.city]}` });
+               if (state.beds) chips.push({ key: 'beds', label: `${state.beds.toLocaleString ? state.beds.toLocaleString('fa-IR') : state.beds} خواب` });
+               if (state.areaMin || state.areaMax) chips.push({ key: 'area', label: `متراژ` });
+               if (state.priceMin || state.priceMax) chips.push({ key: 'price', label: `قیمت` });
+               if (state.parking) chips.push({ key: 'parking', label: 'پارکینگ' });
+               if (state.elevator) chips.push({ key: 'elevator', label: 'آسانسور' });
+               if (state.balcony) chips.push({ key: 'balcony', label: 'بالکن' });
+               if (state.storage) chips.push({ key: 'storage', label: 'انباری' });
+
+               wrap.innerHTML = chips.map(c => `
+                    <span class="filter-chip active d-inline-flex align-items-center gap-1" data-remove="${c.key}">
+                         ${c.label} <i class="bi bi-x"></i>
+                    </span>
+               `).join('');
+
+               wrap.querySelectorAll('[data-remove]').forEach(chip => {
+                    chip.addEventListener('click', () => {
+                         const k = chip.dataset.remove;
+                         if (k === 'area') { state.areaMin = null; state.areaMax = null; document.getElementById('areaMin').value = ''; document.getElementById('areaMax').value = ''; }
+                         else if (k === 'price') { state.priceMin = null; state.priceMax = null; document.getElementById('priceMin').value = ''; document.getElementById('priceMax').value = ''; }
+                         else if (k === 'deal') state.deal = 'all';
+                         else if (k === 'city') state.city = 'all';
+                         else if (['parking', 'elevator', 'balcony', 'storage'].includes(k)) {
+                              state[k] = false;
+                              document.getElementById('opt' + k.charAt(0).toUpperCase() + k.slice(1)).checked = false;
+                         }
+                         else state[k] = null;
+                         render();
+                    });
+               });
+          }
+
+          /* ============ FILTER CHIPS ============ */
+          document.querySelectorAll('.filter-chip[data-filter]').forEach(btn => {
+               btn.addEventListener('click', () => {
+                    const f = btn.dataset.filter;
+                    const v = btn.dataset.value;
+                    const group = document.querySelectorAll(`.filter-chip[data-filter="${f}"]`);
+                    group.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state[f] = f === 'beds' ? (v === '4' ? '4' : +v) : (f === 'city' && v === 'all' ? 'all' : (v === 'all' ? 'all' : v));
+                    render();
+               });
+          });
+
+          /* ============ APPLY FILTERS ============ */
+          document.getElementById('applyFilters').addEventListener('click', () => {
+               state.areaMin = +document.getElementById('areaMin').value || null;
+               state.areaMax = +document.getElementById('areaMax').value || null;
+               state.priceMin = +document.getElementById('priceMin').value || null;
+               state.priceMax = +document.getElementById('priceMax').value || null;
+               state.parking = document.getElementById('optParking').checked;
+               state.elevator = document.getElementById('optElevator').checked;
+               state.balcony = document.getElementById('optBalcony').checked;
+               state.storage = document.getElementById('optStorage').checked;
+               render();
+               closeFilter();
+          });
+
+          /* ============ RESET FILTERS ============ */
+          document.getElementById('resetFilters').addEventListener('click', () => {
+               Object.assign(state, {
+                    deal: 'all', type: null, city: 'all', beds: null,
+                    areaMin: null, areaMax: null, priceMin: null, priceMax: null,
+                    parking: false, elevator: false, balcony: false, storage: false
+               });
+               document.querySelectorAll('.filter-chip[data-filter]').forEach(b => {
+                    b.classList.toggle('active', ['all', 'sale'].includes(b.dataset.value) && b.dataset.filter !== 'deal' ? b.dataset.value === 'all' : b.dataset.filter === 'deal' && b.dataset.value === 'all');
+               });
+               ['areaMin', 'areaMax', 'priceMin', 'priceMax'].forEach(id => document.getElementById(id).value = '');
+               ['optParking', 'optElevator', 'optBalcony', 'optStorage'].forEach(id => document.getElementById(id).checked = false);
+               render();
+          });
+
+          /* ============ SORT ============ */
+          document.getElementById('sortSelect').addEventListener('change', e => {
+               state.sort = e.target.value;
+               render();
+          });
+
+          /* ============ VIEW TOGGLE ============ */
+          document.querySelectorAll('.view-btn').forEach(btn => {
+               btn.addEventListener('click', () => {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.view = btn.dataset.view;
+                    render();
+               });
+          });
+
+          /* ============ MOBILE FILTER ============ */
+          const filterSidebar = document.getElementById('filterSidebar');
+          const filterOverlay = document.getElementById('filterOverlay');
+          function closeFilter() { filterSidebar.classList.remove('open'); filterOverlay.classList.remove('show'); }
+          document.getElementById('openFilter').addEventListener('click', () => {
+               filterSidebar.classList.add('open');
+               filterOverlay.classList.add('show');
+          });
+          filterOverlay.addEventListener('click', closeFilter);
+
+          /* ============ FAVORITES ============ */
+          let wishlistCount = 2;
+          const favIds = new Set();
+
+          function bindCardEvents() {
+               document.querySelectorAll('.property-fav').forEach(btn => {
+                    const id = btn.dataset.id;
+                    if (favIds.has(id)) {
+                         btn.classList.add('liked');
+                         btn.querySelector('i').className = 'bi bi-heart-fill';
+                    }
+                    btn.addEventListener('click', e => {
+                         e.stopPropagation();
+                         const icon = btn.querySelector('i');
+                         if (favIds.has(id)) {
+                              favIds.delete(id);
+                              btn.classList.remove('liked');
+                              icon.className = 'bi bi-heart';
+                              wishlistCount = Math.max(0, wishlistCount - 1);
+                         } else {
+                              favIds.add(id);
+                              btn.classList.add('liked');
+                              icon.className = 'bi bi-heart-fill';
+                              wishlistCount++;
+                         }
+                         document.getElementById('wishlistCount').textContent = wishlistCount.toLocaleString('fa-IR');
+                    });
+               });
+
+               /* ============ COMPARE ============ */
+               document.querySelectorAll('.btn-compare').forEach(btn => {
+                    const id = btn.dataset.compare;
+                    if (compareSet.has(id)) {
+                         btn.classList.add('added');
+                         btn.innerHTML = '<i class="bi bi-check me-1"></i> اضافه شد';
+                    }
+                    btn.addEventListener('click', () => {
+                         if (compareSet.has(id)) {
+                              compareSet.delete(id);
+                              btn.classList.remove('added');
+                              btn.innerHTML = '<i class="bi bi-shuffle me-1"></i> مقایسه';
+                         } else {
+                              if (compareSet.size >= 4) return;
+                              compareSet.add(id);
+                              btn.classList.add('added');
+                              btn.innerHTML = '<i class="bi bi-check me-1"></i> اضافه شد';
+                         }
+                         updateCompareBar();
+                    });
+               });
+          }
+
+          /* ============ COMPARE BAR ============ */
+          const compareSet = new Set();
+          const compareBar = document.getElementById('compareBar');
+          const compareCount = document.getElementById('compareCount');
+          const compareThumbs = document.getElementById('compareThumbs');
+
+          function updateCompareBar() {
+               compareCount.textContent = compareSet.size.toLocaleString('fa-IR');
+               compareThumbs.innerHTML = '';
+               compareSet.forEach(id => {
+                    const p = properties.find(x => x.id == id);
+                    if (p) {
+                         const img = document.createElement('img');
+                         img.src = p.img;
+                         img.className = 'compare-thumb';
+                         compareThumbs.appendChild(img);
+                    }
+               });
+               compareBar.classList.toggle('visible', compareSet.size > 0);
+          }
+
+          document.getElementById('clearCompare').addEventListener('click', () => {
+               compareSet.clear();
+               document.querySelectorAll('.btn-compare').forEach(b => {
+                    b.classList.remove('added');
+                    b.innerHTML = '<i class="bi bi-shuffle me-1"></i> مقایسه';
+               });
+               updateCompareBar();
+          });
+
+          /* ============ INIT ============ */
+          render();
+     </script>
+</body>
+
+</html>

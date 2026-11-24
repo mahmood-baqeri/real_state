@@ -40,19 +40,24 @@ def list_customers(
         .select_related("assigned_membership__user", "agency")
         .prefetch_related("requirements", "shares__membership__user")
     )
-    if agency_id:
-        qs = qs.filter(agency_id=agency_id)
-    elif not is_super_admin(user):
-        raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
-
-    if not is_super_admin(user) and agency_id and not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+    if not agency_id:
+        return Customer.objects.none()
+    qs = qs.filter(agency_id=agency_id)
+    if not is_super_admin(user):
         membership = get_active_membership(user, agency_id)
         if not membership:
             return Customer.objects.none()
-        policy = get_agency_policy(agency_id)
-        if policy.customer_view_scope != AgencyAccessPolicy.CustomerViewScope.ALL_WITH_PERMISSION:
+        if membership.role.code == "BRANCH_MANAGER":
+            if not membership.branch_id:
+                return Customer.objects.none()
+            qs = qs.filter(assigned_membership__branch_id=membership.branch_id)
+        elif not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+            # ALL_WITH_PERMISSION means explicit permission is mandatory; it must
+            # never turn into an implicit all-customer grant when permission is absent.
             qs = qs.filter(
-                models.Q(assigned_membership=membership) | models.Q(shares__membership=membership)
+                models.Q(assigned_membership=membership)
+                | models.Q(shares__membership=membership, shares__expires_at__isnull=True)
+                | models.Q(shares__membership=membership, shares__expires_at__gt=timezone.now())
             ).distinct()
 
     if customer_type:
@@ -76,42 +81,80 @@ def _resolve_customer(*, user: User, agency_id: Optional[UUID], customer_id: UUI
 
 def get_customer_detail(*, user: User, agency_id: Optional[UUID], customer_id: UUID) -> dict:
     customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
+    membership = get_active_membership(user, customer.agency_id)
+
+    interaction_qs = CustomerInteractionLog.objects.all_tenants().filter(customer=customer)
+    if not has_agency_permission(user, customer.agency_id, "crm.private_note.view"):
+        interaction_qs = interaction_qs.filter(
+            models.Q(is_private=False) | models.Q(created_by=user) | models.Q(membership=membership)
+        )
     interactions = list(
-        CustomerInteractionLog.objects.all_tenants()
-        .filter(customer=customer)
-        .select_related("membership__user", "created_by")
-        .order_by("-created_at")[:50]
+        interaction_qs.select_related("membership__user", "created_by").order_by("-created_at")[:50]
     )
-    tasks = list(
-        FollowUpTask.objects.all_tenants()
-        .filter(customer=customer)
-        .select_related("assigned_membership__user")
-        .order_by("due_at")[:30]
+
+    can_view_related = has_agency_permission(user, customer.agency_id, "customer.related_records.view")
+    task_qs = FollowUpTask.objects.all_tenants().filter(customer=customer)
+    contract_qs = Contract.objects.all_tenants().filter(parties__customer=customer)
+    negotiation_qs = Negotiation.objects.all_tenants().filter(
+        models.Q(customer=customer) | models.Q(owner_customer=customer)
     )
+    appointment_qs = ViewingAppointment.objects.all_tenants().filter(customer=customer)
+
+    if membership and membership.role.code == "BRANCH_MANAGER":
+        if not membership.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه فاقد شعبه فعال است.")
+        task_qs = task_qs.filter(assigned_membership__branch_id=membership.branch_id)
+        contract_qs = contract_qs.filter(property__branch_id=membership.branch_id)
+        negotiation_qs = negotiation_qs.filter(property__branch_id=membership.branch_id)
+        appointment_qs = appointment_qs.filter(agent_membership__branch_id=membership.branch_id)
+    elif not can_view_related:
+        if not membership:
+            task_qs = task_qs.none()
+            contract_qs = contract_qs.none()
+            negotiation_qs = negotiation_qs.none()
+            appointment_qs = appointment_qs.none()
+        else:
+            task_qs = task_qs.filter(models.Q(assigned_membership=membership) | models.Q(created_by=user))
+            contract_qs = contract_qs.filter(
+                models.Q(property__agent_assignments__membership=membership) | models.Q(created_by=user)
+            ).distinct()
+            negotiation_qs = negotiation_qs.filter(
+                models.Q(agent_membership=membership) | models.Q(created_by=user)
+            )
+            appointment_qs = appointment_qs.filter(agent_membership=membership)
+
+    tasks = list(task_qs.select_related("assigned_membership__user").order_by("due_at")[:30])
     contracts = list(
-        Contract.objects.all_tenants()
-        .filter(parties__customer=customer)
-        .select_related("property", "deal_type")
-        .distinct()
-        .order_by("-created_at")[:20]
+        contract_qs.select_related("property", "deal_type").distinct().order_by("-created_at")[:20]
     )
     negotiations = list(
-        Negotiation.objects.all_tenants()
-        .filter(models.Q(customer=customer) | models.Q(owner_customer=customer))
-        .select_related("property", "deal_type")
-        .order_by("-created_at")[:20]
+        negotiation_qs.select_related("property", "deal_type").order_by("-created_at")[:20]
     )
     appointments = list(
-        ViewingAppointment.objects.all_tenants()
-        .filter(customer=customer)
-        .select_related("property", "agent_membership__user")
-        .order_by("-scheduled_start")[:20]
+        appointment_qs.select_related("property", "agent_membership__user").order_by("-scheduled_start")[:20]
     )
-    documents = list(
-        Document.objects.all_tenants()
-        .filter(customer=customer, is_deleted=False)
-        .order_by("-created_at")[:20]
-    )
+
+    documents = []
+    if membership and has_agency_permission(user, customer.agency_id, "document.view"):
+        document_qs = Document.objects.all_tenants().filter(customer=customer, agency_id=customer.agency_id, is_deleted=False)
+        if not has_agency_permission(user, customer.agency_id, "document.manage_access"):
+            document_qs = document_qs.exclude(access_level=Document.AccessLevel.CONFIDENTIAL)
+        if membership.role.code == "BRANCH_MANAGER":
+            document_qs = document_qs.filter(
+                models.Q(property__branch_id=membership.branch_id)
+                | models.Q(customer__assigned_membership__branch_id=membership.branch_id)
+                | models.Q(contract__property__branch_id=membership.branch_id)
+            )
+        elif not has_agency_permission(user, customer.agency_id, "customer.related_records.view"):
+            document_qs = document_qs.filter(
+                models.Q(created_by=user)
+                | models.Q(property__agent_assignments__membership=membership)
+                | models.Q(customer__assigned_membership=membership)
+                | models.Q(contract__property__agent_assignments__membership=membership)
+                | models.Q(contract__parties__customer__assigned_membership=membership)
+            ).distinct()
+        documents = list(document_qs.order_by("-created_at")[:20])
+
     return {
         "customer": customer,
         "interactions": interactions,
@@ -128,8 +171,27 @@ def create_customer(*, user: User, agency_id: Optional[UUID], data: dict) -> Cus
     if not agency_id:
         raise ValidationDomainError("ابتدا آژانس فعال را انتخاب کنید.")
     membership = get_active_membership(user, agency_id)
-    if not membership and not is_super_admin(user):
-        raise PermissionDeniedDomainError("عضو فعال آژانس نیستید.")
+    if not (is_super_admin(user) or has_agency_permission(user, agency_id, "customer.create")):
+        raise PermissionDeniedDomainError("مجوز ایجاد پرونده مشتری را ندارید.")
+
+    requested_assignee = data.get("assigned_membership_id")
+    if membership and membership.role.code == "BRANCH_MANAGER":
+        if not membership.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه باید به یک شعبه مشخص متصل باشد.")
+        assigned_id = requested_assignee or membership.id
+    elif is_super_admin(user) or has_agency_permission(user, agency_id, "customer.edit_all_agency"):
+        assigned_id = requested_assignee or (membership.id if membership else None)
+    else:
+        assigned_id = membership.id if membership else None
+    if assigned_id:
+        from apps.accounts.models import AgencyMembership
+        target = AgencyMembership.objects.filter(
+            id=assigned_id, agency_id=agency_id, status=AgencyMembership.Status.ACTIVE
+        ).first()
+        if not target:
+            raise ValidationDomainError("مشاور تخصیص‌یافته عضو فعال همین آژانس نیست.")
+        if membership and membership.role.code == "BRANCH_MANAGER" and target.branch_id != membership.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند مشتری را به مشاور همان شعبه تخصیص دهد.")
 
     phone = data["primary_phone"].strip()
     if Customer.objects.all_tenants().filter(agency_id=agency_id, primary_phone=phone, is_deleted=False).exists():
@@ -143,7 +205,7 @@ def create_customer(*, user: User, agency_id: Optional[UUID], data: dict) -> Cus
         secondary_phone=data.get("secondary_phone", ""),
         email=data.get("email", ""),
         source=data.get("source", "PORTAL"),
-        assigned_membership_id=data.get("assigned_membership_id") or (membership.id if membership else None),
+        assigned_membership_id=assigned_id,
         lead_score=int(data.get("lead_score", 50)),
         readiness_level=data.get("readiness_level", "MEDIUM"),
         tags=data.get("tags", []),
@@ -164,6 +226,22 @@ def update_customer(*, user: User, agency_id: Optional[UUID], customer_id: UUID,
     customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
     if not can_edit_customer(user, customer):
         raise PermissionDeniedDomainError("عدم مجوز ویرایش اطلاعات مشتری.")
+    if data.get("assigned_membership_id"):
+        from apps.accounts.models import AgencyMembership
+        target = AgencyMembership.objects.filter(
+            id=data["assigned_membership_id"], agency_id=customer.agency_id,
+            status=AgencyMembership.Status.ACTIVE
+        ).first()
+        if not target:
+            raise ValidationDomainError("مشاور تخصیص‌یافته عضو فعال همین آژانس نیست.")
+        current = get_active_membership(user, customer.agency_id)
+        if current and current.role.code == "BRANCH_MANAGER":
+            if not current.branch_id or target.branch_id != current.branch_id:
+                raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند مشتری را به مشاور همان شعبه تخصیص دهد.")
+        elif current and not (
+            is_super_admin(user) or has_agency_permission(user, customer.agency_id, "customer.edit_all_agency")
+        ) and target.id != current.id:
+            raise PermissionDeniedDomainError("تغییر مشاور تخصیص‌یافته مجاز نیست.")
     for k in [
         "customer_type", "full_name", "primary_phone", "secondary_phone", "email",
         "source", "assigned_membership_id", "lead_score", "readiness_level", "tags", "is_active",
@@ -223,17 +301,32 @@ def add_customer_interaction(
 
 @transaction.atomic
 def share_customer(
-    *, user: User, agency_id: Optional[UUID], customer_id: UUID, target_membership_id: UUID, access_level: str = "VIEW"
+    *, user: User, agency_id: Optional[UUID], customer_id: UUID, target_membership_id: UUID,
+    access_level: str = "VIEW", expires_at=None
 ) -> CustomerShare:
     customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
     eff_agency_id = customer.agency_id
-    if not (is_super_admin(user) or has_agency_permission(user, eff_agency_id, "customer.share") or can_edit_customer(user, customer)):
-        raise PermissionDeniedDomainError("عدم مجوز اشتراک‌گذاری مشتری.")
+    if not (is_super_admin(user) or has_agency_permission(user, eff_agency_id, "customer.share")):
+        raise PermissionDeniedDomainError("مجوز مستقل اشتراک‌گذاری مشتری را ندارید.")
+    if access_level not in CustomerShare.AccessLevel.values:
+        raise ValidationDomainError("سطح دسترسی اشتراک مشتری نامعتبر است.")
+    if expires_at and expires_at <= timezone.now():
+        raise ValidationDomainError("زمان انقضای اشتراک باید در آینده باشد.")
+    from apps.accounts.models import AgencyMembership
+    target = AgencyMembership.objects.filter(
+        id=target_membership_id, agency_id=eff_agency_id, status=AgencyMembership.Status.ACTIVE
+    ).first()
+    if not target:
+        raise ValidationDomainError("عضو مقصد باید عضو فعال همین آژانس باشد.")
+    sharer_membership = get_active_membership(user, eff_agency_id)
+    if sharer_membership and sharer_membership.role.code == "BRANCH_MANAGER":
+        if not sharer_membership.branch_id or target.branch_id != sharer_membership.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند مشتری را با اعضای شعبه خود به اشتراک بگذارد.")
 
     share, _ = CustomerShare.objects.update_or_create(
         customer=customer,
         membership_id=target_membership_id,
-        defaults={"access_level": access_level, "created_by": user},
+        defaults={"access_level": access_level, "expires_at": expires_at, "created_by": user},
     )
     record_audit_event(
         action="CUSTOMER_SHARED",
@@ -241,7 +334,7 @@ def share_customer(
         resource_id=str(customer.id),
         actor=user,
         agency_id=eff_agency_id,
-        after_state={"shared_with": str(target_membership_id), "access_level": access_level},
+        after_state={"shared_with": str(target_membership_id), "access_level": access_level, "expires_at": expires_at.isoformat() if expires_at else None},
     )
     return share
 
@@ -286,11 +379,16 @@ def list_leads(
     elif not is_super_admin(user):
         raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
 
-    if not is_super_admin(user) and agency_id and not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+    if not is_super_admin(user) and agency_id:
         membership = get_active_membership(user, agency_id)
         if not membership:
             return Lead.objects.none()
-        qs = qs.filter(models.Q(assigned_membership=membership) | models.Q(assigned_membership__isnull=True))
+        if membership.role.code == "BRANCH_MANAGER":
+            if not membership.branch_id:
+                return Lead.objects.none()
+            qs = qs.filter(assigned_membership__branch_id=membership.branch_id)
+        elif not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+            qs = qs.filter(assigned_membership=membership)
     if status_filter:
         qs = qs.filter(status=status_filter)
     if assigned_membership_id:
@@ -315,14 +413,42 @@ def create_lead(*, user: Optional[User], agency_id: Optional[UUID], data: dict) 
     membership = get_active_membership(user, agency_id) if user else None
     if user and user.is_authenticated and not membership and not is_super_admin(user):
         raise PermissionDeniedDomainError("عضو فعال آژانس نیستید.")
+    from apps.accounts.models import AgencyMembership
+    from apps.properties.models import Property, PropertyAgentAssignment
+    property_id = data.get("property_id")
+    linked_property = None
+    if property_id:
+        linked_property = Property.objects.all_tenants().filter(
+            id=property_id, agency_id=agency_id, is_deleted=False
+        ).first()
+        if not linked_property:
+            raise ValidationDomainError("ملک مرتبط با سرنخ متعلق به این آژانس نیست.")
+    requested_assignee = data.get("assigned_membership_id")
+    if membership and membership.role.code == "BRANCH_MANAGER":
+        if not membership.branch_id or (linked_property and linked_property.branch_id != membership.branch_id):
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند برای ملک شعبه خودش سرنخ ثبت کند.")
+        assigned_id = membership.id
+    elif membership and (is_super_admin(user) or has_agency_permission(user, agency_id, "customer.view_all_agency")):
+        assigned_id = requested_assignee or membership.id
+    elif membership:
+        assigned_id = membership.id
+    elif linked_property:
+        assignment = PropertyAgentAssignment.objects.filter(property=linked_property).select_related("membership").first()
+        assigned_id = assignment.membership_id if assignment else None
+    else:
+        assigned_id = None
+    if assigned_id and not AgencyMembership.objects.filter(
+        id=assigned_id, agency_id=agency_id, status=AgencyMembership.Status.ACTIVE
+    ).exists():
+        raise ValidationDomainError("مشاور تخصیص‌یافته به سرنخ عضو فعال همین آژانس نیست.")
     lead = Lead.objects.all_tenants().create(
         agency_id=agency_id,
         full_name=data["full_name"].strip(),
         phone_number=data["phone_number"].strip(),
         request_type=data.get("request_type", "BUY"),
-        property_id=data.get("property_id"),
+        property_id=property_id,
         source=data.get("source", "PORTAL"),
-        assigned_membership_id=data.get("assigned_membership_id") or (membership.id if membership else None),
+        assigned_membership_id=assigned_id,
         notes=data.get("notes", ""),
         created_by=user if (user and user.is_authenticated) else None,
     )
@@ -338,6 +464,31 @@ def create_lead(*, user: Optional[User], agency_id: Optional[UUID], data: dict) 
 @transaction.atomic
 def update_lead(*, user: User, agency_id: Optional[UUID], lead_id: UUID, data: dict) -> Lead:
     lead = _resolve_lead(user=user, agency_id=agency_id, lead_id=lead_id)
+    membership = get_active_membership(user, lead.agency_id)
+    if data.get("property_id"):
+        from apps.properties.models import Property
+        target_property = Property.objects.all_tenants().filter(
+            id=data["property_id"], agency_id=lead.agency_id, is_deleted=False
+        ).first()
+        if not target_property:
+            raise ValidationDomainError("ملک مرتبط با سرنخ متعلق به این آژانس نیست.")
+        if membership and membership.role.code == "BRANCH_MANAGER" and (
+            not membership.branch_id or target_property.branch_id != membership.branch_id
+        ):
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند سرنخ را به ملک شعبه خودش متصل کند.")
+    if data.get("assigned_membership_id"):
+        from apps.accounts.models import AgencyMembership
+        target = AgencyMembership.objects.filter(
+            id=data["assigned_membership_id"], agency_id=lead.agency_id,
+            status=AgencyMembership.Status.ACTIVE
+        ).first()
+        if not target:
+            raise ValidationDomainError("مشاور تخصیص‌یافته به سرنخ عضو فعال همین آژانس نیست.")
+        if membership and membership.role.code == "BRANCH_MANAGER":
+            if not membership.branch_id or target.branch_id != membership.branch_id:
+                raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند سرنخ را به مشاور همان شعبه تخصیص دهد.")
+        elif membership and not has_agency_permission(user, lead.agency_id, "customer.view_all_agency") and target.id != membership.id:
+            raise PermissionDeniedDomainError("تغییر مشاور تخصیص‌یافته مجاز نیست.")
     old_status = lead.status
     for k in [
         "full_name",

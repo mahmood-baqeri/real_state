@@ -102,7 +102,7 @@ async def admin_list_users(
         items, meta = paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_admin_user)
         return items, meta
 
-    items, meta = await run_django(_op)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -114,7 +114,7 @@ async def admin_create_user(body: AdminUserCreateBody, ctx: RequestContext = Dep
         u = create_user_by_admin(actor=ctx.user, data=body.model_dump())
         return _ser_admin_user(u)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/users/{user_id}")
@@ -127,7 +127,7 @@ async def admin_patch_user(
         u = update_user_by_admin(actor=ctx.user, target_user_id=user_id, data=body.model_dump(exclude_none=True))
         return _ser_admin_user(u)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/users/{user_id}")
@@ -138,7 +138,7 @@ async def admin_delete_user(user_id: UUID, ctx: RequestContext = Depends(get_cur
         u = soft_delete_user_by_admin(actor=ctx.user, target_user_id=user_id)
         return {"id": str(u.id), "status": u.status, "deleted": True}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/users/{user_id}/memberships", status_code=201)
@@ -164,7 +164,7 @@ async def admin_assign_membership(
             "status": m.status,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/users/{user_id}/status")
@@ -179,7 +179,7 @@ async def admin_update_user_status(
         u = update_user_status_by_admin(ctx.user, user_id, body.status)
         return {"id": str(u.id), "status": u.status}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/subscriptions")
@@ -203,7 +203,7 @@ async def admin_list_subscriptions(ctx: RequestContext = Depends(get_current_con
             for s in subs
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/subscriptions", status_code=201)
@@ -226,7 +226,7 @@ async def admin_create_subscription(
             "expires_at": s.expires_at.isoformat(),
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/subscriptions/{sub_id}")
@@ -249,4 +249,4 @@ async def admin_patch_subscription(
             "expires_at": s.expires_at.isoformat(),
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

@@ -1,10 +1,31 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Iterator, Optional
+import logging
 from uuid import UUID
 
 _current_agency_id: ContextVar[Optional[UUID]] = ContextVar("current_agency_id", default=None)
 _bypass_tenant_filter: ContextVar[bool] = ContextVar("bypass_tenant_filter", default=False)
+
+_ALLOWED_BYPASS_REASONS = {
+    "public_catalog",
+    "public_viewing",
+    "customer_portal",
+    "platform_reports",
+    "scoped_analytics",
+    "operations_center",
+    "scheduled_aggregation",
+    "compliance_duplicate_detection",
+    "platform_seed",
+    "private_media_migration",
+    "system_configuration",
+    "system_notification",
+    "public_content",
+    "public_complaint_tracking",
+    "payment_callback",
+    "data_migration",
+    "demo_data_maintenance",
+}
 
 
 def set_current_agency_id(agency_id: Optional[UUID]) -> None:
@@ -20,20 +41,51 @@ def is_tenant_bypassed() -> bool:
 
 
 @contextmanager
-def tenant_bypass() -> Iterator[None]:
-    """Explicit context manager for SuperAdmin or Public Portal cross-tenant read queries."""
+def tenant_bypass(*, reason: str) -> Iterator[None]:
+    """Allowlisted internal cross-tenant execution; missing context is never an implicit bypass."""
+    if reason not in _ALLOWED_BYPASS_REASONS:
+        raise PermissionError("Tenant bypass reason is not allowlisted.")
+    from django.db import connection, transaction
     token = _bypass_tenant_filter.set(True)
     try:
-        yield
+        with transaction.atomic():
+            previous = ""
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT COALESCE(current_setting('app.tenant_bypass', true), '')")
+                    previous = cursor.fetchone()[0]
+                    cursor.execute("SELECT set_config('app.tenant_bypass', 'on', true)")
+            try:
+                yield
+            finally:
+                if connection.vendor == "postgresql" and not connection.needs_rollback:
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT set_config('app.tenant_bypass', %s, true)", [previous])
     finally:
         _bypass_tenant_filter.reset(token)
 
 
 @contextmanager
 def scoped_agency(agency_id: Optional[UUID]) -> Iterator[None]:
-    """Explicitly bind execution to a given agency_id (useful in Celery tasks & tests)."""
+    """Bind a task/test to one agency in both Python and transaction-local PostgreSQL RLS context."""
+    from django.db import connection, transaction
     token = _current_agency_id.set(agency_id)
     try:
-        yield
+        with transaction.atomic():
+            previous = ""
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT COALESCE(current_setting('app.current_agency_id', true), '')")
+                    previous = cursor.fetchone()[0]
+                    cursor.execute(
+                        "SELECT set_config('app.current_agency_id', %s, true)",
+                        [str(agency_id) if agency_id else ""],
+                    )
+            try:
+                yield
+            finally:
+                if connection.vendor == "postgresql":
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT set_config('app.current_agency_id', %s, true)", [previous])
     finally:
         _current_agency_id.reset(token)

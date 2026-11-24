@@ -82,7 +82,7 @@ async def create_plan_endpoint(body: PlanCreateBody, ctx: RequestContext = Depen
 
         return _ser_plan(create_subscription_plan(actor=ctx.user, data=body.model_dump()))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/subscriptions/plans/{plan_id}")
@@ -94,7 +94,7 @@ async def update_plan_endpoint(
 
         return _ser_plan(update_subscription_plan(actor=ctx.user, plan_id=plan_id, data=body.model_dump(exclude_none=True)))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/subscriptions/plans/{plan_id}")
@@ -104,7 +104,7 @@ async def deactivate_plan_endpoint(plan_id: UUID, ctx: RequestContext = Depends(
 
         return _ser_plan(deactivate_subscription_plan(actor=ctx.user, plan_id=plan_id))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/subscriptions/current")
@@ -127,7 +127,7 @@ async def list_current_subscriptions_endpoint(ctx: RequestContext = Depends(get_
             for s in list_agency_subscriptions(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/subscriptions/checkout", status_code=201)
@@ -145,7 +145,7 @@ async def checkout_subscription_endpoint(
             provider_key=body.provider_key,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/subscriptions/verify")
@@ -167,7 +167,7 @@ async def verify_subscription_endpoint(
             "reference_id": tx.reference_id,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/payments/transactions")
@@ -190,4 +190,4 @@ async def list_transactions_endpoint(ctx: RequestContext = Depends(get_current_c
             for t in list_payment_transactions(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

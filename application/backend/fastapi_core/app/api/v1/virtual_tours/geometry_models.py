@@ -21,6 +21,8 @@ from .serializers import (
     serialize_wall_segment,
 )
 
+from app.core.uploads import read_upload_limited
+
 router = APIRouter(tags=["Virtual Tours Floorplan & 3D Dollhouse"])
 
 
@@ -36,7 +38,7 @@ async def list_floorplans_endpoint(
         fps = list(tour.floorplans.filter(is_active=True).select_related("floor").order_by("floor__order", "-created_at"))
         return [serialize_floorplan(fp) for fp in fps]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/floorplans", status_code=201)
@@ -46,7 +48,7 @@ async def upload_floorplan_endpoint(
     file: UploadFile = File(...),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    raw_bytes = await file.read()
+    raw_bytes = await read_upload_limited(file)
 
     def _op():
         from apps.virtual_tours.services import geometry_service
@@ -62,7 +64,7 @@ async def upload_floorplan_endpoint(
         )
         return serialize_floorplan(fp)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/floorplans/{floorplan_id}/calibrate")
@@ -84,7 +86,7 @@ async def calibrate_floorplan_endpoint(
         )
         return serialize_floorplan(fp)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/rooms", status_code=201)
@@ -104,7 +106,7 @@ async def create_room_geometry_endpoint(
         )
         return serialize_room_geometry(rm)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/rooms/{room_id}")
@@ -127,7 +129,7 @@ async def update_room_geometry_endpoint(
         )
         return serialize_room_geometry(rm)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/rooms/{room_id}")
@@ -140,7 +142,7 @@ async def delete_room_geometry_endpoint(
 
         return geometry_service.delete_room_geometry(user=ctx.user, agency_id=ctx.agency_id, room_id=room_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/rooms/{room_id}/measurements", status_code=201)
@@ -170,7 +172,7 @@ async def create_room_measurement_endpoint(
             "source": m.source,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/walls", status_code=201)
@@ -190,7 +192,7 @@ async def create_wall_segment_endpoint(
         )
         return serialize_wall_segment(wall)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/walls/{wall_id}")
@@ -203,7 +205,7 @@ async def delete_wall_segment_endpoint(
 
         return geometry_service.delete_wall_segment(user=ctx.user, agency_id=ctx.agency_id, wall_id=wall_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/walls/{wall_id}/openings", status_code=201)
@@ -223,7 +225,7 @@ async def create_wall_opening_endpoint(
         )
         return serialize_wall_opening(op)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/openings/{opening_id}")
@@ -236,7 +238,7 @@ async def delete_wall_opening_endpoint(
 
         return geometry_service.delete_wall_opening(user=ctx.user, agency_id=ctx.agency_id, opening_id=opening_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/generate-3d", status_code=202)
@@ -260,7 +262,7 @@ async def generate_dollhouse_3d_endpoint(
             "job_id": str(job.id),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/virtual-tours/{tour_id}/model/current")
@@ -275,7 +277,7 @@ async def get_current_dollhouse_model_endpoint(
         asset = tour.generated_models.filter(is_current=True).first() or tour.generated_models.order_by("-version").first()
         return serialize_generated_model_asset(asset) if asset else None
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/virtual-tours/{tour_id}/models")
@@ -289,7 +291,7 @@ async def list_dollhouse_models_endpoint(
         tour = get_tour_for_user(user=ctx.user, agency_id=ctx.agency_id, tour_id=tour_id, require_edit=False)
         return [serialize_generated_model_asset(m) for m in tour.generated_models.order_by("-version")]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/models/{model_id}/approve")
@@ -308,7 +310,7 @@ async def approve_dollhouse_model_endpoint(
         )
         return serialize_generated_model_asset(asset)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/models/{model_id}/reject")
@@ -329,7 +331,7 @@ async def reject_dollhouse_model_endpoint(
         )
         return serialize_generated_model_asset(asset)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/models/{model_id}/restore")
@@ -347,4 +349,4 @@ async def restore_dollhouse_model_endpoint(
         )
         return serialize_generated_model_asset(asset)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

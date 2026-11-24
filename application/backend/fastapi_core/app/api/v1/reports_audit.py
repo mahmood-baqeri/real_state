@@ -7,6 +7,8 @@ from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, get_current_context, require_agency_context
 from app.schemas.common import ok
 
+from app.core.uploads import read_upload_limited
+
 router = APIRouter(tags=["Reports & Audit Logs"])
 
 
@@ -32,7 +34,7 @@ async def dashboard_summary_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, period_days=period_days
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/analytics")
@@ -53,7 +55,7 @@ async def analytics_endpoint(
             agent_membership_id=agent_membership_id,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/operations-center")
@@ -63,7 +65,7 @@ async def operations_center_endpoint(ctx: RequestContext = Depends(get_current_c
 
         return get_operations_center(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/dashboard-layout")
@@ -73,7 +75,7 @@ async def get_dashboard_layout_endpoint(ctx: RequestContext = Depends(get_curren
 
         return get_or_save_dashboard_layout(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.put("/reports/dashboard-layout")
@@ -90,7 +92,7 @@ async def put_dashboard_layout_endpoint(
             default_period_days=body.default_period_days,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/onboarding")
@@ -100,7 +102,7 @@ async def get_onboarding_endpoint(ctx: RequestContext = Depends(get_current_cont
 
         return get_or_update_onboarding(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/reports/onboarding")
@@ -117,7 +119,7 @@ async def update_onboarding_endpoint(
             dismissed=body.dismissed,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/reports/import")
@@ -128,7 +130,7 @@ async def import_spreadsheet_endpoint(
     commit: bool = Form(False),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    content = await file.read()
+    content = await read_upload_limited(file)
     try:
         mapping = json.loads(column_mapping_json or "{}")
     except Exception:
@@ -147,7 +149,7 @@ async def import_spreadsheet_endpoint(
             commit=commit,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/export")
@@ -163,7 +165,7 @@ async def export_workbook_endpoint(
             user=ctx.user, agency_id=ctx.agency_id, module=module, fmt=fmt
         )
 
-    raw, media_type, fname = await run_django(_op, agency_id=ctx.agency_id)
+    raw, media_type, fname = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return Response(
         content=raw,
         media_type=media_type,
@@ -208,5 +210,5 @@ async def audit_logs_endpoint(
             },
         )
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)

@@ -55,6 +55,8 @@ def create_and_post_journal_entry(
     verifies open fiscal period, and posts an immutable JournalEntry.
     """
     locked_period = FiscalPeriod.objects.all_tenants().select_for_update().get(pk=fiscal_period.pk)
+    if locked_period.agency_id != agency.id:
+        raise ValidationError("Fiscal period must belong to the same agency as the journal entry.")
     if locked_period.is_closed or locked_period.fiscal_year.is_closed:
         raise ValidationError("Cannot post journal entries into a closed fiscal period.")
 
@@ -100,11 +102,16 @@ def create_and_post_journal_entry(
     for line in normalized_lines:
         account = line.get("account") or line.get("account_id")
         if isinstance(account, (str, UUID)):
-            account = ChartOfAccount.objects.all_tenants().get(pk=account, agency=agency)
+            account = ChartOfAccount.objects.all_tenants().filter(pk=account, agency=agency).first()
+        if not account or account.agency_id != agency.id:
+            raise ValidationError("Every journal account must belong to the same agency.")
+        cost_center = line.get("cost_center")
+        if cost_center and cost_center.agency_id != agency.id:
+            raise ValidationError("Every cost center must belong to the same agency.")
         JournalEntryLine.objects.create(
             journal_entry=entry,
             account=account,
-            cost_center=line.get("cost_center"),
+            cost_center=cost_center,
             description=line.get("description", ""),
             debit=line["debit"],
             credit=line["credit"],
@@ -116,7 +123,7 @@ def create_and_post_journal_entry(
 
 @transaction.atomic
 def reverse_journal_entry(
-    *, original_entry: JournalEntry, reversal_number: str, actor=None
+    *, original_entry: JournalEntry, reversal_number: str, actor=None, reversal_period: Optional[FiscalPeriod] = None
 ) -> JournalEntry:
     locked = JournalEntry.objects.all_tenants().select_for_update().get(pk=original_entry.pk)
     if locked.status != JournalEntry.Status.POSTED:
@@ -133,9 +140,35 @@ def reverse_journal_entry(
         for line in locked.lines.all()
     ]
 
+    target_period = reversal_period or locked.fiscal_period
+    if reversal_period is None and (target_period.is_closed or target_period.fiscal_year.is_closed):
+        now = timezone.now()
+        target_period = (
+            FiscalPeriod.objects.all_tenants()
+            .filter(
+                agency_id=locked.agency_id,
+                is_closed=False,
+                fiscal_year__is_closed=False,
+                start_date__lte=now,
+                end_date__gte=now,
+            )
+            .order_by("start_date")
+            .first()
+            or FiscalPeriod.objects.all_tenants()
+            .filter(
+                agency_id=locked.agency_id,
+                is_closed=False,
+                fiscal_year__is_closed=False,
+                start_date__gte=now,
+            )
+            .order_by("start_date")
+            .first()
+        )
+    if not target_period or target_period.agency_id != locked.agency_id or target_period.is_closed or target_period.fiscal_year.is_closed:
+        raise ValidationError("No open fiscal period is available for the reversal in this agency.")
     reversal = create_and_post_journal_entry(
         agency=locked.agency,
-        fiscal_period=locked.fiscal_period,
+        fiscal_period=target_period,
         entry_number=reversal_number,
         description=f"Reversal of {locked.entry_number}",
         lines=reversed_lines,
@@ -145,6 +178,7 @@ def reverse_journal_entry(
         actor=actor,
     )
     reversal.reversed_entry = locked
+    reversal.save(update_fields=["reversed_entry", "updated_at"])
     JournalEntry.objects.all_tenants().filter(pk=locked.pk).update(
         status=JournalEntry.Status.REVERSED
     )
@@ -165,6 +199,10 @@ def create_coa_account(*, user: User, agency_id: UUID, data: dict) -> ChartOfAcc
     assert_accounting_post(user, agency_id)
     if ChartOfAccount.objects.all_tenants().filter(agency_id=agency_id, code=data["code"]).exists():
         raise ConflictDomainError("کد حساب در کدینگ آژانس تکراری است.")
+    if data.get("parent_id") and not ChartOfAccount.objects.all_tenants().filter(
+        id=data["parent_id"], agency_id=agency_id
+    ).exists():
+        raise ValidationDomainError("حساب مادر باید متعلق به همین آژانس باشد.")
     return ChartOfAccount.objects.all_tenants().create(
         agency_id=agency_id,
         code=data["code"].strip(),
@@ -225,6 +263,8 @@ def reverse_journal_entry_service(*, user: User, agency_id: UUID, entry_id: UUID
     if not entry:
         raise NotFoundDomainError("سند حسابداری یافت نشد.")
     try:
+        # The service selects the open period containing the current date, or the
+        # next open period when the current date is outside all open periods.
         rev = reverse_journal_entry(
             original_entry=entry, reversal_number=f"REV-{entry.entry_number}", actor=user
         )
@@ -266,6 +306,10 @@ def list_treasury_and_cheques(*, user: User, agency_id: UUID) -> dict:
 @transaction.atomic
 def create_cheque(*, user: User, agency_id: UUID, data: dict) -> ChequeInstrument:
     assert_accounting_post(user, agency_id)
+    if data.get("deal_id") and not DealFinancialLedger.objects.all_tenants().filter(
+        agency_id=agency_id, deal_id=data["deal_id"]
+    ).exists():
+        raise ValidationDomainError("معامله چک باید متعلق به همین آژانس باشد.")
     return ChequeInstrument.objects.all_tenants().create(
         agency_id=agency_id,
         direction=data["direction"],
@@ -308,7 +352,7 @@ def get_trial_balance(
     )
     line_qs = JournalEntryLine.objects.filter(
         journal_entry__agency_id=agency_id,
-        journal_entry__status=JournalEntry.Status.POSTED,
+        journal_entry__status__in=[JournalEntry.Status.POSTED, JournalEntry.Status.REVERSED],
     )
     if fiscal_period_id:
         line_qs = line_qs.filter(journal_entry__fiscal_period_id=fiscal_period_id)
@@ -439,7 +483,7 @@ def get_general_ledger(*, user: User, agency_id: UUID, account_id: UUID) -> dict
     lines = (
         JournalEntryLine.objects.filter(
             journal_entry__agency_id=agency_id,
-            journal_entry__status=JournalEntry.Status.POSTED,
+            journal_entry__status__in=[JournalEntry.Status.POSTED, JournalEntry.Status.REVERSED],
             account=acct,
         )
         .select_related("journal_entry")

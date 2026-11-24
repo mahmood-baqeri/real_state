@@ -40,7 +40,7 @@ async def active_gateways_endpoint(ctx: RequestContext = Depends(get_optional_co
 
         return list_public_active_gateways(agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/gateways")
@@ -69,7 +69,7 @@ async def list_gateways_endpoint(ctx: RequestContext = Depends(get_current_conte
             for c in list_managed_gateways(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/gateways")
@@ -96,7 +96,7 @@ async def save_gateway_endpoint(
             "masked_credentials": mask_provider_credentials(c),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/gateways/{config_id}/test")
@@ -108,7 +108,7 @@ async def test_gateway_endpoint(
 
         return test_gateway_connection(user=ctx.user, agency_id=ctx.agency_id, config_id=config_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/initiate", status_code=201)
@@ -128,7 +128,7 @@ async def initiate_payment_endpoint(
             idempotency_key=body.idempotency_key,
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/verify")
@@ -156,7 +156,7 @@ async def verify_payment_endpoint(
             "verified_at": tx.verified_at.isoformat() if tx.verified_at else None,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/callback/{provider_key}")

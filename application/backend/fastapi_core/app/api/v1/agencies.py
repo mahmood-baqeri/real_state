@@ -140,7 +140,7 @@ async def list_agencies(
         qs = list_agencies_for_user(ctx.user)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_agency)
 
-    items, meta = await run_django(_op)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -154,7 +154,7 @@ async def create_agency_endpoint(body: AgencyCreateBody, ctx: RequestContext = D
         a = create_agency(owner=ctx.user, timezone_str=tz, **data)
         return _ser_agency(a)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{agency_id}")
@@ -164,7 +164,7 @@ async def get_agency(agency_id: UUID, ctx: RequestContext = Depends(get_optional
 
         return _ser_agency(get_agency_for_user(ctx.user, agency_id))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{agency_id}")
@@ -187,7 +187,7 @@ async def delete_agency_endpoint(agency_id: UUID, ctx: RequestContext = Depends(
         a = soft_delete_agency(actor=ctx.user, agency_id=agency_id)
         return {"id": str(a.id), "archived": True}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{agency_id}/status")
@@ -199,7 +199,7 @@ async def update_agency_status_endpoint(
 
         return _ser_agency(update_agency_status(actor=ctx.user, agency_id=agency_id, new_status=body.status))
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{agency_id}/access-policy")

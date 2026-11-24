@@ -51,75 +51,77 @@ async def search_properties(
         from common.pagination import paginate_queryset
 
         amenity_codes = [s.strip() for s in amenities.split(",") if s.strip()] if amenities else None
-        qs = list_public_properties(
-            province_id=province_id,
-            city_id=city_id,
-            district_id=district_id,
-            neighborhood_id=neighborhood_id,
-            city=city,
-            district=district,
-            deal_type=deal_type,
-            property_type=property_type,
-            min_price=min_price,
-            max_price=max_price,
-            min_area=min_area,
-            max_area=max_area,
-            min_bedrooms=min_bedrooms,
-            amenity_codes=amenity_codes,
-            min_lat=min_lat,
-            max_lat=max_lat,
-            min_lng=min_lng,
-            max_lng=max_lng,
-            polygon=polygon,
-            q=q,
-        )
-
-        def _ser(p):
-            loc = getattr(p, "location", None)
-            media_sorted = sorted(
-                [m for m in p.media_items.all() if m.is_public],
-                key=lambda m: (0 if m.is_cover else 1, m.sort_order, m.created_at),
+        from common.tenant.context import tenant_bypass
+        with tenant_bypass(reason="public_catalog"):
+            qs = list_public_properties(
+                province_id=province_id,
+                city_id=city_id,
+                district_id=district_id,
+                neighborhood_id=neighborhood_id,
+                city=city,
+                district=district,
+                deal_type=deal_type,
+                property_type=property_type,
+                min_price=min_price,
+                max_price=max_price,
+                min_area=min_area,
+                max_area=max_area,
+                min_bedrooms=min_bedrooms,
+                amenity_codes=amenity_codes,
+                min_lat=min_lat,
+                max_lat=max_lat,
+                min_lng=min_lng,
+                max_lng=max_lng,
+                polygon=polygon,
+                q=q,
             )
-            cover = media_sorted[0].url if media_sorted else None
-            lat = None
-            lng = None
-            if loc and loc.latitude is not None and loc.longitude is not None:
-                lat = str(loc.latitude if not loc.hide_exact_address else loc.latitude.quantize(Decimal("0.01")))
-                lng = str(loc.longitude if not loc.hide_exact_address else loc.longitude.quantize(Decimal("0.01")))
-            return {
-                "id": str(p.id),
-                "property_code": p.property_code,
-                "title": p.title,
-                "property_type_id": p.property_type_id,
-                "property_type_name": p.property_type.name_fa,
-                "deal_type_id": p.deal_type_id,
-                "deal_type_name": p.deal_type.name_fa,
-                "built_area_sqm": str(p.built_area_sqm),
-                "bedrooms": p.bedrooms,
-                "total_price": str(p.total_price),
-                "price_per_sqm": str(p.price_per_sqm),
-                "deposit_amount": str(p.deposit_amount),
-                "rent_amount": str(p.rent_amount),
-                "currency_id": p.currency_id,
-                "is_featured": p.is_featured,
-                "province_id": str(loc.province_ref_id) if loc and loc.province_ref_id else None,
-                "city_id": str(loc.city_ref_id) if loc and loc.city_ref_id else None,
-                "district_id": str(loc.district_ref_id) if loc and loc.district_ref_id else None,
-                "neighborhood_id": str(loc.neighborhood_ref_id) if loc and loc.neighborhood_ref_id else None,
-                "province": loc.province if loc else "",
-                "city": loc.city if loc else "",
-                "district": loc.district if loc else "",
-                "neighborhood": loc.neighborhood if loc else "",
-                "latitude": lat,
-                "longitude": lng,
-                "amenities": [{"code": a.code, "name_fa": a.name_fa} for a in p.amenities.all()],
-                "agency_name": p.agency.name,
-                "cover_url": cover,
-            }
 
-        return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser)
+            def _ser(p):
+                loc = getattr(p, "location", None)
+                media_sorted = sorted(
+                    [m for m in p.media_items.all() if m.is_public],
+                    key=lambda m: (0 if m.is_cover else 1, m.sort_order, m.created_at),
+                )
+                cover = media_sorted[0].url if media_sorted else None
+                lat = None
+                lng = None
+                if loc and loc.latitude is not None and loc.longitude is not None:
+                    lat = str(loc.latitude if not loc.hide_exact_address else loc.latitude.quantize(Decimal("0.01")))
+                    lng = str(loc.longitude if not loc.hide_exact_address else loc.longitude.quantize(Decimal("0.01")))
+                return {
+                    "id": str(p.id),
+                    "property_code": p.property_code,
+                    "title": p.title,
+                    "property_type_id": p.property_type_id,
+                    "property_type_name": p.property_type.name_fa,
+                    "deal_type_id": p.deal_type_id,
+                    "deal_type_name": p.deal_type.name_fa,
+                    "built_area_sqm": str(p.built_area_sqm),
+                    "bedrooms": p.bedrooms,
+                    "total_price": str(p.total_price),
+                    "price_per_sqm": str(p.price_per_sqm),
+                    "deposit_amount": str(p.deposit_amount),
+                    "rent_amount": str(p.rent_amount),
+                    "currency_id": p.currency_id,
+                    "is_featured": p.is_featured,
+                    "province_id": str(loc.province_ref_id) if loc and loc.province_ref_id else None,
+                    "city_id": str(loc.city_ref_id) if loc and loc.city_ref_id else None,
+                    "district_id": str(loc.district_ref_id) if loc and loc.district_ref_id else None,
+                    "neighborhood_id": str(loc.neighborhood_ref_id) if loc and loc.neighborhood_ref_id else None,
+                    "province": loc.province if loc else "",
+                    "city": loc.city if loc else "",
+                    "district": loc.district if loc else "",
+                    "neighborhood": loc.neighborhood if loc else "",
+                    "latitude": lat,
+                    "longitude": lng,
+                    "amenities": [{"code": a.code, "name_fa": a.name_fa} for a in p.amenities.all()],
+                    "agency_name": p.agency.name,
+                    "cover_url": cover,
+                }
 
-    items, meta = await run_django(_op)
+            return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser)
+
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     meta["engine"] = "fastapi-django-orm"
     meta["spatial_mode"] = "polygon" if polygon else ("bounds" if min_lat is not None else "standard")
     return ok(items, meta=meta)
@@ -136,7 +138,7 @@ async def global_search_endpoint(
 
         return global_search(user=ctx.user, agency_id=ctx.agency_id, query=q, limit=limit)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/views")
@@ -161,7 +163,7 @@ async def list_saved_views_endpoint(
             for v in list_saved_views(user=ctx.user, agency_id=ctx.agency_id, module=module)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/views", status_code=201)
@@ -184,7 +186,7 @@ async def create_saved_view_endpoint(
             "is_default": v.is_default,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/views/{view_id}")
@@ -198,4 +200,4 @@ async def delete_saved_view_endpoint(
         delete_saved_view(user=ctx.user, view_id=view_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

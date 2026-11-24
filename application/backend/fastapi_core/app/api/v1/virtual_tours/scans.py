@@ -6,6 +6,8 @@ from app.dependencies.auth import RequestContext, require_agency_context
 from app.schemas.common import ok
 from .serializers import serialize_processing_job, serialize_scan_asset
 
+from app.core.uploads import read_upload_limited
+
 router = APIRouter(tags=["Virtual Tours 3D Scans & LiDAR"])
 
 
@@ -21,7 +23,7 @@ async def list_tour_scans_endpoint(
         scans = list(tour.scans.select_related("floor", "scene", "processing_result").order_by("-created_at"))
         return [serialize_scan_asset(s) for s in scans]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/virtual-tours/{tour_id}/scans", status_code=201)
@@ -33,7 +35,7 @@ async def upload_tour_scan_endpoint(
     scene_id: Optional[UUID] = Form(default=None),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    raw_bytes = await file.read()
+    raw_bytes = await read_upload_limited(file)
 
     def _op():
         from apps.virtual_tours.services import scan_service
@@ -51,7 +53,7 @@ async def upload_tour_scan_endpoint(
         )
         return serialize_scan_asset(scan)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/scans/{scan_id}")
@@ -65,7 +67,7 @@ async def get_scan_detail_endpoint(
         scan = get_scan_asset_for_user(user=ctx.user, agency_id=ctx.agency_id, scan_id=scan_id, require_edit=False)
         return serialize_scan_asset(scan)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scans/{scan_id}/process", status_code=202)
@@ -86,7 +88,7 @@ async def process_scan_endpoint(
             "job_id": str(job.id),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/scans/{scan_id}")
@@ -100,4 +102,4 @@ async def delete_scan_endpoint(
         scan_service.delete_scan_asset(user=ctx.user, agency_id=ctx.agency_id, scan_id=scan_id)
         return {"deleted": True, "scan_id": str(scan_id)}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

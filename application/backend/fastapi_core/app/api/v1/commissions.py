@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.core.django_bridge import run_django
 from app.dependencies.auth import RequestContext, require_agency_context
 from app.schemas.common import ok
@@ -21,6 +21,7 @@ class CommissionPolicyCreateBody(BaseModel):
     agency_house_percent: Decimal = Decimal("50.0000")
     primary_agent_percent: Decimal = Decimal("50.0000")
     co_agent_split_ratio: Decimal = Decimal("50.0000")
+    rules_json: dict = Field(default_factory=dict)
 
 
 class CommissionCalculateBody(BaseModel):
@@ -76,7 +77,7 @@ async def list_commissions_endpoint(
         qs = list_commissions(user=ctx.user, agency_id=ctx.agency_id)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_commission)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -110,7 +111,7 @@ async def list_policies_endpoint(ctx: RequestContext = Depends(require_agency_co
             for p in list_commission_policies(ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/policies", status_code=201)
@@ -123,7 +124,7 @@ async def create_policy_endpoint(
         p = create_commission_policy(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"id": str(p.id), "name": p.name}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/calculate", status_code=201)
@@ -142,7 +143,7 @@ async def calculate_commission_endpoint(
         )
         return _ser_commission(dc)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{commission_id}/status")
@@ -162,4 +163,4 @@ async def commission_status_endpoint(
         )
         return {"id": str(dc.id), "status": dc.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

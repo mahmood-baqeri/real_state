@@ -63,7 +63,7 @@ async def get_appointments(
         qs = list_appointments(user=ctx.user, agency_id=ctx.agency_id)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_appt)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -77,7 +77,7 @@ async def unified_calendar_endpoint(
 
         return get_unified_calendar(user=ctx.user, agency_id=ctx.agency_id, days_ahead=days_ahead)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/request-public", status_code=201)
@@ -88,7 +88,7 @@ async def request_public(body: PublicAppointmentBody, ctx: RequestContext = Depe
         appt = request_public_viewing(user=ctx.user, **body.model_dump())
         return _ser_appt(appt)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("", status_code=201)
@@ -103,7 +103,7 @@ async def create_appointment(
         appt = create_agency_appointment(user=ctx.user, agency_id=ctx.agency_id, status_value=st, **data)
         return _ser_appt(appt)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{appt_id}/confirm")
@@ -120,7 +120,7 @@ async def confirm_appointment(appt_id: UUID, ctx: RequestContext = Depends(requi
         )
         return _ser_appt(appt)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{appt_id}/status")
@@ -139,4 +139,4 @@ async def update_appointment_status(
         )
         return _ser_appt(appt)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

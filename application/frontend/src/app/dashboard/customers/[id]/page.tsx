@@ -1,5 +1,5 @@
-import { confirmDialog } from "@/lib/confirm-dialog";
 "use client";
+import { confirmDialog } from "@/lib/confirm-dialog";
 
 import React, { useState } from "react";
 import Link from "next/link";

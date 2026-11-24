@@ -97,36 +97,103 @@ class StorageProviderBase(ABC):
     def get_bytes(self, *, file_key: str) -> bytes:
         raise NotImplementedError
 
+    def delete_object(self, *, file_key: str) -> None:
+        raise NotImplementedError
+
+    def get_legacy_public_bytes(self, *, file_key: str) -> bytes:
+        return self.get_bytes(file_key=file_key)
+
+    def delete_legacy_public_object(self, *, file_key: str) -> None:
+        self.delete_object(file_key=file_key)
+
 
 class LocalSecureStorageAdapter(StorageProviderBase):
     provider_key = "local"
 
-    def _root(self) -> Path:
-        root = Path(settings.MEDIA_ROOT).resolve()
+    def _root(self, *, private: bool = False) -> Path:
+        configured = getattr(settings, "PRIVATE_MEDIA_ROOT", None) if private else settings.MEDIA_ROOT
+        root = Path(configured or (Path(settings.MEDIA_ROOT).parent / "private_media")).resolve()
         root.mkdir(parents=True, exist_ok=True)
         return root
 
+    @staticmethod
+    def _safe_relative_key(file_key: str) -> tuple[bool, str]:
+        if not isinstance(file_key, str) or not file_key or "\\" in file_key:
+            raise ValidationDomainError("کلید فایل نامعتبر است.")
+        private = file_key.startswith("private/")
+        relative = file_key[len("private/"):] if private else file_key
+        candidate = Path(relative)
+        if candidate.is_absolute() or any(part in ("", ".", "..") for part in candidate.parts):
+            raise ValidationDomainError("مسیر فایل نامعتبر است.")
+        return private, candidate.as_posix()
+
+    @staticmethod
+    def _contained_path(root: Path, relative_key: str) -> Path:
+        target = (root / relative_key).resolve()
+        if not target.is_relative_to(root):
+            raise ValidationDomainError("مسیر فایل خارج از مخزن مجاز است.")
+        return target
+
     def put_bytes(self, *, key_prefix: str, safe_filename: str, content: bytes, mime_type: str) -> StoredObjectResult:
-        clean_prefix = "/".join(p for p in key_prefix.strip("/").split("/") if p and ".." not in p)
-        file_key = f"{clean_prefix}/{safe_filename}" if clean_prefix else safe_filename
-        target = (self._root() / file_key).resolve()
-        if not str(target).startswith(str(self._root())):
+        if not safe_filename or Path(safe_filename).name != safe_filename or safe_filename in (".", ".."):
+            raise ValidationDomainError("نام فایل نامعتبر است.")
+        prefix = key_prefix.strip("/")
+        parts = Path(prefix).parts if prefix else ()
+        if any(part in (".", "..") for part in parts) or "\\" in prefix:
             raise ValidationDomainError("مسیر ذخیره‌سازی نامعتبر است.")
+        private = bool(parts and parts[0] == "private")
+        relative_prefix = "/".join(parts[1:] if private else parts)
+        relative_key = f"{relative_prefix}/{safe_filename}" if relative_prefix else safe_filename
+        root = self._root(private=private)
+        target = self._contained_path(root, relative_key)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
+        file_key = f"private/{relative_key}" if private else relative_key
         return StoredObjectResult(
             file_key=file_key,
-            url=f"{settings.MEDIA_URL.rstrip('/')}/{file_key}",
+            # Private objects are intentionally never exposed as public media URLs.
+            url="" if private else f"{settings.MEDIA_URL.rstrip('/')}/{file_key}",
             size_bytes=len(content),
             mime_type=mime_type,
             provider_key=self.provider_key,
         )
 
     def get_bytes(self, *, file_key: str) -> bytes:
-        target = (self._root() / file_key.lstrip("/")).resolve()
-        if not str(target).startswith(str(self._root())) or not target.exists():
+        private, relative_key = self._safe_relative_key(file_key)
+        root = self._root(private=private)
+        target = self._contained_path(root, relative_key)
+        if not target.is_file():
             raise FileNotFoundError(file_key)
         return target.read_bytes()
+
+    def delete_object(self, *, file_key: str) -> None:
+        private, relative_key = self._safe_relative_key(file_key)
+        target = self._contained_path(self._root(private=private), relative_key)
+        if target.exists():
+            target.unlink()
+
+    def get_legacy_public_bytes(self, *, file_key: str) -> bytes:
+        if (
+            not isinstance(file_key, str) or not file_key or file_key.startswith("/")
+            or "\\\\" in file_key or "\x00" in file_key
+            or any(part in ("", ".", "..") for part in Path(file_key).parts)
+        ):
+            raise FileNotFoundError(file_key)
+        target = self._contained_path(self._root(private=False), Path(file_key))
+        if not target.is_file():
+            raise FileNotFoundError(file_key)
+        return target.read_bytes()
+
+    def delete_legacy_public_object(self, *, file_key: str) -> None:
+        if (
+            not isinstance(file_key, str) or not file_key or file_key.startswith("/")
+            or "\\\\" in file_key or "\x00" in file_key
+            or any(part in ("", ".", "..") for part in Path(file_key).parts)
+        ):
+            raise FileNotFoundError(file_key)
+        target = self._contained_path(self._root(private=False), Path(file_key))
+        if target.exists():
+            target.unlink()
 
 
 class S3CompatibleStorageAdapter(StorageProviderBase):
@@ -142,25 +209,86 @@ class S3CompatibleStorageAdapter(StorageProviderBase):
         )
 
     def put_bytes(self, *, key_prefix: str, safe_filename: str, content: bytes, mime_type: str) -> StoredObjectResult:
-        bucket = getattr(settings, "S3_BUCKET_NAME", "")
+        prefix = key_prefix.strip("/")
+        parts = Path(prefix).parts if prefix else ()
+        is_private = bool(parts and parts[0] == "private")
+        bucket = (getattr(settings, "S3_PRIVATE_BUCKET_NAME", "") if is_private
+                  else getattr(settings, "S3_BUCKET_NAME", ""))
         if not bucket:
-            raise RuntimeError("S3_BUCKET_NAME is not configured.")
-        file_key = f"{key_prefix.strip('/')}/{safe_filename}"
+            raise RuntimeError("S3_PRIVATE_BUCKET_NAME is required for private objects." if is_private else "S3_BUCKET_NAME is not configured.")
+        parts = Path(prefix).parts if prefix else ()
+        if (
+            not safe_filename or Path(safe_filename).name != safe_filename
+            or "\\\\" in prefix or any(part in ("", ".", "..") for part in parts)
+        ):
+            raise ValidationDomainError("مسیر ذخیره‌سازی نامعتبر است.")
+        file_key = f"{prefix}/{safe_filename}" if prefix else safe_filename
         self._client().put_object(
             Bucket=bucket,
             Key=file_key,
             Body=content,
             ContentType=mime_type,
         )
+        public_url = "" if is_private else self._client().generate_presigned_url(
+            "get_object", Params={"Bucket": bucket, "Key": file_key}, ExpiresIn=3600
+        )
         return StoredObjectResult(
             file_key=file_key,
-            url=f"s3://{bucket}/{file_key}",
+            url=public_url,
             size_bytes=len(content),
             mime_type=mime_type,
             provider_key=self.provider_key,
         )
 
     def get_bytes(self, *, file_key: str) -> bytes:
-        bucket = getattr(settings, "S3_BUCKET_NAME", "")
+        if (
+            not isinstance(file_key, str) or not file_key or file_key.startswith("/")
+            or "\\\\" in file_key or "\x00" in file_key
+            or any(part in ("", ".", "..") for part in Path(file_key).parts)
+        ):
+            raise FileNotFoundError(file_key)
+        is_private = file_key.startswith("private/")
+        bucket = (getattr(settings, "S3_PRIVATE_BUCKET_NAME", "") if is_private
+                  else getattr(settings, "S3_BUCKET_NAME", ""))
+        if not bucket:
+            raise RuntimeError("S3_PRIVATE_BUCKET_NAME is required for private objects." if is_private else "S3_BUCKET_NAME is not configured.")
         obj = self._client().get_object(Bucket=bucket, Key=file_key)
         return obj["Body"].read()
+
+    def delete_object(self, *, file_key: str) -> None:
+        if not isinstance(file_key, str) or not file_key or file_key.startswith("/") or "\\\\" in file_key or any(
+            part in ("", ".", "..") for part in Path(file_key).parts
+        ):
+            raise FileNotFoundError(file_key)
+        is_private = file_key.startswith("private/")
+        bucket = (getattr(settings, "S3_PRIVATE_BUCKET_NAME", "") if is_private
+                  else getattr(settings, "S3_BUCKET_NAME", ""))
+        if not bucket:
+            raise RuntimeError("S3_PRIVATE_BUCKET_NAME is required for private objects." if is_private else "S3_BUCKET_NAME is not configured.")
+        self._client().delete_object(Bucket=bucket, Key=file_key)
+
+
+    def get_legacy_public_bytes(self, *, file_key: str) -> bytes:
+        if (
+            not isinstance(file_key, str) or not file_key or file_key.startswith("/")
+            or "\\\\" in file_key or "\x00" in file_key
+            or any(part in ("", ".", "..") for part in Path(file_key).parts)
+        ):
+            raise FileNotFoundError(file_key)
+        bucket = getattr(settings, "S3_BUCKET_NAME", "")
+        if not bucket:
+            raise RuntimeError("S3_BUCKET_NAME is not configured.")
+        obj = self._client().get_object(Bucket=bucket, Key=file_key)
+        return obj["Body"].read()
+
+    def delete_legacy_public_object(self, *, file_key: str) -> None:
+        if (
+            not isinstance(file_key, str) or not file_key or file_key.startswith("/")
+            or "\\\\" in file_key or "\x00" in file_key
+            or any(part in ("", ".", "..") for part in Path(file_key).parts)
+        ):
+            raise FileNotFoundError(file_key)
+        bucket = getattr(settings, "S3_BUCKET_NAME", "")
+        if not bucket:
+            raise RuntimeError("S3_BUCKET_NAME is not configured.")
+        self._client().delete_object(Bucket=bucket, Key=file_key)

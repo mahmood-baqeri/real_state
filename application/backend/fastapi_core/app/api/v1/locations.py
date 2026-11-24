@@ -193,7 +193,7 @@ async def create_province_endpoint(
         p = create_province(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_node(p, {"country_id": p.country_id, "code": p.code})
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cities", status_code=201)
@@ -206,7 +206,7 @@ async def create_city_endpoint(
         c = create_city(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_node(c, {"province_id": str(c.province_id), "province_name": c.province.name_fa})
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/districts", status_code=201)
@@ -219,7 +219,7 @@ async def create_district_endpoint(
         d = create_district(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_node(d, {"city_id": str(d.city_id), "city_name": d.city.name_fa})
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/neighborhoods", status_code=201)
@@ -232,7 +232,7 @@ async def create_neighborhood_endpoint(
         n = create_neighborhood(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_node(n, {"district_id": str(n.district_id), "district_name": n.district.name_fa})
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{level}/{node_id}")
@@ -255,4 +255,4 @@ async def patch_geo_node_endpoint(
         )
         return _ser_node(node)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

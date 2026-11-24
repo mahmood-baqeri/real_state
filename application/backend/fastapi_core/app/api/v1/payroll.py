@@ -58,7 +58,7 @@ async def list_payroll_cycles_endpoint(ctx: RequestContext = Depends(require_age
 
         return [_ser_cycle(c) for c in list_payroll_cycles(user=ctx.user, agency_id=ctx.agency_id)]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cycles", status_code=201)
@@ -77,7 +77,7 @@ async def create_payroll_cycle_endpoint(
         )
         return _ser_cycle(c)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cycles/{cycle_id}/status")
@@ -97,4 +97,4 @@ async def payroll_cycle_status_endpoint(
         )
         return {"id": str(c.id), "status": c.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

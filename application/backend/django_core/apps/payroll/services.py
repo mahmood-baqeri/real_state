@@ -14,8 +14,9 @@ from .models import PayrollCycle, Payslip, PayslipLineItem
 
 
 def list_employees(*, user: User, agency_id: UUID) -> list[EmployeeProfile]:
-    if not (is_super_admin(user) or get_active_membership(user, agency_id)):
-        raise PermissionDeniedDomainError("عدم دسترسی به لیست کارکنان آژانس.")
+    if not (is_super_admin(user) or has_agency_permission(user, agency_id, "agency.manage_policy")
+            or has_agency_permission(user, agency_id, "accounting.view")):
+        raise PermissionDeniedDomainError("فقط مدیر آژانس یا حسابدار مجاز به مشاهده پرونده پرسنلی است.")
     return list(
         EmployeeProfile.objects.all_tenants()
         .filter(agency_id=agency_id)
@@ -94,10 +95,7 @@ def list_payroll_cycles(*, user: User, agency_id: UUID):
         or has_agency_permission(user, agency_id, "agency.manage_policy")
     ):
         return list(qs)
-    membership = get_active_membership(user, agency_id)
-    if not membership:
-        return []
-    return list(qs)
+    raise PermissionDeniedDomainError("فقط مدیر آژانس یا حسابدار مجاز به مشاهده فیش‌های حقوق و دستمزد است.")
 
 
 @transaction.atomic
@@ -114,33 +112,42 @@ def create_and_calculate_payroll_cycle(
     if PayrollCycle.objects.all_tenants().filter(agency_id=agency_id, title=title).exists():
         raise ConflictDomainError("دوره حقوق با این عنوان قبلاً ثبت شده است.")
 
+    if period_end <= period_start:
+        raise ConflictDomainError("پایان دوره حقوق باید بعد از شروع آن باشد.")
     cycle = PayrollCycle.objects.all_tenants().create(
-        agency_id=agency_id,
-        title=title.strip(),
-        period_start=period_start,
-        period_end=period_end,
-        status=PayrollCycle.Status.CALCULATED,
-        created_by=user,
+        agency_id=agency_id, title=title.strip(), period_start=period_start,
+        period_end=period_end, status=PayrollCycle.Status.OPEN, created_by=user,
     )
 
     employees = EmployeeProfile.objects.all_tenants().filter(agency_id=agency_id, is_active=True).select_related(
         "membership"
     )
     for emp in employees:
-        plan = emp.compensation_plans.filter(is_active=True).order_by("-effective_from").first()
-        base_salary = plan.base_salary if plan else Decimal("0.00")
+        plan = emp.compensation_plans.filter(
+            is_active=True, effective_from__lte=period_end.date()
+        ).order_by("-effective_from").first()
+        base_salary = (
+            plan.base_salary if plan and plan.model_type != CompensationPlan.ModelType.PURE_COMMISSION
+            else Decimal("0.00")
+        )
         multiplier = plan.commission_multiplier if plan else Decimal("1.0000")
 
         pending_shares = list(
-            CommissionShare.objects.all_tenants().filter(
-                agency_id=agency_id,
-                beneficiary_membership=emp.membership,
+            CommissionShare.objects.all_tenants().select_for_update().filter(
+                agency_id=agency_id, beneficiary_membership=emp.membership,
                 is_included_in_payroll=False,
-            )
+                deal_commission__status="FINANCE_APPROVED",
+                deal_commission__created_at__gte=period_start,
+                deal_commission__created_at__lt=period_end,
+            ).select_related("deal_commission__deal")
         )
         comm_total = sum(((s.calculated_amount * multiplier) for s in pending_shares), Decimal("0.00"))
         gross_total = base_salary + comm_total
-        tax_amt = (gross_total * Decimal("0.05")).quantize(Decimal("1"))
+        from apps.settings.services import get_setting_value
+        tax_rate = Decimal(str(get_setting_value("payroll.tax_rate_percent", "0") or "0"))
+        if tax_rate < 0 or tax_rate > 100:
+            raise ConflictDomainError("نرخ مالیات حقوق باید بین صفر تا صد تنظیم شود.")
+        tax_amt = (gross_total * tax_rate / Decimal("100")).quantize(Decimal("1"))
         net_payable = max(Decimal("0.00"), gross_total - tax_amt)
 
         payslip = Payslip.objects.all_tenants().create(
@@ -178,11 +185,13 @@ def create_and_calculate_payroll_cycle(
             PayslipLineItem.objects.create(
                 payslip=payslip,
                 item_type=PayslipLineItem.ItemType.TAX,
-                description="کسور قانونی و مالیات (۵٪)",
+                description=f"مالیات/کسور تنظیم‌شده ({tax_rate}٪)",
                 amount=tax_amt,
                 created_by=user,
             )
 
+    cycle.status = PayrollCycle.Status.CALCULATED
+    cycle.save(update_fields=["status", "updated_at"])
     record_audit_event(
         action="PAYROLL_CYCLE_CALCULATED",
         resource_type="PayrollCycle",
@@ -201,9 +210,33 @@ def update_payroll_cycle_status(*, user: User, agency_id: UUID, cycle_id: UUID, 
         or has_agency_permission(user, agency_id, "agency.manage_policy")
     ):
         raise PermissionDeniedDomainError("عدم مجوز تأیید یا پرداخت دوره حقوق.")
-    cycle = PayrollCycle.objects.all_tenants().filter(id=cycle_id, agency_id=agency_id).first()
+    cycle = PayrollCycle.objects.all_tenants().select_for_update().filter(id=cycle_id, agency_id=agency_id).first()
     if not cycle:
         raise NotFoundDomainError("دوره حقوق یافت نشد.")
+    allowed = {
+        PayrollCycle.Status.OPEN: {PayrollCycle.Status.CALCULATED, PayrollCycle.Status.CANCELLED},
+        PayrollCycle.Status.CALCULATED: {PayrollCycle.Status.APPROVED, PayrollCycle.Status.CANCELLED},
+        PayrollCycle.Status.APPROVED: {PayrollCycle.Status.PAID, PayrollCycle.Status.CANCELLED},
+        PayrollCycle.Status.PAID: set(),
+        PayrollCycle.Status.CANCELLED: set(),
+    }
+    if status_value not in PayrollCycle.Status.values or status_value not in allowed.get(cycle.status, set()):
+        raise ConflictDomainError(f"انتقال وضعیت دوره حقوق از {cycle.status} به {status_value} مجاز نیست.")
+    if status_value == PayrollCycle.Status.CANCELLED:
+        if Payslip.objects.all_tenants().filter(cycle=cycle, status=Payslip.Status.PAID).exists():
+            raise ConflictDomainError("دوره دارای فیش پرداخت‌شده قابل لغو نیست.")
+        shares = list(
+            CommissionShare.objects.all_tenants().select_for_update().filter(
+                payslip_item__payslip__cycle=cycle
+            )
+        )
+        CommissionShare.objects.all_tenants().filter(
+            id__in=[share.id for share in shares]
+        ).update(is_included_in_payroll=False)
+        PayslipLineItem.objects.filter(
+            payslip__cycle=cycle, commission_share__isnull=False
+        ).update(commission_share=None)
+        Payslip.objects.all_tenants().filter(cycle=cycle).update(status=Payslip.Status.CANCELLED)
     cycle.status = status_value
     cycle.updated_by = user
     cycle.save(update_fields=["status", "updated_by", "updated_at"])

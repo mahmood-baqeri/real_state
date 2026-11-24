@@ -81,7 +81,7 @@ async def create_public_complaint_endpoint(
             "created_at": c.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/public/track")
@@ -113,7 +113,7 @@ async def list_complaints_endpoint(
             serializer_fn=lambda c: _ser_complaint(c, include_notes=_can_manage_complaint(ctx.user, c)),
         )
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -127,7 +127,7 @@ async def create_complaint_endpoint(
         c = create_complaint(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_complaint(c, include_notes=False)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{complaint_id}/notes", status_code=201)
@@ -151,7 +151,7 @@ async def add_complaint_note_endpoint(
             "created_at": n.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{complaint_id}/status")
@@ -170,4 +170,4 @@ async def update_complaint_status_endpoint(
         )
         return _ser_complaint(c, include_notes=True)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

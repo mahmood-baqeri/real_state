@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
@@ -39,6 +40,7 @@ class CustomerPatchBody(BaseModel):
 class CustomerShareBody(BaseModel):
     membership_id: UUID
     access_level: str = "VIEW"
+    expires_at: Optional[datetime] = None
 
 
 class CustomerRequirementBody(BaseModel):
@@ -177,7 +179,7 @@ async def get_customers(
         qs = list_customers(user=ctx.user, agency_id=ctx.agency_id, q=q, customer_type=customer_type)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_customer)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -257,7 +259,7 @@ async def get_customer_detail_endpoint(
         ]
         return data
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/customers", status_code=201)
@@ -268,7 +270,7 @@ async def post_customer(body: CustomerCreateBody, ctx: RequestContext = Depends(
         c = create_customer(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_customer(c)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/customers/{customer_id}")
@@ -283,7 +285,7 @@ async def patch_customer(
         )
         return _ser_customer(c)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/customers/{customer_id}")
@@ -296,7 +298,7 @@ async def delete_customer_endpoint(
         c = soft_delete_customer(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id)
         return {"id": str(c.id), "archived": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/customers/{customer_id}/interactions", status_code=201)
@@ -323,7 +325,7 @@ async def post_customer_interaction(
             "created_at": item.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/customers/{customer_id}/share")
@@ -339,10 +341,11 @@ async def post_customer_share(
             customer_id=customer_id,
             target_membership_id=body.membership_id,
             access_level=body.access_level,
+            expires_at=body.expires_at,
         )
         return {"shared": True, "id": str(s.id)}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/customers/{customer_id}/requirements", status_code=201)
@@ -357,7 +360,7 @@ async def post_customer_req(
         )
         return {"id": str(r.id), "target_city": r.target_city}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/leads")
@@ -382,7 +385,7 @@ async def get_leads(
         )
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_lead)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -393,7 +396,7 @@ async def post_lead(body: LeadCreateBody, ctx: RequestContext = Depends(require_
 
         return _ser_lead(create_lead(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump()))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/leads/{lead_id}")
@@ -410,7 +413,7 @@ async def patch_lead(lead_id: UUID, body: LeadPatchBody, ctx: RequestContext = D
             )
         )
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/leads/{lead_id}/activities", status_code=201)
@@ -437,7 +440,7 @@ async def post_lead_activity(
             "created_at": act.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/leads/{lead_id}")
@@ -448,7 +451,7 @@ async def delete_lead_endpoint(lead_id: UUID, ctx: RequestContext = Depends(requ
         l = soft_delete_lead(user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id)
         return {"id": str(l.id), "archived": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/leads/{lead_id}/convert")
@@ -459,4 +462,4 @@ async def convert_lead(lead_id: UUID, ctx: RequestContext = Depends(require_agen
         lead, cust = convert_lead_to_customer(user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id)
         return {"lead": _ser_lead(lead), "customer_id": str(cust.id)}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

@@ -5,6 +5,7 @@ import jwt
 from pydantic import BaseModel, Field
 from app.core.django_bridge import run_django
 from app.core.security import build_token_pair, decode_jwt_token, extract_client_ip, new_jti
+from app.core.config import settings
 from app.dependencies.auth import RequestContext, get_current_context
 from app.schemas.common import ok
 
@@ -179,7 +180,7 @@ async def logout(ctx: RequestContext = Depends(get_current_context)):
         )
         return {"logged_out": True}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/mfa/setup")
@@ -189,7 +190,7 @@ async def mfa_setup(ctx: RequestContext = Depends(get_current_context)):
 
         return setup_mfa_for_user(ctx.user)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/mfa/enable")
@@ -200,7 +201,7 @@ async def mfa_enable(body: MfaCodeBody, ctx: RequestContext = Depends(get_curren
         user = enable_mfa_for_user(ctx.user, body.code)
         return {"is_mfa_enabled": user.is_mfa_enabled}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/mfa/disable")
@@ -211,7 +212,7 @@ async def mfa_disable(body: MfaCodeBody, ctx: RequestContext = Depends(get_curre
         user = disable_mfa_for_user(ctx.user, body.code)
         return {"is_mfa_enabled": user.is_mfa_enabled}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/password-reset/request")
@@ -241,7 +242,48 @@ async def password_reset_confirm(body: PasswordResetConfirmBody):
 
 @router.get("/me")
 async def get_me(ctx: RequestContext = Depends(get_current_context)):
-    return ok(await run_django(lambda: _serialize_user(ctx.user), agency_id=ctx.agency_id))
+    return ok(await run_django(lambda: _serialize_user(ctx.user), agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+@router.post("/ws-ticket")
+async def create_websocket_ticket(ctx: RequestContext = Depends(get_current_context)):
+    from datetime import timedelta
+    import uuid
+    import jwt
+
+    def _op():
+        from django.utils import timezone
+        from apps.accounts.models import UserSession, WebSocketTicket
+        now = timezone.now()
+        session = UserSession.objects.filter(
+            user=ctx.user, jti=ctx.session_jti, revoked_at__isnull=True
+        ).first()
+        if not session or (session.expires_at and session.expires_at <= now):
+            raise HTTPException(status_code=401, detail="نشست کاربری معتبر نیست.")
+        WebSocketTicket.objects.filter(user=ctx.user, expires_at__lt=now).delete()
+        ticket_id = uuid.uuid4()
+        expires_at = now + timedelta(seconds=30)
+        WebSocketTicket.objects.create(
+            id=ticket_id,
+            ticket_jti=ticket_id,
+            user=ctx.user,
+            session_jti=str(ctx.session_jti),
+            agency_id=ctx.agency_id,
+            expires_at=expires_at,
+        )
+        payload = {
+            "user_id": str(ctx.user.id),
+            "session_jti": str(ctx.session_jti),
+            "ticket_id": str(ticket_id),
+            "agency_id": str(ctx.agency_id) if ctx.agency_id else None,
+            "token_type": "ws_ticket",
+            "iat": int(now.timestamp()),
+            "exp": int(expires_at.timestamp()),
+        }
+        return jwt.encode(payload, settings.JWT_SIGNING_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    ticket = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id)
+    return ok({"ticket": ticket, "expires_in": 30})
 
 
 @router.patch("/me")
@@ -252,7 +294,7 @@ async def patch_me(body: ProfilePatchBody, ctx: RequestContext = Depends(get_cur
         updated = update_user_profile(ctx.user, **body.model_dump())
         return _serialize_user(updated)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 class EmergencyForceLogoutBody(BaseModel):
@@ -287,7 +329,7 @@ async def list_sessions(ctx: RequestContext = Depends(get_current_context)):
 
         return [_ser_session(s, ctx.session_jti) for s in list_user_sessions(ctx.user)]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/sessions/{session_id}")
@@ -300,7 +342,7 @@ async def delete_session(session_id: UUID, ctx: RequestContext = Depends(get_cur
             raise HTTPException(status_code=404, detail="نشست مورد نظر یافت نشد.")
         return {"revoked": True}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/admin/sessions")
@@ -320,7 +362,7 @@ async def admin_list_sessions(
             )
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/admin/sessions/{session_id}")
@@ -330,7 +372,7 @@ async def admin_revoke_session(session_id: UUID, ctx: RequestContext = Depends(g
 
         return {"revoked": revoke_session_by_admin(actor=ctx.user, session_id=session_id)}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/admin/users/{user_id}/revoke-sessions")
@@ -340,7 +382,7 @@ async def admin_revoke_user_sessions(user_id: UUID, ctx: RequestContext = Depend
 
         return {"revoked_count": revoke_all_user_sessions(actor=ctx.user, target_user_id=user_id)}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/admin/emergency-force-logout")
@@ -358,7 +400,7 @@ async def admin_emergency_force_logout(
         )
         return {"revoked_count": cnt}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/admin/security-events")
@@ -379,4 +421,4 @@ async def admin_security_events(ctx: RequestContext = Depends(get_current_contex
             for ev in list_security_events(actor=ctx.user)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

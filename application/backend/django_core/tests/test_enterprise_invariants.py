@@ -120,7 +120,8 @@ def test_3_public_portal_only_exposes_published_public_properties(seed_base):
         full_address="خیابان سرّی پلاک ۹۹",
         hide_exact_address=True,
     )
-    public_ids = list(list_public_properties().values_list("id", flat=True))
+    with tenant_bypass(reason="public_catalog"):
+        public_ids = list(list_public_properties().values_list("id", flat=True))
     assert pub.id in public_ids
     assert priv.id not in public_ids
 

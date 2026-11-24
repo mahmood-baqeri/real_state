@@ -181,7 +181,7 @@ async def list_templates_endpoint(ctx: RequestContext = Depends(get_current_cont
             for t in list_contract_templates(ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/contracts/templates", status_code=201)
@@ -194,7 +194,7 @@ async def create_template_endpoint(
         t = create_contract_template(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"id": str(t.id), "title": t.title}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/contracts")
@@ -212,7 +212,7 @@ async def list_contracts_endpoint(
         qs = list_contracts(user=ctx.user, agency_id=ctx.agency_id, status_filter=status, q=q)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_contract)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -226,7 +226,7 @@ async def create_contract_endpoint(
         c = create_contract(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_contract(c)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/contracts/{contract_id}")
@@ -246,7 +246,7 @@ async def patch_contract_endpoint(
         )
         return _ser_contract(c)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/contracts/{contract_id}")
@@ -260,7 +260,7 @@ async def delete_contract_endpoint(
         c = archive_contract(user=ctx.user, agency_id=ctx.agency_id, contract_id=contract_id)
         return {"id": str(c.id), "status": c.status, "archived": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/contracts/{contract_id}/status")
@@ -281,7 +281,7 @@ async def contract_status_endpoint(
         )
         return {"id": str(c.id), "status": c.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/contracts/{contract_id}/amendments", status_code=201)
@@ -310,7 +310,7 @@ async def create_contract_amendment_endpoint(
             "created_at": a.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/contracts/{contract_id}")
@@ -348,7 +348,7 @@ async def get_contract_endpoint(contract_id: UUID, ctx: RequestContext = Depends
         ]
         return data
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/deals")
@@ -364,7 +364,7 @@ async def list_deals_endpoint(
         qs = list_deals(user=ctx.user, agency_id=ctx.agency_id)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_deal)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -376,7 +376,7 @@ async def create_deal_endpoint(body: DealCreateBody, ctx: RequestContext = Depen
         d = create_deal(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_deal(d)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/deals/{deal_id}")
@@ -410,7 +410,7 @@ async def get_deal_endpoint(deal_id: UUID, ctx: RequestContext = Depends(require
         )
         return data
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/deals/{deal_id}/close")
@@ -430,4 +430,4 @@ async def close_deal_endpoint(
         )
         return _ser_deal(d)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

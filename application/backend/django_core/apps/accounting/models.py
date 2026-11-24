@@ -118,7 +118,7 @@ class JournalEntryLine(BaseModel):
         db_table = "accounting_journal_entry_line"
         constraints = [
             models.CheckConstraint(
-                check=models.Q(debit__gte=0) & models.Q(credit__gte=0),
+                condition=models.Q(debit__gte=0) & models.Q(credit__gte=0),
                 name="chk_journal_line_non_negative",
             )
         ]

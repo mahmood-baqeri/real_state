@@ -1,3 +1,5 @@
+from django.db import models
+from django.utils import timezone
 from typing import Optional
 from apps.accounts.models import AgencyMembership, User
 from apps.agencies.models import AgencyAccessPolicy
@@ -82,6 +84,30 @@ def can_view_owner_pii(user: User, agency_id, is_assigned_agent: bool) -> bool:
     return has_agency_permission(user, agency_id, "owner.view_pii")
 
 
+
+def can_view_property(user: User, prop) -> bool:
+    """Central property visibility policy used by detail, verification and related APIs."""
+    if is_super_admin(user):
+        return True
+    membership = get_active_membership(user, prop.agency_id)
+    if membership is None:
+        return False
+    if membership.role.code == "AGENCY_MANAGER":
+        return True
+    if membership.role.code == "BRANCH_MANAGER":
+        return bool(membership.branch_id and prop.branch_id == membership.branch_id)
+    policy = get_agency_policy(prop.agency_id)
+    assigned = (
+        prop.agent_assignments.filter(membership=membership).exists()
+        or prop.created_by_id == user.id
+    )
+    if policy.property_view_scope == AgencyAccessPolicy.PropertyViewScope.OWN_AND_SHARED:
+        return assigned
+    if policy.property_view_scope == AgencyAccessPolicy.PropertyViewScope.PUBLIC_AGENCY:
+        return assigned or prop.status == "PUBLISHED"
+    return assigned or has_agency_permission(user, prop.agency_id, "property.view_all_agency")
+
+
 def can_edit_property(user: User, prop) -> bool:
     if is_super_admin(user):
         return True
@@ -93,7 +119,7 @@ def can_edit_property(user: User, prop) -> bool:
     ):
         return True
     if membership.role.code == "BRANCH_MANAGER":
-        return membership.branch_id is None or prop.branch_id == membership.branch_id
+        return bool(membership.branch_id and prop.branch_id == membership.branch_id)
     policy = get_agency_policy(prop.agency_id)
     is_assigned = prop.agent_assignments.filter(membership=membership).exists() or prop.created_by_id == user.id
     if policy.property_edit_scope == AgencyAccessPolicy.PropertyEditScope.ASSIGNED_ONLY:
@@ -115,12 +141,15 @@ def can_edit_customer(user: User, customer) -> bool:
         return True
     if membership.role.code == "BRANCH_MANAGER":
         if membership.branch_id is None or customer.assigned_membership is None:
-            return True
+            return False
         return customer.assigned_membership.branch_id == membership.branch_id
     policy = get_agency_policy(customer.agency_id)
     is_assigned = customer.assigned_membership_id == membership.id
     if policy.customer_edit_scope == AgencyAccessPolicy.CustomerEditScope.ASSIGNED_ONLY:
         return is_assigned
     if policy.customer_edit_scope == AgencyAccessPolicy.CustomerEditScope.SHARED_EDITORS:
-        return is_assigned or customer.shares.filter(membership=membership, access_level="EDIT").exists()
+        return is_assigned or customer.shares.filter(
+            membership=membership,
+            access_level="EDIT",
+        ).filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())).exists()
     return is_assigned or has_agency_permission(user, customer.agency_id, "customer.edit_all_agency")

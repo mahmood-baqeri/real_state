@@ -9,6 +9,7 @@ class PayrollCycle(TenantScopedModel):
         CALCULATED = "CALCULATED", "Calculated"
         APPROVED = "APPROVED", "Approved"
         PAID = "PAID", "Paid"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     title = models.CharField(max_length=80)
     period_start = models.DateTimeField()
@@ -25,6 +26,7 @@ class Payslip(TenantScopedModel):
         DRAFT = "DRAFT", "Draft"
         APPROVED = "APPROVED", "Approved"
         PAID = "PAID", "Paid"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     cycle = models.ForeignKey(PayrollCycle, on_delete=models.PROTECT, related_name="payslips")
     employee = models.ForeignKey(

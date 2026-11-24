@@ -148,7 +148,7 @@ def get_dashboard_summary(
     next_7_days = now + timedelta(days=7)
 
     if is_super_admin(user) and not agency_id:
-        with tenant_bypass():
+        with tenant_bypass(reason="platform_reports"): 
             pending_agencies = Agency.objects.filter(
                 is_deleted=False, status=Agency.Status.PENDING_REVIEW
             ).count()
@@ -294,124 +294,116 @@ def get_dashboard_summary(
         "SALES_MANAGER",
         "AGENCY_ACCOUNTANT",
     ) and agency_id:
-        branch_filter = {"branch_id": membership.branch_id} if (role_code == "BRANCH_MANAGER" and membership and membership.branch_id) else {}
+        branch_manager = role_code == "BRANCH_MANAGER"
+        operational_allowed = role_code != "AGENCY_ACCOUNTANT"
+        # Branch managers never receive agency-wide treasury/payroll figures, even if
+        # an old role grant or manual override accidentally includes accounting.view.
+        finance_allowed = bool(
+            is_super_admin(user)
+            or (role_code != "BRANCH_MANAGER" and has_agency_permission(user, agency_id, "accounting.view"))
+        )
+        if branch_manager and (not membership or not membership.branch_id):
+            return {"role_view": role_code, "period_days": period_days, "alerts": [], "upcoming_tasks": [], "recent_activity": []}
+        branch_filter = {"branch_id": membership.branch_id} if branch_manager else {}
+        customer_filter = {"assigned_membership__branch_id": membership.branch_id} if branch_manager else {}
+        lead_filter = {"assigned_membership__branch_id": membership.branch_id} if branch_manager else {}
+        deal_filter = {"property__branch_id": membership.branch_id} if branch_manager else {}
+        appointment_filter = {"agent_membership__branch_id": membership.branch_id} if branch_manager else {}
+
         active_props = (
             Property.objects.all_tenants()
             .filter(agency_id=agency_id, is_deleted=False, status=Property.Status.PUBLISHED, **branch_filter)
             .count()
-        )
+        ) if operational_allowed else 0
         pending_props = (
             Property.objects.all_tenants()
             .filter(agency_id=agency_id, is_deleted=False, status=Property.Status.PENDING_APPROVAL, **branch_filter)
             .count()
-        )
-        customers_count = (
-            Customer.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False).count()
-        )
-        leads_count = Lead.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False).count()
-        converted_leads = Lead.objects.all_tenants().filter(agency_id=agency_id, is_deleted=False, status="CONVERTED").count()
-        deals_qs = Deal.objects.all_tenants().filter(agency_id=agency_id)
-        comm_total = (
-            CommissionShare.objects.all_tenants()
-            .filter(
-                agency_id=agency_id,
-                beneficiary_type=CommissionShare.BeneficiaryType.AGENCY,
-            )
-            .aggregate(s=Sum("calculated_amount"))["s"]
-            or Decimal("0")
-        )
+        ) if operational_allowed else 0
+        customers_count = Customer.objects.all_tenants().filter(
+            agency_id=agency_id, is_deleted=False, **customer_filter
+        ).count() if operational_allowed else 0
+        leads_count = Lead.objects.all_tenants().filter(
+            agency_id=agency_id, is_deleted=False, **lead_filter
+        ).count() if operational_allowed else 0
+        converted_leads = Lead.objects.all_tenants().filter(
+            agency_id=agency_id, is_deleted=False, status="CONVERTED", **lead_filter
+        ).count() if operational_allowed else 0
+        deals_qs = Deal.objects.all_tenants().filter(
+            agency_id=agency_id, **deal_filter
+        ) if operational_allowed else Deal.objects.none()
 
-        bank_balance = (
-            BankAccount.objects.all_tenants()
-            .filter(agency_id=agency_id, is_active=True)
-            .aggregate(s=Sum("current_balance"))["s"]
-            or Decimal("0")
-        )
-        cash_balance = (
-            CashBox.objects.all_tenants()
-            .filter(agency_id=agency_id, is_active=True)
-            .aggregate(s=Sum("current_balance"))["s"]
-            or Decimal("0")
-        )
-        held_cheques_due_soon = (
-            ChequeInstrument.objects.all_tenants()
-            .filter(
-                agency_id=agency_id,
-                status=ChequeInstrument.Status.HELD,
-                due_date__lte=next_7_days,
+        comm_total = Decimal("0")
+        bank_balance = Decimal("0")
+        cash_balance = Decimal("0")
+        held_cheques_due_soon = 0
+        held_receivable_total = Decimal("0")
+        posted_entries_count = 0
+        payroll_runs_count = 0
+        if finance_allowed:
+            comm_filter = {"beneficiary_membership__branch_id": membership.branch_id} if branch_manager else {}
+            comm_total = (
+                CommissionShare.objects.all_tenants()
+                .filter(agency_id=agency_id, beneficiary_type=CommissionShare.BeneficiaryType.AGENCY, **comm_filter)
+                .aggregate(s=Sum("calculated_amount"))["s"] or Decimal("0")
             )
-            .count()
-        )
-        held_receivable_total = (
-            ChequeInstrument.objects.all_tenants()
-            .filter(
-                agency_id=agency_id,
-                direction=ChequeInstrument.Direction.RECEIVABLE,
+            bank_balance = BankAccount.objects.all_tenants().filter(
+                agency_id=agency_id, is_active=True
+            ).aggregate(s=Sum("current_balance"))["s"] or Decimal("0")
+            cash_balance = CashBox.objects.all_tenants().filter(
+                agency_id=agency_id, is_active=True
+            ).aggregate(s=Sum("current_balance"))["s"] or Decimal("0")
+            held_cheques_due_soon = ChequeInstrument.objects.all_tenants().filter(
+                agency_id=agency_id, status=ChequeInstrument.Status.HELD, due_date__lte=next_7_days
+            ).count()
+            held_receivable_total = ChequeInstrument.objects.all_tenants().filter(
+                agency_id=agency_id, direction=ChequeInstrument.Direction.RECEIVABLE,
                 status=ChequeInstrument.Status.HELD,
-            )
-            .aggregate(s=Sum("amount"))["s"]
-            or Decimal("0")
-        )
-        posted_entries_count = (
-            JournalEntry.objects.all_tenants()
-            .filter(agency_id=agency_id, status=JournalEntry.Status.POSTED)
-            .count()
-        )
-        payroll_runs_count = (
-            PayrollCycle.objects.all_tenants().filter(agency_id=agency_id).count()
-        )
-        draft_contracts = (
-            Contract.objects.all_tenants()
-            .filter(agency_id=agency_id, status=Contract.Status.DRAFT)
-            .count()
-        )
-        active_negotiations = (
-            Negotiation.objects.all_tenants()
-            .filter(agency_id=agency_id)
-            .exclude(status__in=["ACCEPTED", "REJECTED", "CANCELLED", "WITHDRAWN", "EXPIRED"])
-            .count()
-        )
+            ).aggregate(s=Sum("amount"))["s"] or Decimal("0")
+            posted_entries_count = JournalEntry.objects.all_tenants().filter(
+                agency_id=agency_id, status=JournalEntry.Status.POSTED
+            ).count()
+            payroll_runs_count = PayrollCycle.objects.all_tenants().filter(agency_id=agency_id).count()
+
+        draft_contracts = Contract.objects.all_tenants().filter(
+            agency_id=agency_id, status=Contract.Status.DRAFT,
+            **({"property__branch_id": membership.branch_id} if branch_manager else {}),
+        ).count() if operational_allowed else 0
+        active_negotiations = Negotiation.objects.all_tenants().filter(
+            agency_id=agency_id,
+            **({"property__branch_id": membership.branch_id} if branch_manager else {}),
+        ).exclude(status__in=["ACCEPTED", "REJECTED", "CANCELLED", "WITHDRAWN", "EXPIRED"]).count() if operational_allowed else 0
 
         upcoming_appts = list(
             ViewingAppointment.objects.all_tenants()
-            .filter(agency_id=agency_id, status__in=["REQUESTED", "CONFIRMED"])
+            .filter(
+                agency_id=agency_id, status__in=["REQUESTED", "CONFIRMED"],
+                **appointment_filter,
+            )
             .select_related("property", "customer")
             .order_by("scheduled_start")[:5]
-        )
-        recent_logs = list(
-            AuditLog.objects.filter(agency_id=agency_id).select_related("actor").order_by("-created_at")[:6]
-        )
+        ) if operational_allowed else []
+        recent_logs_qs = AuditLog.objects.filter(agency_id=agency_id).select_related("actor")
+        # Audit events do not carry a reliable branch foreign key; do not infer scope
+        # from the actor's memberships (one user may belong to multiple branches).
+        recent_logs = list(recent_logs_qs.order_by("-created_at")[:6]) if operational_allowed and not branch_manager else []
 
         alerts = []
         if pending_props > 0:
-            alerts.append(
-                {
-                    "level": "warning",
-                    "title": "فایل‌های در انتظار تایید مدیر",
-                    "count": pending_props,
-                    "href": "/dashboard/properties",
-                }
-            )
-        if held_cheques_due_soon > 0:
-            alerts.append(
-                {
-                    "level": "danger",
-                    "title": "چک‌های نزدیک به سررسید (۷ روز آینده)",
-                    "count": held_cheques_due_soon,
-                    "href": "/dashboard/accounting",
-                }
-            )
+            alerts.append({"level": "warning", "title": "فایل‌های در انتظار تایید مدیر", "count": pending_props, "href": "/dashboard/properties"})
+        if finance_allowed and held_cheques_due_soon > 0:
+            alerts.append({"level": "danger", "title": "چک‌های نزدیک به سررسید (۷ روز آینده)", "count": held_cheques_due_soon, "href": "/dashboard/accounting"})
         if draft_contracts > 0:
-            alerts.append(
-                {
-                    "level": "info",
-                    "title": "قراردادهای پیش‌نویس نیازمند تکمیل",
-                    "count": draft_contracts,
-                    "href": "/dashboard/contracts",
-                }
-            )
+            alerts.append({"level": "info", "title": "قراردادهای پیش‌نویس نیازمند تکمیل", "count": draft_contracts, "href": "/dashboard/contracts"})
 
         lead_conv_rate = round((converted_leads / leads_count) * 100, 1) if leads_count > 0 else 0.0
+        agents_count = AgencyMembership.objects.filter(
+            agency_id=agency_id, status="ACTIVE",
+            **({"branch_id": membership.branch_id} if branch_manager else {}),
+        ).count() if operational_allowed else 0
+        scheduled_viewings = ViewingAppointment.objects.all_tenants().filter(
+            agency_id=agency_id, status__in=["REQUESTED", "CONFIRMED"], **appointment_filter
+        ).count() if operational_allowed else 0
 
         return {
             "role_view": role_code,
@@ -427,12 +419,8 @@ def get_dashboard_summary(
             "active_deals": deals_qs.exclude(status=Deal.Status.VOIDED).count(),
             "period_deals": deals_qs.filter(created_at__gte=since).count(),
             "agency_commission_revenue": str(comm_total),
-            "agents_count": AgencyMembership.objects.filter(
-                agency_id=agency_id, status="ACTIVE"
-            ).count(),
-            "scheduled_viewings": ViewingAppointment.objects.all_tenants()
-            .filter(agency_id=agency_id, status__in=["REQUESTED", "CONFIRMED"])
-            .count(),
+            "agents_count": agents_count,
+            "scheduled_viewings": scheduled_viewings,
             "treasury_total": str(bank_balance + cash_balance),
             "held_receivable_cheques_total": str(held_receivable_total),
             "posted_journal_entries": posted_entries_count,
@@ -515,7 +503,7 @@ def get_dashboard_summary(
             "recent_activity": [],
         }
 
-    with tenant_bypass():
+    with tenant_bypass(reason="customer_portal"): 
         my_appts = list(
             ViewingAppointment.objects.all_tenants()
             .filter(customer__user=user)
@@ -556,9 +544,31 @@ def get_agency_analytics(
     agent_membership_id: Optional[UUID] = None,
 ) -> dict:
     role_code = _resolve_role_code(user, agency_id)
-    if not is_super_admin(user) and role_code in ("SUPPORT_AGENT", "CUSTOMER"):
+    if not is_super_admin(user) and role_code in ("SUPPORT_AGENT", "CUSTOMER", "AGENCY_ACCOUNTANT"):
         raise PermissionDeniedDomainError("دسترسی به گزارش‌های تحلیلی و مالی برای این نقش مجاز نیست.")
+    membership = get_active_membership(user, agency_id) if agency_id else None
+    if role_code == "BRANCH_MANAGER":
+        if not membership or not membership.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه فاقد شعبه فعال است.")
+        if branch_id and branch_id != membership.branch_id:
+            raise PermissionDeniedDomainError("دسترسی به گزارش شعبه دیگر مجاز نیست.")
+        branch_id = membership.branch_id
+        if agent_membership_id:
+            from apps.accounts.models import AgencyMembership
+            if not AgencyMembership.objects.filter(
+                id=agent_membership_id, agency_id=agency_id, branch_id=membership.branch_id,
+                status=AgencyMembership.Status.ACTIVE,
+            ).exists():
+                raise PermissionDeniedDomainError("مشاور انتخاب‌شده خارج از شعبه شماست.")
 
+    can_view_finance = bool(
+        is_super_admin(user)
+        or (
+            role_code == "AGENCY_MANAGER"
+            and agency_id
+            and has_agency_permission(user, agency_id, "accounting.view")
+        )
+    )
     now = timezone.now()
     days = max(7, min(period_days, 365))
     since = now - timedelta(days=days)
@@ -574,6 +584,9 @@ def get_agency_analytics(
             lf["agency_id"] = agency_id
         if branch_id:
             pf["branch_id"] = branch_id
+        if branch_id:
+            df["property__branch_id"] = branch_id
+            lf["assigned_membership__branch_id"] = branch_id
         if agent_membership_id:
             pf["agent_assignments__membership_id"] = agent_membership_id
             df["primary_agent_membership_id"] = agent_membership_id
@@ -582,7 +595,7 @@ def get_agency_analytics(
 
     pf, df, lf = _build_scope_filters()
 
-    with tenant_bypass():
+    with tenant_bypass(reason="scoped_analytics"): 
         props_qs = Property.objects.all_tenants().filter(**pf)
         deals_qs = Deal.objects.all_tenants().filter(**df)
         leads_qs = Lead.objects.all_tenants().filter(**lf)
@@ -598,13 +611,16 @@ def get_agency_analytics(
         # Sales Funnel
         total_leads_cnt = leads_qs.count()
         total_cust_cnt = Customer.objects.all_tenants().filter(
-            **({"agency_id": agency_id} if agency_id else {})
+            **({"agency_id": agency_id} if agency_id else {}),
+            **({"assigned_membership__branch_id": branch_id} if branch_id else {}),
         ).count()
         appts_cnt = ViewingAppointment.objects.all_tenants().filter(
-            **({"agency_id": agency_id} if agency_id else {})
+            **({"agency_id": agency_id} if agency_id else {}),
+            **({"agent_membership__branch_id": branch_id} if branch_id else {}),
         ).count()
         neg_cnt = Negotiation.objects.all_tenants().filter(
-            **({"agency_id": agency_id} if agency_id else {})
+            **({"agency_id": agency_id} if agency_id else {}),
+            **({"property__branch_id": branch_id} if branch_id else {}),
         ).count()
         closed_deals_cnt = deals_qs.exclude(status=Deal.Status.VOIDED).count()
 
@@ -621,7 +637,7 @@ def get_agency_analytics(
             {
                 "district": r["location__district"] or "مرکزی",
                 "count": r["count"],
-                "avg_price_per_sqm": str(int(r["avg_sqm"] or 0)),
+                "avg_price_per_sqm": str(int(r["avg_sqm"] or 0)) if can_view_finance else "0",
             }
             for r in props_qs.filter(price_per_sqm__gt=Decimal("0"))
             .values("location__district")
@@ -670,9 +686,9 @@ def get_agency_analytics(
                     "label": f"بازه {idx + 1}",
                     "deals_count": b_deals.count(),
                     "properties_added": p_cnt,
-                    "deal_volume": str(vol),
-                    "revenue": str(rev),
-                    "expense": str(exp),
+                    "deal_volume": str(vol) if can_view_finance else "0",
+                    "revenue": str(rev) if can_view_finance else "0",
+                    "expense": str(exp) if can_view_finance else "0",
                 }
             )
 
@@ -680,6 +696,8 @@ def get_agency_analytics(
         comm_filter: dict[str, Any] = {"beneficiary_type": CommissionShare.BeneficiaryType.AGENT}
         if agency_id:
             comm_filter["agency_id"] = agency_id
+        if branch_id:
+            comm_filter["beneficiary_membership__branch_id"] = branch_id
         agent_shares = list(
             CommissionShare.objects.all_tenants()
             .filter(**comm_filter)
@@ -695,7 +713,7 @@ def get_agency_analytics(
             {
                 "membership_id": str(row["beneficiary_membership_id"]),
                 "agent_name": f"{row['beneficiary_membership__user__first_name']} {row['beneficiary_membership__user__last_name']}".strip(),
-                "total_commission": str(row["total_commission"] or 0),
+                "total_commission": str(row["total_commission"] or 0) if can_view_finance else "0",
                 "deals_count": row["deals_count"],
             }
             for row in agent_shares
@@ -709,7 +727,10 @@ def get_agency_analytics(
                 "properties_count": Property.objects.all_tenants().filter(branch=b, is_deleted=False).count(),
                 "members_count": AgencyMembership.objects.filter(branch=b, status="ACTIVE").count(),
             }
-            for b in Branch.objects.all_tenants().filter(**({"agency_id": agency_id} if agency_id else {}))[:10]
+            for b in Branch.objects.all_tenants().filter(
+                **({"agency_id": agency_id} if agency_id else {}),
+                **({"id": branch_id} if branch_id else {}),
+            )[:10]
         ]
 
         # Weekly Activity Heatmap (7 weekdays x 3 time slots from AuditLog + Appointments)
@@ -718,7 +739,10 @@ def get_agency_analytics(
         slots = ["صبح", "ظهر", "عصر"]
         appts_list = list(
             ViewingAppointment.objects.all_tenants()
-            .filter(**({"agency_id": agency_id} if agency_id else {}))
+            .filter(
+                **({"agency_id": agency_id} if agency_id else {}),
+                **({"agent_membership__branch_id": branch_id} if branch_id else {}),
+            )
             .values_list("scheduled_start", flat=True)[:200]
         )
         for d_idx, d_name in enumerate(weekdays):
@@ -772,7 +796,7 @@ def get_agency_analytics(
         "period_days": period_days,
         "properties_by_status": props_by_status,
         "deals_by_status": [
-            {"status": d["status"], "count": d["count"], "volume": str(d["volume"] or 0)}
+            {"status": d["status"], "count": d["count"], "volume": str(d["volume"] or 0) if can_view_finance else "0"}
             for d in deals_by_status
         ],
         "leads_by_status": leads_by_status,
@@ -782,13 +806,13 @@ def get_agency_analytics(
         "branch_comparison": branch_comparison,
         "activity_heatmap": heatmap,
         "period_comparison": {
-            "current_volume": str(cur_vol),
-            "previous_volume": str(prev_vol),
+            "current_volume": str(cur_vol) if can_view_finance else "0",
+            "previous_volume": str(prev_vol) if can_view_finance else "0",
             "current_deals_count": cur_cnt,
             "previous_deals_count": prev_cnt,
         },
         "negotiations_count": neg_cnt,
-        "agent_leaderboard": leaderboard,
+        "agent_leaderboard": leaderboard if can_view_finance else [],
     }
 
 
@@ -796,7 +820,6 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
     now = timezone.now()
     soon_14 = now + timedelta(days=14)
     soon_7 = now + timedelta(days=7)
-
     super_admin = is_super_admin(user)
     if not agency_id and not super_admin:
         raise PermissionDeniedDomainError("دسترسی به مرکز عملیات نیازمند انتخاب آژانس یا نقش مدیر کل است.")
@@ -804,9 +827,27 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
     if not super_admin and role_code in ("SUPPORT_AGENT", "CUSTOMER"):
         raise PermissionDeniedDomainError("دسترسی به مرکز عملیات برای این نقش مجاز نیست.")
 
-    with tenant_bypass():
-        scope = {"agency_id": agency_id} if agency_id else {}
+    membership = get_active_membership(user, agency_id) if agency_id else None
+    if role_code == "BRANCH_MANAGER" and (not membership or not membership.branch_id):
+        raise PermissionDeniedDomainError("مدیر شعبه فاقد شعبه فعال است.")
+    operational_allowed = super_admin or role_code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "SALES_MANAGER")
+    finance_allowed = bool(
+        super_admin
+        or (
+            role_code in ("AGENCY_MANAGER", "AGENCY_ACCOUNTANT")
+            and agency_id
+            and has_agency_permission(user, agency_id, "accounting.view")
+        )
+    )
+    manager_ticket_scope = super_admin or role_code == "AGENCY_MANAGER"
+    agency_scope = {"agency_id": agency_id} if agency_id else {}
+    branch_id = membership.branch_id if role_code == "BRANCH_MANAGER" and membership else None
+    task_scope = {**agency_scope, **({"assigned_membership__branch_id": branch_id} if branch_id else {})}
+    property_scope = {**agency_scope, **({"branch_id": branch_id} if branch_id else {})}
+    contract_scope = {**agency_scope, **({"property__branch_id": branch_id} if branch_id else {})}
+    appointment_scope = {**agency_scope, **({"agent_membership__branch_id": branch_id} if branch_id else {})}
 
+    with tenant_bypass(reason="operations_center"):
         overdue_tasks = [
             {
                 "id": str(t.id),
@@ -817,11 +858,13 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
                 "is_overdue": t.due_at < now,
                 "href": "/dashboard/crm",
             }
-            for t in FollowUpTask.objects.all_tenants()
-            .filter(status="PENDING", **scope)
-            .select_related("customer", "assigned_membership__user")
-            .order_by("due_at")[:15]
-        ]
+            for t in (
+                FollowUpTask.objects.all_tenants()
+                .filter(status=FollowUpTask.Status.OPEN, **task_scope)
+                .select_related("customer", "assigned_membership__user")
+                .order_by("due_at")[:15]
+            )
+        ] if operational_allowed else []
 
         expiring_contracts = [
             {
@@ -832,12 +875,14 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
                 "status": c.status,
                 "href": "/dashboard/contracts",
             }
-            for c in Contract.objects.all_tenants()
-            .filter(end_date__isnull=False, end_date__lte=soon_14.date(), **scope)
-            .exclude(status__in=["TERMINATED", "CANCELLED"])
-            .select_related("property")
-            .order_by("end_date")[:15]
-        ]
+            for c in (
+                Contract.objects.all_tenants()
+                .filter(end_date__isnull=False, end_date__lte=soon_14, **contract_scope)
+                .exclude(status__in=["TERMINATED", "CANCELLED"])
+                .select_related("property")
+                .order_by("end_date")[:15]
+            )
+        ] if operational_allowed else []
 
         due_cheques = [
             {
@@ -849,10 +894,16 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
                 "status": ch.status,
                 "href": "/dashboard/accounting",
             }
-            for ch in ChequeInstrument.objects.all_tenants()
-            .filter(status__in=[ChequeInstrument.Status.HELD, ChequeInstrument.Status.BOUNCED], due_date__lte=soon_7, **scope)
-            .order_by("due_date")[:15]
-        ]
+            for ch in (
+                ChequeInstrument.objects.all_tenants()
+                .filter(
+                    status__in=[ChequeInstrument.Status.HELD, ChequeInstrument.Status.BOUNCED],
+                    due_date__lte=soon_7,
+                    **agency_scope,
+                )
+                .order_by("due_date")[:15]
+            )
+        ] if finance_allowed else []
 
         urgent_tickets = [
             {
@@ -864,28 +915,35 @@ def get_operations_center(*, user: User, agency_id: Optional[UUID]) -> dict:
                 "created_at": t.created_at.isoformat(),
                 "href": "/dashboard/tickets",
             }
-            for t in Ticket.objects
-            .filter(status__in=[Ticket.Status.OPEN, Ticket.Status.IN_PROGRESS, Ticket.Status.WAITING_USER], **scope)
-            .order_by("-priority", "-created_at")[:15]
-        ]
+            for t in (
+                Ticket.objects
+                .filter(
+                    status__in=[Ticket.Status.OPEN, Ticket.Status.IN_PROGRESS, Ticket.Status.WAITING_USER],
+                    **agency_scope,
+                )
+                .order_by("-priority", "-created_at")[:15]
+            )
+        ] if manager_ticket_scope else []
 
         pending_properties = [
             {
-                "id": str(p.id),
-                "property_code": p.property_code,
-                "title": p.title,
-                "total_price": str(p.total_price),
-                "created_at": p.created_at.isoformat(),
-                "href": f"/dashboard/properties/{p.id}",
+                "id": str(prop.id),
+                "property_code": prop.property_code,
+                "title": prop.title,
+                "total_price": str(prop.total_price),
+                "created_at": prop.created_at.isoformat(),
+                "href": f"/dashboard/properties/{prop.id}",
             }
-            for p in Property.objects.all_tenants()
-            .filter(is_deleted=False, status=Property.Status.PENDING_APPROVAL, **scope)
-            .order_by("-created_at")[:10]
-        ]
+            for prop in (
+                Property.objects.all_tenants()
+                .filter(is_deleted=False, status=Property.Status.PENDING_APPROVAL, **property_scope)
+                .order_by("-created_at")[:10]
+            )
+        ] if operational_allowed else []
 
     return {
         "summary": {
-            "overdue_tasks_count": sum(1 for t in overdue_tasks if t["is_overdue"]),
+            "overdue_tasks_count": sum(1 for task in overdue_tasks if task["is_overdue"]),
             "pending_tasks_count": len(overdue_tasks),
             "expiring_contracts_count": len(expiring_contracts),
             "due_cheques_count": len(due_cheques),

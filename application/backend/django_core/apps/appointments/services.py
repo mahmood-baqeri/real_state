@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from apps.accounting.models import ChequeInstrument
 from apps.accounts.models import User
@@ -11,8 +11,8 @@ from apps.contracts.models import Contract
 from apps.crm.models import FollowUpTask
 from apps.customers.models import Customer
 from apps.properties.models import Property
-from common.exceptions import ConflictDomainError, NotFoundDomainError, ValidationDomainError
-from common.permissions import get_active_membership, has_agency_permission, is_super_admin
+from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
+from common.permissions import can_edit_property, get_active_membership, has_agency_permission, is_super_admin
 from common.tenant.context import tenant_bypass
 from .models import ViewingAppointment
 
@@ -24,17 +24,23 @@ def list_appointments(*, user: User, agency_id: Optional[UUID]):
             .filter(agency_id=agency_id)
             .select_related("property", "customer", "agent_membership__user")
         )
-        if is_super_admin(user) or has_agency_permission(user, agency_id, "appointment.view_all_agency"):
+        if is_super_admin(user):
             return qs.order_by("-scheduled_start")
         membership = get_active_membership(user, agency_id)
-        return qs.filter(agent_membership=membership).order_by("-scheduled_start") if membership else qs.none()
+        if not membership:
+            return qs.none()
+        if membership.role.code == "BRANCH_MANAGER":
+            return qs.filter(agent_membership__branch_id=membership.branch_id).order_by("-scheduled_start") if membership.branch_id else qs.none()
+        if has_agency_permission(user, agency_id, "appointment.view_all_agency"):
+            return qs.order_by("-scheduled_start")
+        return qs.filter(agent_membership=membership).order_by("-scheduled_start")
 
-    with tenant_bypass():
-        return (
+    with tenant_bypass(reason="customer_portal"):
+        return list(
             ViewingAppointment.objects.all_tenants()
             .filter(customer__user=user)
             .select_related("property", "customer", "agent_membership__user")
-            .order_by("-scheduled_start")
+            .order_by("-scheduled_start")[:100]
         )
 
 
@@ -44,9 +50,16 @@ def get_unified_calendar(*, user: User, agency_id: Optional[UUID], days_ahead: i
     end_win = now + timedelta(days=max(7, min(days_ahead, 120)))
     events: list[dict] = []
 
-    appts = list_appointments(user=user, agency_id=agency_id).filter(
-        scheduled_start__gte=start_win, scheduled_start__lte=end_win
-    )
+    appointment_source = list_appointments(user=user, agency_id=agency_id)
+    if hasattr(appointment_source, "filter"):
+        appts = list(appointment_source.filter(
+            scheduled_start__gte=start_win, scheduled_start__lte=end_win
+        ))
+    else:
+        appts = [
+            item for item in appointment_source
+            if start_win <= item.scheduled_start <= end_win
+        ]
     for a in appts[:50]:
         events.append({
             "id": f"appt-{a.id}",
@@ -116,10 +129,15 @@ def get_unified_calendar(*, user: User, agency_id: Optional[UUID], days_ahead: i
 def request_public_viewing(
     *, user: User, property_id: UUID, scheduled_start: datetime, scheduled_end: datetime, notes: str = ""
 ) -> ViewingAppointment:
-    with tenant_bypass():
+    with tenant_bypass(reason="public_viewing"): 
         prop = (
             Property.objects.all_tenants()
-            .filter(id=property_id, status=Property.Status.PUBLISHED, is_deleted=False)
+            .filter(
+                id=property_id,
+                status=Property.Status.PUBLISHED,
+                visibility=Property.Visibility.PUBLIC_PORTAL,
+                is_deleted=False,
+            )
             .first()
         )
         if not prop:
@@ -176,30 +194,59 @@ def create_agency_appointment(
     agent_membership_id: Optional[UUID] = None,
     status_value: str = ViewingAppointment.Status.CONFIRMED,
 ) -> ViewingAppointment:
-    prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
+    prop = Property.objects.all_tenants().filter(
+        id=property_id, agency_id=agency_id, is_deleted=False
+    ).first()
     if not prop:
         raise NotFoundDomainError("ملک یافت نشد.")
-    customer = Customer.objects.all_tenants().filter(id=customer_id, agency_id=agency_id, is_deleted=False).first()
+    customer = Customer.objects.all_tenants().select_related("assigned_membership__branch").filter(
+        id=customer_id, agency_id=agency_id, is_deleted=False
+    ).first()
     if not customer:
         raise NotFoundDomainError("مشتری یافت نشد.")
     membership = get_active_membership(user, agency_id)
+    if not membership and not is_super_admin(user):
+        raise PermissionDeniedDomainError("عضو فعال آژانس نیستید.")
+    if membership and not can_edit_property(user, prop):
+        raise PermissionDeniedDomainError("برای ثبت بازدید این ملک مجوز ندارید.")
+    if membership and membership.role.code == "BRANCH_MANAGER":
+        if not membership.branch_id or not customer.assigned_membership_id or customer.assigned_membership.branch_id != membership.branch_id:
+            raise PermissionDeniedDomainError("مشتری خارج از شعبه شماست.")
+    elif membership and not has_agency_permission(user, agency_id, "customer.view_all_agency"):
+        if customer.assigned_membership_id != membership.id and not customer.shares.filter(
+            membership=membership, access_level="EDIT"
+        ).filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())).exists():
+            raise PermissionDeniedDomainError("دسترسی به این مشتری برای رزرو بازدید ندارید.")
     target_agent_id = agent_membership_id or (membership.id if membership else None)
     if not target_agent_id:
         raise ValidationDomainError("مشاور بازدید مشخص نشده است.")
+    if status_value not in ViewingAppointment.Status.values:
+        raise ValidationDomainError("وضعیت بازدید نامعتبر است.")
+
+    from apps.accounts.models import AgencyMembership
+    target_agent = AgencyMembership.objects.select_for_update().filter(
+        id=target_agent_id, agency_id=agency_id, status=AgencyMembership.Status.ACTIVE
+    ).first()
+    if not target_agent:
+        raise ValidationDomainError("مشاور انتخاب‌شده عضو فعال همین آژانس نیست.")
+    if membership and membership.role.code == "BRANCH_MANAGER":
+        if (
+            not membership.branch_id
+            or prop.branch_id != membership.branch_id
+            or target_agent.branch_id != membership.branch_id
+        ):
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند بازدیدهای شعبه خودش را ثبت کند.")
+    elif membership and target_agent.id != membership.id and not has_agency_permission(
+        user, agency_id, "appointment.view_all_agency"
+    ):
+        raise PermissionDeniedDomainError("ثبت بازدید برای مشاور دیگر مجاز نیست.")
 
     try:
-        if status_value in (ViewingAppointment.Status.CONFIRMED, ViewingAppointment.Status.RESCHEDULED):
-            ViewingAppointment.check_conflict(
-                agent_membership_id=target_agent_id,
-                property_id=prop.id,
-                start_at=scheduled_start,
-                end_at=scheduled_end,
-            )
-        appt = ViewingAppointment.objects.all_tenants().create(
+        appt = ViewingAppointment.schedule_safely(
             agency_id=agency_id,
             property=prop,
             customer=customer,
-            agent_membership_id=target_agent_id,
+            agent_membership=target_agent,
             scheduled_start=scheduled_start,
             scheduled_end=scheduled_end,
             status=status_value,
@@ -207,6 +254,13 @@ def create_agency_appointment(
         )
     except DjangoValidationError as exc:
         raise ConflictDomainError(str(exc.message if hasattr(exc, "message") else exc))
+    record_audit_event(
+        action="VIEWING_APPOINTMENT_CREATED",
+        resource_type="ViewingAppointment",
+        resource_id=str(appt.id),
+        actor=user,
+        agency_id=agency_id,
+    )
     return appt
 
 
@@ -214,10 +268,51 @@ def create_agency_appointment(
 def transition_appointment_status(
     *, user: User, agency_id: Optional[UUID], appt_id: UUID, new_status: str, agent_report: Optional[str] = None
 ) -> ViewingAppointment:
-    appt = list_appointments(user=user, agency_id=agency_id).filter(id=appt_id).first()
+    visible = list_appointments(user=user, agency_id=agency_id).filter(id=appt_id).first()
+    if not visible:
+        raise NotFoundDomainError("قرار بازدید یافت نشد.")
+    appt = ViewingAppointment.objects.all_tenants().select_for_update().filter(
+        id=visible.id, agency_id=visible.agency_id
+    ).first()
     if not appt:
         raise NotFoundDomainError("قرار بازدید یافت نشد.")
-    if new_status == ViewingAppointment.Status.CONFIRMED:
+    if new_status not in ViewingAppointment.Status.values:
+        raise ValidationDomainError("وضعیت بازدید نامعتبر است.")
+    allowed = {
+        ViewingAppointment.Status.REQUESTED: {
+            ViewingAppointment.Status.CONFIRMED,
+            ViewingAppointment.Status.REJECTED,
+            ViewingAppointment.Status.CANCELLED,
+        },
+        ViewingAppointment.Status.CONFIRMED: {
+            ViewingAppointment.Status.RESCHEDULED,
+            ViewingAppointment.Status.COMPLETED,
+            ViewingAppointment.Status.CANCELLED,
+            ViewingAppointment.Status.NO_SHOW,
+        },
+        ViewingAppointment.Status.RESCHEDULED: {
+            ViewingAppointment.Status.CONFIRMED,
+            ViewingAppointment.Status.COMPLETED,
+            ViewingAppointment.Status.CANCELLED,
+            ViewingAppointment.Status.NO_SHOW,
+        },
+        ViewingAppointment.Status.COMPLETED: set(),
+        ViewingAppointment.Status.CANCELLED: set(),
+        ViewingAppointment.Status.REJECTED: set(),
+        ViewingAppointment.Status.NO_SHOW: set(),
+    }
+    if new_status not in allowed.get(appt.status, set()):
+        raise ConflictDomainError(f"انتقال وضعیت بازدید از {appt.status} به {new_status} مجاز نیست.")
+
+    from apps.accounts.models import AgencyMembership
+    locked_membership = AgencyMembership.objects.select_for_update().filter(
+        id=appt.agent_membership_id, agency_id=appt.agency_id, status=AgencyMembership.Status.ACTIVE
+    ).first()
+    if not locked_membership:
+        raise ConflictDomainError("مشاور بازدید دیگر عضو فعال این آژانس نیست.")
+    Property.objects.select_for_update().filter(id=appt.property_id, agency_id=appt.agency_id).first()
+
+    if new_status in (ViewingAppointment.Status.CONFIRMED, ViewingAppointment.Status.RESCHEDULED):
         try:
             ViewingAppointment.check_conflict(
                 agent_membership_id=appt.agent_membership_id,
@@ -232,5 +327,5 @@ def transition_appointment_status(
     if agent_report is not None:
         appt.agent_report = agent_report
     appt.updated_by = user
-    appt.save()
+    appt.save(update_fields=["status", "agent_report", "updated_by", "updated_at"])
     return appt

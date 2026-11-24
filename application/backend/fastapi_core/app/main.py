@@ -71,9 +71,14 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Agency-ID", "X-Request-ID"],
 )
 
-media_dir = Path(dj_settings.MEDIA_ROOT)
-media_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
+# Only PUBLIC_MEDIA_ROOT is mounted. PRIVATE_MEDIA_ROOT must never be reachable
+# through StaticFiles; private assets are served by authorization-checked endpoints.
+public_media_dir = Path(getattr(dj_settings, "PUBLIC_MEDIA_ROOT", dj_settings.MEDIA_ROOT)).resolve()
+private_media_dir = Path(getattr(dj_settings, "PRIVATE_MEDIA_ROOT", public_media_dir.parent / "private_media")).resolve()
+if public_media_dir == private_media_dir or public_media_dir in private_media_dir.parents or private_media_dir in public_media_dir.parents:
+    raise RuntimeError("PUBLIC_MEDIA_ROOT and PRIVATE_MEDIA_ROOT must be separate, non-overlapping directories.")
+public_media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(public_media_dir)), name="media")
 
 
 @app.exception_handler(DomainError)

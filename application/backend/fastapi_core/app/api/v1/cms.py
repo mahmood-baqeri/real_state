@@ -97,6 +97,7 @@ class CooperationReviewBody(BaseModel):
 
 
 def _ser_article(a, include_versions: bool = False) -> dict:
+    from common.sanitizer import sanitize_html
     data = {
         "id": str(a.id),
         "title": a.title,
@@ -105,7 +106,7 @@ def _ser_article(a, include_versions: bool = False) -> dict:
         "category": {"id": str(a.category_id), "name": a.category.name, "slug": a.category.slug} if a.category else None,
         "author": {"display_name": a.author.display_name, "role_title": a.author.role_title} if a.author else None,
         "summary": a.summary,
-        "content_body": a.content_body,
+        "content_body": sanitize_html(a.content_body),
         "cover_image_url": a.cover_image_url,
         "status": a.status,
         "language": getattr(a, "language", "fa"),
@@ -130,7 +131,7 @@ def _ser_article(a, include_versions: bool = False) -> dict:
             {
                 "version_number": v.version_number,
                 "title": v.title,
-                "content_body": v.content_body,
+                "content_body": sanitize_html(v.content_body),
                 "change_note": v.change_note,
                 "edited_by": v.edited_by.full_name if v.edited_by else "سیستم",
                 "created_at": v.created_at.isoformat(),
@@ -225,7 +226,7 @@ async def list_cms_articles_endpoint(
 
         return [_ser_article(a, include_versions=True) for a in list_cms_articles(user=ctx.user, status_filter=status)]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/categories", status_code=201)
@@ -236,7 +237,7 @@ async def create_cms_category_endpoint(body: CategoryCreateBody, ctx: RequestCon
         c = create_category(user=ctx.user, **body.model_dump())
         return {"id": str(c.id), "name": c.name, "slug": c.slug}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/articles", status_code=201)
@@ -246,7 +247,7 @@ async def create_cms_article_endpoint(body: ArticleCreateBody, ctx: RequestConte
 
         return _ser_article(create_article(user=ctx.user, data=body.model_dump()), include_versions=True)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/cms/articles/{article_id}")
@@ -261,7 +262,7 @@ async def patch_cms_article_endpoint(
             include_versions=True,
         )
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/articles/{article_id}/status")
@@ -278,7 +279,7 @@ async def transition_cms_article_endpoint(
             include_versions=True,
         )
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/cms/articles/{article_id}")
@@ -290,7 +291,7 @@ async def delete_cms_article_endpoint(
 
         return delete_article(user=ctx.user, article_id=article_id)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/seo/redirects")
@@ -320,7 +321,7 @@ async def create_seo_redirect_endpoint(body: RedirectCreateBody, ctx: RequestCon
         r = create_redirect(user=ctx.user, **body.model_dump())
         return {"id": str(r.id), "from_path": r.from_path, "to_path": r.to_path, "status_code": r.status_code}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/public-requests/contact", status_code=201)
@@ -378,7 +379,7 @@ async def list_contact_inquiries_endpoint(ctx: RequestContext = Depends(get_curr
             for i in list_contact_inquiries(user=ctx.user)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/cms/contact-inquiries/{inquiry_id}")
@@ -393,7 +394,7 @@ async def patch_contact_inquiry_endpoint(
         )
         return {"id": str(i.id), "status": i.status, "staff_response": i.staff_response}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/public-requests/cooperation", status_code=201)
@@ -433,7 +434,7 @@ async def list_cooperation_requests_endpoint(ctx: RequestContext = Depends(get_c
             for r in list_cooperation_requests(user=ctx.user)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/cooperation-requests/{request_id}/review")
@@ -450,7 +451,7 @@ async def review_cooperation_request_endpoint(
             "approved_agency_id": str(r.approved_agency_id) if r.approved_agency_id else None,
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # ==============================================================================
@@ -550,7 +551,7 @@ async def get_public_legal_detail_endpoint(
         doc, accepted = get_public_legal_document(slug=slug, user=ctx.user)
         return _ser_legal_doc(doc, accepted_by_user=accepted)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/legal/{slug}/accept")
@@ -571,7 +572,7 @@ async def accept_legal_document_endpoint(
             "accepted_at": rec.accepted_at.isoformat(),
         }
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/cms/legal")
@@ -587,7 +588,7 @@ async def list_admin_legal_endpoint(
             for d in list_legal_documents(user=ctx.user, doc_type=doc_type, published_only=False)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/legal", status_code=201)
@@ -600,7 +601,7 @@ async def upsert_admin_legal_endpoint(
         doc = upsert_legal_document(user=ctx.user, slug=body.slug, data=body.model_dump())
         return _ser_legal_doc(doc, include_versions=True)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/cms/legal/acceptances")
@@ -625,7 +626,7 @@ async def list_legal_acceptances_endpoint(
             for r in list_legal_acceptances(user=ctx.user, doc_id=doc_id)
         ]
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/cms/legal/{doc_id}")
@@ -637,7 +638,7 @@ async def get_admin_legal_detail_endpoint(
 
         return _ser_legal_doc(get_legal_document_admin(user=ctx.user, doc_id=doc_id), include_versions=True)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/legal/{doc_id}/status")
@@ -650,7 +651,7 @@ async def transition_legal_status_endpoint(
         doc = transition_legal_status(user=ctx.user, doc_id=doc_id, to_status=body.status)
         return _ser_legal_doc(doc, include_versions=True)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/cms/legal/{doc_id}/restore/{version_number}")
@@ -663,4 +664,4 @@ async def restore_legal_version_endpoint(
         doc = restore_legal_version(user=ctx.user, doc_id=doc_id, version_number=version_number)
         return _ser_legal_doc(doc, include_versions=True)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

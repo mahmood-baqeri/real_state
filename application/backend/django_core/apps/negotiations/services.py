@@ -11,7 +11,7 @@ from apps.notifications.models import NotificationMessage
 from apps.notifications.services import send_notification
 from apps.properties.models import Property
 from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
-from common.permissions import get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
+from common.permissions import can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
 from .models import Negotiation, NegotiationActivity, NegotiationOfferVersion
 
 VALID_STATUS_VALUES = {choice[0] for choice in Negotiation.Status.choices}
@@ -51,17 +51,22 @@ def list_negotiations(
     elif not is_super_admin(user):
         raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
 
-    if not is_super_admin(user) and agency_id and not has_agency_permission(user, agency_id, "deal.view_all_agency"):
+    if not agency_id:
+        return Negotiation.objects.none()
+    if not is_super_admin(user):
         membership = get_active_membership(user, agency_id)
         if not membership:
             return Negotiation.objects.none()
-        policy = get_agency_policy(agency_id)
-        allow_mgr = (
-            policy.negotiation_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE
-            and membership.role.code in ("AGENCY_MANAGER", "BRANCH_MANAGER", "AGENCY_ACCOUNTANT")
-        )
-        if not allow_mgr:
-            qs = qs.filter(agent_membership=membership)
+        if membership.role.code == "BRANCH_MANAGER":
+            qs = qs.filter(property__branch_id=membership.branch_id) if membership.branch_id else qs.none()
+        elif not has_agency_permission(user, agency_id, "deal.view_all_agency"):
+            policy = get_agency_policy(agency_id)
+            allow_mgr = bool(
+                policy and policy.negotiation_visibility == AgencyAccessPolicy.StandardVisibility.MANAGERS_AND_FINANCE
+                and membership.role.code in ("AGENCY_MANAGER", "AGENCY_ACCOUNTANT")
+            )
+            if not allow_mgr:
+                qs = qs.filter(agent_membership=membership)
 
     if status_filter:
         qs = qs.filter(status=status_filter)
@@ -90,6 +95,26 @@ def get_negotiation_detail(*, user: User, agency_id: Optional[UUID], negotiation
 @transaction.atomic
 def update_negotiation(*, user: User, agency_id: Optional[UUID], negotiation_id: UUID, data: dict) -> Negotiation:
     neg = get_negotiation_detail(user=user, agency_id=agency_id, negotiation_id=negotiation_id)
+    if "owner_customer_id" in data and data["owner_customer_id"]:
+        from apps.customers.models import Customer
+        owner_customer = Customer.objects.all_tenants().filter(id=data["owner_customer_id"], agency_id=neg.agency_id, is_deleted=False).first()
+        if not owner_customer:
+            raise ValidationDomainError("مالک مذاکره باید مشتری همین آژانس باشد.")
+        if not can_edit_customer(user, owner_customer):
+            raise PermissionDeniedDomainError("دسترسی به پرونده مالک مذاکره مجاز نیست.")
+    if "agent_membership_id" in data and data["agent_membership_id"]:
+        from apps.accounts.models import AgencyMembership
+        target_agent = AgencyMembership.objects.filter(
+            id=data["agent_membership_id"], agency_id=neg.agency_id,
+            status=AgencyMembership.Status.ACTIVE
+        ).first()
+        if not target_agent:
+            raise ValidationDomainError("مشاور مذاکره باید عضو فعال همین آژانس باشد.")
+        current = get_active_membership(user, neg.agency_id)
+        if current and current.role.code == "BRANCH_MANAGER" and target_agent.branch_id != current.branch_id:
+            raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند مذاکره را به مشاور شعبه خود تخصیص دهد.")
+        if current and not has_agency_permission(user, neg.agency_id, "deal.view_all_agency") and current.role.code != "BRANCH_MANAGER" and target_agent.id != current.id:
+            raise PermissionDeniedDomainError("تغییر مشاور مذاکره به کاربر دیگر مجاز نیست.")
     for field in ("owner_customer_id", "agent_membership_id", "deal_type_id", "next_action", "next_followup_at", "notes"):
         if field in data:
             val = data[field]
@@ -137,12 +162,48 @@ def create_negotiation(*, user: User, agency_id: Optional[UUID], data: dict) -> 
     )
     if not prop:
         raise NotFoundDomainError("ملک مرتبط در این آژانس یافت نشد.")
+    if membership and not can_edit_property(user, prop):
+        raise PermissionDeniedDomainError("برای مذاکره روی این ملک مجوز ندارید.")
+    if membership and membership.role.code == "BRANCH_MANAGER" and (
+        not membership.branch_id or prop.branch_id != membership.branch_id
+    ):
+        raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند برای ملک شعبه خودش مذاکره ثبت کند.")
 
     owner_cust_id = data.get("owner_customer_id")
     if not owner_cust_id:
         primary_owner = prop.owners.filter(is_primary_contact=True).first() or prop.owners.first()
         if primary_owner:
             owner_cust_id = primary_owner.owner_customer_id
+
+    from apps.customers.models import Customer
+    customer = Customer.objects.all_tenants().filter(
+        id=data.get("customer_id"), agency_id=agency_id, is_deleted=False
+    ).first()
+    if not customer:
+        raise NotFoundDomainError("مشتری مذاکره متعلق به این آژانس نیست.")
+    if membership and not can_edit_customer(user, customer):
+        raise PermissionDeniedDomainError("دسترسی به پرونده مشتری مذاکره مجاز نیست.")
+    if owner_cust_id:
+        owner_customer = Customer.objects.all_tenants().filter(
+            id=owner_cust_id, agency_id=agency_id, is_deleted=False
+        ).first()
+        if not owner_customer:
+            raise NotFoundDomainError("مالک مذاکره متعلق به این آژانس نیست.")
+        if membership and not can_edit_customer(user, owner_customer):
+            raise PermissionDeniedDomainError("دسترسی به پرونده مالک مذاکره مجاز نیست.")
+    from apps.accounts.models import AgencyMembership
+    target_agent_id = data.get("agent_membership_id") or (membership.id if membership else None)
+    target_agent = AgencyMembership.objects.filter(
+        id=target_agent_id, agency_id=agency_id, status=AgencyMembership.Status.ACTIVE
+    ).first() if target_agent_id else None
+    if not target_agent:
+        raise ValidationDomainError("مشاور مذاکره باید عضو فعال همین آژانس باشد.")
+    if membership and membership.role.code != "BRANCH_MANAGER" and not has_agency_permission(
+        user, agency_id, "deal.view_all_agency"
+    ) and target_agent.id != membership.id:
+        raise PermissionDeniedDomainError("تخصیص مذاکره به مشاور دیگر مجاز نیست.")
+    if membership and membership.role.code == "BRANCH_MANAGER" and target_agent.branch_id != membership.branch_id:
+        raise PermissionDeniedDomainError("مدیر شعبه فقط می‌تواند مذاکره را به مشاور شعبه خود تخصیص دهد.")
 
     asking_price = Decimal(data.get("asking_price") or prop.total_price or "0")
     init_price = Decimal(data.get("initial_price") or "0") if data.get("initial_price") is not None else Decimal("0")
@@ -158,7 +219,7 @@ def create_negotiation(*, user: User, agency_id: Optional[UUID], data: dict) -> 
         property=prop,
         customer_id=data["customer_id"],
         owner_customer_id=owner_cust_id,
-        agent_membership_id=data.get("agent_membership_id") or (membership.id if membership else None),
+        agent_membership_id=target_agent.id,
         deal_type_id=data.get("deal_type_id") or prop.deal_type_id,
         status=init_status,
         asking_price=asking_price,

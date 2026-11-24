@@ -116,7 +116,7 @@ async def submit_public_survey_endpoint(
         )
         return {"id": str(resp.id), "submitted_at": resp.submitted_at.isoformat()}
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("")
@@ -133,7 +133,7 @@ async def list_surveys_endpoint(
         qs = list_surveys(user=ctx.user, agency_id=ctx.agency_id, public_only=public_only)
         return paginate_queryset(qs, page=page, page_size=page_size, serializer_fn=_ser_survey)
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -145,7 +145,7 @@ async def create_survey_endpoint(body: SurveyCreateBody, ctx: RequestContext = D
         s = create_survey(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_survey(s)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/analytics/compare")
@@ -155,7 +155,7 @@ async def compare_surveys_endpoint(ctx: RequestContext = Depends(get_current_con
 
         return compare_surveys(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{survey_id}")
@@ -165,7 +165,7 @@ async def get_survey_detail_endpoint(survey_id: UUID, ctx: RequestContext = Depe
 
         return _ser_survey(get_survey_by_id(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{survey_id}")
@@ -178,7 +178,7 @@ async def update_survey_endpoint(
         s = update_survey(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id, data=body.model_dump(exclude_none=True))
         return _ser_survey(s)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{survey_id}/questions", status_code=201)
@@ -198,7 +198,7 @@ async def add_survey_question_endpoint(
             "is_required": q.is_required,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/{survey_id}/questions/{question_id}")
@@ -227,7 +227,7 @@ async def update_survey_question_endpoint(
             "is_required": q.is_required,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/{survey_id}/questions/{question_id}")
@@ -240,7 +240,7 @@ async def delete_survey_question_endpoint(
         delete_survey_question(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id, question_id=question_id)
         return {"deleted": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{survey_id}/questions/reorder")
@@ -265,7 +265,7 @@ async def reorder_survey_questions_endpoint(
             for q in qs
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{survey_id}/responses")
@@ -275,7 +275,7 @@ async def list_survey_responses_endpoint(survey_id: UUID, ctx: RequestContext = 
 
         return list_survey_responses(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{survey_id}/analytics")
@@ -285,4 +285,4 @@ async def survey_analytics_endpoint(survey_id: UUID, ctx: RequestContext = Depen
 
         return get_survey_analytics(user=ctx.user, agency_id=ctx.agency_id, survey_id=survey_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

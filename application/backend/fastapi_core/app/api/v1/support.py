@@ -126,7 +126,7 @@ async def list_tickets_endpoint(
             serializer_fn=lambda t: _ser_ticket(t, include_internal=_is_support_staff(ctx.user, t)),
         )
 
-    items, meta = await run_django(_op, agency_id=ctx.agency_id)
+    items, meta = await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None)
     return ok(items, meta=meta)
 
 
@@ -138,7 +138,7 @@ async def create_ticket_endpoint(body: TicketCreateBody, ctx: RequestContext = D
         t = create_ticket(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return _ser_ticket(t, include_internal=False)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/canned-replies")
@@ -151,7 +151,7 @@ async def list_canned_replies_endpoint(ctx: RequestContext = Depends(get_current
             for r in list_canned_replies(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/canned-replies", status_code=201)
@@ -162,7 +162,7 @@ async def create_canned_reply_endpoint(body: CannedReplyBody, ctx: RequestContex
         r = create_canned_reply(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"id": str(r.id), "title": r.title, "category": r.category, "body": r.body}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/reports/summary")
@@ -172,7 +172,7 @@ async def ticket_report_endpoint(ctx: RequestContext = Depends(get_current_conte
 
         return get_ticket_report(user=ctx.user, agency_id=ctx.agency_id)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/{ticket_id}")
@@ -185,7 +185,7 @@ async def get_ticket_endpoint(ticket_id: UUID, ctx: RequestContext = Depends(get
         data["can_manage"] = can_internal
         return data
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{ticket_id}/messages", status_code=201)
@@ -204,7 +204,7 @@ async def add_ticket_message_endpoint(
             "created_at": m.created_at.isoformat(),
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{ticket_id}/status")
@@ -223,7 +223,7 @@ async def update_ticket_status_endpoint(
         )
         return {"id": str(t.id), "status": t.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{ticket_id}/assign")
@@ -241,7 +241,7 @@ async def assign_ticket_endpoint(
         )
         return {"id": str(t.id), "status": t.status, "assigned_to_name": t.assigned_to_user.full_name}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/{ticket_id}/rating")
@@ -260,4 +260,4 @@ async def rate_ticket_endpoint(
         )
         return {"id": str(t.id), "satisfaction_rating": t.satisfaction_rating}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

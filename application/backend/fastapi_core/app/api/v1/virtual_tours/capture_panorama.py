@@ -18,6 +18,8 @@ from .serializers import (
     serialize_processing_job,
 )
 
+from app.core.uploads import read_upload_limited
+
 router = APIRouter(tags=["Virtual Tours Capture & Panorama"])
 
 
@@ -39,7 +41,7 @@ async def create_capture_session_endpoint(
         )
         return serialize_capture_session(session)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/scenes/{scene_id}/capture-sessions")
@@ -53,7 +55,7 @@ async def list_scene_capture_sessions_endpoint(
         scene = get_scene_for_user(user=ctx.user, agency_id=ctx.agency_id, scene_id=scene_id, require_edit=False)
         return [serialize_capture_session(s) for s in scene.capture_sessions.order_by("-created_at")[:10]]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/capture-sessions/{session_id}")
@@ -69,7 +71,7 @@ async def get_capture_session_endpoint(
         )
         return serialize_capture_session(session)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/capture-sessions/{session_id}/guide")
@@ -95,7 +97,7 @@ async def get_capture_guide_endpoint(
             ],
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/capture-sessions/{session_id}/images", status_code=201)
@@ -107,7 +109,7 @@ async def upload_capture_image_endpoint(
     pitch: Optional[float] = Form(default=None),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    content = await file.read()
+    content = await read_upload_limited(file)
 
     def _op():
         from apps.virtual_tours.services import capture_service
@@ -128,7 +130,7 @@ async def upload_capture_image_endpoint(
             "session_summary": summary,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/capture-sessions/{session_id}/images")
@@ -149,7 +151,7 @@ async def list_capture_images_endpoint(
             for img in session.images.exclude(status=CaptureImage.Status.REPLACED).order_by("sequence")
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/capture-sessions/{session_id}/steps/{sequence}/skip")
@@ -166,7 +168,7 @@ async def skip_capture_step_endpoint(
         )
         return serialize_capture_guide_step(step, tour_id=str(step.session.tour_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/capture-sessions/{session_id}/complete")
@@ -185,7 +187,7 @@ async def complete_capture_session_endpoint(
             "summary": summary,
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/capture-sessions/{session_id}/cancel")
@@ -201,7 +203,7 @@ async def cancel_capture_session_endpoint(
         )
         return {"session_id": str(session.id), "status": session.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 # Panorama Processing, Direct Upload, Review & Versioning
@@ -227,7 +229,7 @@ async def process_scene_panorama_endpoint(
         )
         return serialize_processing_job(job)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scenes/{scene_id}/reprocess", status_code=202)
@@ -252,7 +254,7 @@ async def reprocess_scene_panorama_endpoint(
         )
         return serialize_processing_job(job)
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scenes/{scene_id}/panoramas/upload", status_code=201)
@@ -261,7 +263,7 @@ async def upload_direct_panorama_endpoint(
     file: UploadFile = File(...),
     ctx: RequestContext = Depends(require_agency_context),
 ):
-    content = await file.read()
+    content = await read_upload_limited(file)
 
     def _op():
         from apps.virtual_tours.services import panorama_service
@@ -276,7 +278,7 @@ async def upload_direct_panorama_endpoint(
         )
         return serialize_panorama_version(pano, tour_id=str(pano.scene.tour_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/scenes/{scene_id}/panoramas")
@@ -294,7 +296,7 @@ async def list_scene_panoramas_endpoint(
             for p in scene.panorama_versions.select_related("approved_by").order_by("-version")
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scenes/{scene_id}/approve-panorama")
@@ -316,7 +318,7 @@ async def approve_panorama_endpoint(
         )
         return serialize_panorama_version(pano, tour_id=str(pano.scene.tour_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scenes/{scene_id}/reject-panorama")
@@ -337,7 +339,7 @@ async def reject_panorama_endpoint(
         )
         return serialize_panorama_version(pano, tour_id=str(pano.scene.tour_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/scenes/{scene_id}/panoramas/{version_id}/restore")
@@ -357,4 +359,4 @@ async def restore_panorama_version_endpoint(
         )
         return serialize_panorama_version(pano, tour_id=str(pano.scene.tour_id))
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

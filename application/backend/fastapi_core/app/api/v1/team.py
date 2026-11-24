@@ -89,7 +89,7 @@ async def list_team_members(ctx: RequestContext = Depends(require_agency_context
             for m in list_agency_members(actor=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/team/members", status_code=201)
@@ -100,7 +100,7 @@ async def create_team_member(body: MemberCreateBody, ctx: RequestContext = Depen
         m = add_agency_member(actor=ctx.user, agency_id=ctx.agency_id, **body.model_dump())
         return {"id": str(m.id), "full_name": m.user.full_name, "role_code": m.role.code}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.patch("/team/members/{membership_id}")
@@ -121,7 +121,7 @@ async def patch_team_member(
         )
         return {"id": str(m.id), "role_code": m.role.code, "status": m.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.delete("/team/members/{membership_id}")
@@ -132,7 +132,7 @@ async def delete_team_member(membership_id: UUID, ctx: RequestContext = Depends(
         m = soft_delete_agency_member(actor=ctx.user, agency_id=ctx.agency_id, membership_id=membership_id)
         return {"id": str(m.id), "status": m.status}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.put("/team/members/{membership_id}/overrides")
@@ -150,7 +150,7 @@ async def put_member_overrides(
         )
         return {"id": str(m.id), "updated": True}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/team/roles")
@@ -176,7 +176,7 @@ async def get_roles_permissions(ctx: RequestContext = Depends(require_agency_con
             ],
         }
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/team/roles", status_code=201)
@@ -191,7 +191,7 @@ async def create_role_endpoint(body: RoleCreateBody, ctx: RequestContext = Depen
         r = create_custom_role(actor=ctx.user, agency_id=ctx.agency_id, **body.model_dump())
         return {"id": str(r.id), "code": r.code, "name": r.name}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.get("/employees")
@@ -228,7 +228,7 @@ async def list_employees_endpoint(ctx: RequestContext = Depends(require_agency_c
             for e in list_employees(user=ctx.user, agency_id=ctx.agency_id)
         ]
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/employees", status_code=201)
@@ -239,7 +239,7 @@ async def create_employee_endpoint(body: EmployeeCreateBody, ctx: RequestContext
         e = create_employee_profile(user=ctx.user, agency_id=ctx.agency_id, data=body.model_dump())
         return {"id": str(e.id), "employee_code": e.employee_code}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
 @router.post("/employees/{employee_id}/compensation-plans", status_code=201)
@@ -254,4 +254,4 @@ async def create_compensation_plan_endpoint(
         )
         return {"id": str(p.id), "model_type": p.model_type, "base_salary": str(p.base_salary)}
 
-    return ok(await run_django(_op, agency_id=ctx.agency_id))
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
