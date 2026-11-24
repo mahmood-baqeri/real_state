@@ -38,6 +38,14 @@ export default function DealsPage() {
       })).data,
   });
 
+  const financeSummaryQ = useQuery({
+    queryKey: ["deals-financial-summary", activeAgencyId],
+    enabled: !!accessToken && !!activeAgencyId,
+    queryFn: async () => (await apiFetch<{ deal_count: number; currencies: Array<{ currency: string; deal_amount: string; received: string; paid: string; receivable: string; net_profit: string; ledger_count: number; open_count: number; partial_count: number; settled_count: number }> }>(
+      "/api/v1/deals/financial-summary", { token: accessToken, agencyId: activeAgencyId }
+    )).data,
+  });
+
   const contractsQ = useQuery({
     queryKey: ["contracts-for-deals", activeAgencyId],
     enabled: !!accessToken && !!activeAgencyId,
@@ -104,6 +112,31 @@ export default function DealsPage() {
 
       {notice && <SuccessBanner message={notice} />}
       {errMsg && <ErrorState message={errMsg} />}
+
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">خلاصه مالی معاملات</h2>
+          <span className="text-xs text-slate-500">{financeSummaryQ.data?.deal_count ?? 0} معامله قابل دسترس</span>
+        </div>
+        {financeSummaryQ.isLoading ? <p className="text-xs text-slate-500">در حال دریافت خلاصه مالی...</p> : null}
+        {financeSummaryQ.error instanceof Error ? <p className="text-xs text-rose-600">خلاصه مالی بارگذاری نشد: {financeSummaryQ.error.message}</p> : null}
+        {(financeSummaryQ.data?.currencies || []).length === 0 && !financeSummaryQ.isLoading ? <p className="text-xs text-slate-500">برای معاملات قابل دسترس، کاردکس مالی ثبت نشده است.</p> : null}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {(financeSummaryQ.data?.currencies || []).map((f) => (
+            <div key={f.currency} className="rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+              <div className="mb-2 text-xs font-semibold text-teal-700 dark:text-teal-400">ارز: {f.currency}</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><div className="text-slate-500">ارزش معاملات</div><div className="font-semibold">{Number(f.deal_amount).toLocaleString("fa-IR")}</div></div>
+                <div><div className="text-slate-500">دریافت‌شده</div><div className="font-semibold">{Number(f.received).toLocaleString("fa-IR")}</div></div>
+                <div><div className="text-slate-500">مانده دریافت</div><div className="font-semibold">{Number(f.receivable).toLocaleString("fa-IR")}</div></div>
+                <div><div className="text-slate-500">پرداخت‌شده</div><div className="font-semibold">{Number(f.paid).toLocaleString("fa-IR")}</div></div>
+                <div><div className="text-slate-500">سود خالص</div><div className="font-semibold">{Number(f.net_profit).toLocaleString("fa-IR")}</div></div>
+                <div><div className="text-slate-500">تسویه / ناقص / باز</div><div className="font-semibold">{f.settled_count} / {f.partial_count} / {f.open_count}</div></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <DataTable
         rows={dealsQ.data || []}

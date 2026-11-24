@@ -385,6 +385,49 @@ async def create_deal_endpoint(body: DealCreateBody, ctx: RequestContext = Depen
     return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
+@router.get("/deals/financial-summary")
+async def deals_financial_summary_endpoint(ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.contracts.services import list_deals
+        from apps.accounting.models import DealFinancialLedger
+
+        scoped_deals = list_deals(user=ctx.user, agency_id=ctx.agency_id)
+        deal_ids = list(scoped_deals.values_list("id", flat=True))
+        ledgers = DealFinancialLedger.objects.all_tenants().filter(deal_id__in=deal_ids)
+        grouped = {}
+        for row in ledgers.values(
+            "currency_id", "deal_amount", "total_received", "total_paid", "net_profit", "settlement_status"
+        ):
+            currency = row["currency_id"] or "—"
+            bucket = grouped.setdefault(currency, {
+                "currency": currency, "deal_amount": Decimal("0"), "received": Decimal("0"),
+                "paid": Decimal("0"), "receivable": Decimal("0"), "net_profit": Decimal("0"),
+                "ledger_count": 0, "open_count": 0, "partial_count": 0, "settled_count": 0,
+            })
+            amount = row["deal_amount"] or Decimal("0")
+            received = row["total_received"] or Decimal("0")
+            bucket["deal_amount"] += amount
+            bucket["received"] += received
+            bucket["paid"] += row["total_paid"] or Decimal("0")
+            bucket["receivable"] += max(Decimal("0"), amount - received)
+            bucket["net_profit"] += row["net_profit"] or Decimal("0")
+            bucket["ledger_count"] += 1
+            status = row["settlement_status"]
+            if status == DealFinancialLedger.SettlementStatus.SETTLED:
+                bucket["settled_count"] += 1
+            elif status == DealFinancialLedger.SettlementStatus.PARTIAL:
+                bucket["partial_count"] += 1
+            else:
+                bucket["open_count"] += 1
+        return {
+            "deal_count": scoped_deals.count(),
+        "currencies": [{k: (str(v) if isinstance(v, Decimal) else v) for k, v in bucket.items()}
+                       for bucket in grouped.values()],
+        }
+
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
 @router.get("/deals/{deal_id}")
 async def get_deal_endpoint(deal_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
     def _op():
