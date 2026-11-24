@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 
@@ -25,23 +25,9 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
   const [mounted, setMounted] = useState(false);
-  const [serverBusy, setServerBusy] = useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setMounted(true);
-    let delayTimer: ReturnType<typeof setTimeout> | undefined;
-    const onRequestCount = (event: Event) => {
-      const count = Number((event as CustomEvent<{ count?: number }>).detail?.count ?? 0);
-      if (count > 0) {
-        if (!delayTimer) delayTimer = setTimeout(() => setServerBusy(true), 160);
-      } else {
-        if (delayTimer) clearTimeout(delayTimer);
-        delayTimer = undefined;
-        setServerBusy(false);
-      }
-    };
-    window.addEventListener("bonyan-api-request-count", onRequestCount);
-    return () => { if (delayTimer) clearTimeout(delayTimer); window.removeEventListener("bonyan-api-request-count", onRequestCount); };
   }, []);
 
   const dismiss = useCallback((id: string) => {
@@ -72,11 +58,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {mounted && createPortal(
         <>
-          {serverBusy && <>
-            <div aria-label="در حال ارتباط با سرور" role="status" className="fixed z-[10040] h-[3px] overflow-hidden rounded-b-full bg-slate-200/80 dark:bg-slate-800/80" style={{ left: 20, top: 0, width: "min(360px, calc(100vw - 40px))" }}><div className="h-full w-1/3 animate-[dashboard-progress_1.1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-teal-400 shadow-[0_0_10px_rgba(45,212,191,.6)]" /></div>
-            <div className="fixed z-[10040] rounded-full border border-slate-200/80 bg-white/90 px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-md backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-300" style={{ left: 20, top: 14, maxWidth: "calc(100vw - 40px)" }}><span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-teal-500 align-middle" />در حال دریافت اطلاعات از سرور</div>
-          </>}
-          <div aria-live="polite" className="pointer-events-none fixed z-[10050] flex flex-col items-start gap-2" style={{ left: 20, top: serverBusy ? 58 : 20, width: "min(360px, calc(100vw - 40px))", direction: "ltr" }}>
+          <div
+            aria-live="polite"
+            aria-relevant="additions text"
+            className="pointer-events-none fixed left-4 top-4 z-[2147483000] flex w-[min(360px,calc(100vw-32px))] flex-col items-start gap-2"
+            style={{ direction: "ltr", position: "fixed", top: "max(16px, env(safe-area-inset-top))", left: "max(16px, env(safe-area-inset-left))" }}
+          >
         {items.map((item) => {
           const toneStyle =
             item.tone === "success"
@@ -97,8 +84,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           return (
             <div
               key={item.id}
-              role="status"
-              dir="rtl" className={`pointer-events-auto w-full flex items-start justify-between gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-md ${toneStyle}`}
+              role={item.tone === "error" ? "alert" : "status"}
+              dir="rtl"
+              className={`pointer-events-auto w-full flex items-start justify-between gap-3 rounded-xl border p-3.5 shadow-xl ring-1 ring-black/5 toast-enter transition-all duration-200 ${toneStyle}`}
             >
               <div className="flex items-start gap-2.5">
                 {icon}

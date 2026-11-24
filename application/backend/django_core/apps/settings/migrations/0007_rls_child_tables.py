@@ -27,10 +27,6 @@ def apply_child_table_rls(apps, schema_editor):
                 table, agency_field.column, paths, allow_global_rows=False,
                 allow_related_rows=agency_field.null
             ))
-            # Every tenant-scoped table must enforce RLS for its owner as well.
-            # 0005 only forced non-null agency FKs; nullable agency tables were
-            # therefore left owner-bypassable until this migration.
-            schema_editor.execute(f'ALTER TABLE "{table}" FORCE ROW LEVEL SECURITY')
         elif paths:
             schema_editor.execute(generate_related_rls_policy_sql(table, paths))
 

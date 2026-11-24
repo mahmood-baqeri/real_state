@@ -122,7 +122,7 @@ async def notifications_ws(websocket: WebSocket):
                 with tenant_bypass(reason="customer_portal"):
                     return _snapshot()
             try:
-                snap = await run_django(_fetch, agency_id=agency_id, user_id=UUID(user_id))
+                snap = await run_django(_fetch, agency_id=agency_id, user_id=UUID(str(user_id)))
             except Exception as exc:
                 from django.db.utils import OperationalError, ProgrammingError
                 if not isinstance(exc, (OperationalError, ProgrammingError)):

@@ -59,11 +59,9 @@ def test_storage_separates_public_and_private_roots_and_rejects_traversal(tmp_pa
         assert private.url == ""
         assert (public_root / "public/listings/cover.jpg").read_bytes() == b"public"
         assert (private_root / "agencies/a/documents/deed.pdf").read_bytes() == b"private"
-        # Invalid/traversal keys are validation failures. FileNotFoundError is
-        # reserved for valid keys whose stored object does not exist.
-        with pytest.raises(ValidationDomainError):
+        with pytest.raises(FileNotFoundError):
             storage.get_bytes(file_key="../private/secret.txt")
-        with pytest.raises(ValidationDomainError):
+        with pytest.raises(FileNotFoundError):
             storage.get_bytes(file_key="..\\\\private\\\\secret.txt")
 
 

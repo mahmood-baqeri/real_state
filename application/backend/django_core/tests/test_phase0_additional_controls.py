@@ -1,7 +1,7 @@
 from unittest.mock import patch
 import socket
 import pytest
-from django.test import SimpleTestCase
+from django.test import TestCase, SimpleTestCase
 
 from common.sanitizer import sanitize_html
 from common.tenant.context import is_tenant_bypassed, tenant_bypass
@@ -9,7 +9,7 @@ from common.exceptions import ValidationDomainError
 from apps.ai_assistant.services import _assert_ssrf_safe_https_url
 
 
-class TenantBypassNestingTests(SimpleTestCase):
+class TenantBypassNestingTests(TestCase):
     def test_nested_allowlisted_bypass_restores_outer_state(self):
         self.assertFalse(is_tenant_bypassed())
         with tenant_bypass(reason="platform_seed"):

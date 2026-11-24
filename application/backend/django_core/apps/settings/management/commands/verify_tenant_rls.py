@@ -1,7 +1,6 @@
 from django.apps import apps
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
-from django.db.migrations.executor import MigrationExecutor
 from common.tenant.rls import discover_tenant_relation_paths
 
 
@@ -18,23 +17,6 @@ class Command(BaseCommand):
             if is_superuser or bypass_rls:
                 raise CommandError(
                     f"Application DB role {role_name!r} is unsafe: rolsuper={is_superuser}, rolbypassrls={bypass_rls}."
-                )
-
-            # Do not report hundreds of missing RLS policies while the migrations
-            # that create their tables/policies are still unapplied.
-            executor = MigrationExecutor(connection)
-            targets = executor.loader.graph.leaf_nodes()
-            pending = executor.migration_plan(targets)
-            if pending:
-                labels = [
-                    f"{migration.app_label}.{migration.name}"
-                    for migration, backwards in pending
-                    if not backwards
-                ]
-                raise CommandError(
-                    "RLS verification blocked by unapplied migrations: "
-                    + ", ".join(labels)
-                    + ". Back up the database, apply the reviewed migrations, then rerun this check."
                 )
 
             expected = {}

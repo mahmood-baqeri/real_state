@@ -79,8 +79,29 @@ interface ChatTurn {
 interface ContentTopicItem {
   title: string;
   content_type: string;
-  keywords: string[];
+  keywords: string[] | string | Record<string, unknown> | null;
   audience: string;
+}
+
+/** Normalize topic keywords from older and newer API response shapes. */
+function normalizeTopicKeywords(value: ContentTopicItem["keywords"]): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value.split(/[,،]+/).map((item) => item.trim()).filter(Boolean);
+  }
+  if (value && typeof value === "object") {
+    const nested = value.keywords ?? value.items ?? value.tags;
+    if (Array.isArray(nested) || typeof nested === "string") {
+      return normalizeTopicKeywords(nested as ContentTopicItem["keywords"]);
+    }
+    return Object.values(value)
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
 }
 
 interface GeneratedContentDraft {
@@ -549,7 +570,7 @@ export default function AiAssistantPage() {
                       topic: t.title,
                       content_type: t.content_type || prev.content_type,
                       target_audience: t.audience || prev.target_audience,
-                      keywordsText: (t.keywords || []).join("، ") || prev.keywordsText,
+                      keywordsText: normalizeTopicKeywords(t.keywords).join("، ") || prev.keywordsText,
                     }))
                   }
                   className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-right text-xs text-slate-800 hover:border-teal-600 hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:border-teal-500"

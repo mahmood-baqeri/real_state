@@ -459,7 +459,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div data-dashboard-shell className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
       {(routeProgress || apiLoadingCount > 0) && <div role="status" aria-live="polite" className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/25 backdrop-blur-[3px]">
-        <div className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-indigo-100 dark:bg-indigo-950"><div className="h-full w-1/3 animate-[dashboard-progress_1s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-indigo-500 shadow-[0_0_16px_rgba(45,212,191,.8)]" /></div>
         <div className="flex min-w-[220px] flex-col items-center gap-4 rounded-2xl border border-white/70 bg-white/95 px-8 py-7 shadow-2xl shadow-indigo-900/15 dark:border-slate-700 dark:bg-slate-900/95">
           <div className="relative flex h-14 w-14 items-center justify-center"><div className="absolute inset-0 rounded-full border-[3px] border-indigo-100 dark:border-indigo-950"/><div className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-t-teal-500 border-l-indigo-500"/><div className="h-3 w-3 animate-pulse rounded-full bg-teal-500 shadow-[0_0_14px_rgba(20,184,166,.6)]"/></div>
           <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{routeProgress ? "در حال انتقال به صفحه" : "در حال دریافت اطلاعات"}</span><span className="text-xs text-slate-500 dark:text-slate-400">لطفاً کمی صبر کنید…</span>
