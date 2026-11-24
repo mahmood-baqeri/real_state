@@ -99,6 +99,13 @@ export const ALL_NAV_ITEMS: NavItemConfig[] = [
     roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "SUPPORT_AGENT", "AGENT", "CUSTOMER"],
   },
   {
+    key: "ecosystem",
+    label: "اعتماد، همکاری و خدمات پس از معامله",
+    href: "/dashboard/ecosystem",
+    group: "deals",
+    roles: ["SUPER_ADMIN", "AGENCY_MANAGER", "SALES_MANAGER", "BRANCH_MANAGER", "AGENT"],
+  },
+  {
     key: "negotiations",
     label: "مذاکرات و پیشنهادها",
     href: "/dashboard/negotiations",

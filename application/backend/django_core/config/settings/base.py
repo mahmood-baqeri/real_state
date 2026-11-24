@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.ai_assistant",
     "apps.cms",
     "apps.virtual_tours",
+    "apps.ecosystem",
 ]
 
 MIDDLEWARE = [

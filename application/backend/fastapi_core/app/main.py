@@ -45,6 +45,7 @@ from app.api.v1.locations import router as locations_router
 from app.api.v1.payments import router as payments_router
 from app.api.v1.virtual_tours import router as virtual_tours_router
 from app.api.v1.ws import router as ws_router
+from app.api.v1.ecosystem import router as ecosystem_router
 
 
 @asynccontextmanager
@@ -142,6 +143,7 @@ v1_router.include_router(locations_router)
 v1_router.include_router(payments_router)
 v1_router.include_router(virtual_tours_router)
 v1_router.include_router(ws_router)
+v1_router.include_router(ecosystem_router)
 
 
 @v1_router.get("/health")

@@ -346,6 +346,17 @@ def request_cooperation(
         raise PermissionDeniedDomainError("عدم مجوز ثبت درخواست همکاری بین‌آژانسی.")
     if requester_agency_id == provider_agency_id:
         raise ConflictDomainError("آژانس مبدأ و مقصد نمی‌توانند یکسان باشند.")
+    if split_percent < Decimal("0") or split_percent > Decimal("100"):
+        raise ConflictDomainError("درصد سهم همکاری باید بین صفر تا صد باشد.")
+    requester = Agency.objects.filter(id=requester_agency_id, is_deleted=False).first()
+    provider = Agency.objects.filter(id=provider_agency_id, is_deleted=False).first()
+    if not requester or not provider or requester.status not in [Agency.Status.ACTIVE, Agency.Status.APPROVED] or provider.status not in [Agency.Status.ACTIVE, Agency.Status.APPROVED]:
+        raise NotFoundDomainError("هر دو آژانس باید معتبر و فعال باشند.")
+    existing = AgencyCooperation.objects.select_for_update().filter(
+        requester_agency_id=requester_agency_id, provider_agency_id=provider_agency_id
+    ).first()
+    if existing and existing.status == AgencyCooperation.Status.ACTIVE:
+        raise ConflictDomainError("همکاری بین این دو آژانس از قبل فعال است.")
     coop, _ = AgencyCooperation.objects.update_or_create(
         requester_agency_id=requester_agency_id,
         provider_agency_id=provider_agency_id,
@@ -360,11 +371,15 @@ def request_cooperation(
 
 @transaction.atomic
 def respond_cooperation(*, actor: User, agency_id: UUID, coop_id: UUID, status_value: str) -> AgencyCooperation:
-    coop = AgencyCooperation.objects.filter(id=coop_id).first()
+    coop = AgencyCooperation.objects.select_for_update().filter(id=coop_id).first()
     if not coop or (coop.provider_agency_id != agency_id and not is_super_admin(actor)):
         raise NotFoundDomainError("قرارداد همکاری یافت نشد.")
     if not (is_super_admin(actor) or has_agency_permission(actor, agency_id, "agency.manage_policy")):
         raise PermissionDeniedDomainError("عدم مجوز تأیید یا رد همکاری.")
+    if status_value not in [AgencyCooperation.Status.ACTIVE, AgencyCooperation.Status.REVOKED]:
+        raise ConflictDomainError("وضعیت پاسخ همکاری نامعتبر است.")
+    if coop.status != AgencyCooperation.Status.PENDING:
+        raise ConflictDomainError("فقط درخواست در انتظار پاسخ قابل تأیید یا رد است.")
     coop.status = status_value
     coop.updated_by = actor
     coop.save(update_fields=["status", "updated_by", "updated_at"])
