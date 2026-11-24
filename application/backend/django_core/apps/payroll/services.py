@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from apps.accounts.models import AgencyMembership, User
 from apps.audit.services import record_audit_event
-from apps.commissions.models import CommissionShare
+from apps.commissions.models import CommissionShare, DealCommission
 from apps.employees.models import CompensationPlan, EmployeeProfile
 from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError
 from common.permissions import get_active_membership, has_agency_permission, is_super_admin
@@ -131,12 +131,16 @@ def create_and_calculate_payroll_cycle(
             else Decimal("0.00")
         )
         multiplier = plan.commission_multiplier if plan else Decimal("1.0000")
+        if multiplier < 0:
+            raise ConflictDomainError("ضریب کمیسیون حقوق نمی‌تواند منفی باشد.")
+        if base_salary < 0:
+            raise ConflictDomainError("حقوق پایه نمی‌تواند منفی باشد.")
 
         pending_shares = list(
             CommissionShare.objects.all_tenants().select_for_update().filter(
                 agency_id=agency_id, beneficiary_membership=emp.membership,
                 is_included_in_payroll=False,
-                deal_commission__status="FINANCE_APPROVED",
+                deal_commission__status=DealCommission.Status.FINANCE_APPROVED,
                 deal_commission__created_at__gte=period_start,
                 deal_commission__created_at__lt=period_end,
             ).select_related("deal_commission__deal")

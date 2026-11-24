@@ -1,4 +1,5 @@
 from typing import Optional
+from difflib import SequenceMatcher
 from uuid import UUID
 from django.db import models, transaction
 from django.utils import timezone
@@ -340,6 +341,19 @@ def share_customer(
 
 
 @transaction.atomic
+def revoke_customer_share(*, user: User, agency_id: Optional[UUID], customer_id: UUID, membership_id: UUID) -> bool:
+    customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
+    if not (is_super_admin(user) or has_agency_permission(user, customer.agency_id, "customer.share")):
+        raise PermissionDeniedDomainError("مجوز مدیریت اشتراک مشتری را ندارید.")
+    share = CustomerShare.objects.filter(customer=customer, membership_id=membership_id).first()
+    if not share:
+        raise NotFoundDomainError("اشتراک مشتری یافت نشد.")
+    share.delete()
+    record_audit_event(action="CUSTOMER_SHARE_REVOKED", resource_type="Customer", resource_id=str(customer.pk), actor=user, agency_id=customer.agency_id, after_state={"membership_id": str(membership_id)})
+    return True
+
+
+@transaction.atomic
 def add_customer_requirement(*, user: User, agency_id: Optional[UUID], customer_id: UUID, data: dict) -> CustomerRequirement:
     customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
     return CustomerRequirement.objects.all_tenants().create(
@@ -595,3 +609,199 @@ def convert_lead_to_customer(*, user: User, agency_id: Optional[UUID], lead_id: 
         after_state={"customer_id": str(customer.id)},
     )
     return lead, customer
+
+
+def _normalize_contact(value: str) -> str:
+    """Normalize Persian/Arabic digits and phone punctuation for duplicate search."""
+    value = (value or "").strip()
+    translation = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+    value = value.translate(translation)
+    return "".join(ch for ch in value if ch.isalnum()).lower()
+
+
+def find_customer_duplicates(*, user: User, agency_id: Optional[UUID], customer_id: UUID = None, q: str = "") -> list[dict]:
+    """Find likely duplicates within the same agency only; exact phone/email prioritized."""
+    if not agency_id:
+        return []
+    source = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id) if customer_id else None
+    qs = list_customers(user=user, agency_id=agency_id)
+    if source:
+        qs = qs.exclude(pk=source.pk)
+        terms = [source.primary_phone, source.secondary_phone, source.email]
+    else:
+        terms = [q]
+    normalized = {_normalize_contact(t) for t in terms if t and _normalize_contact(t)}
+    results = []
+    for candidate in qs[:500]:
+        candidate_values = {_normalize_contact(candidate.primary_phone), _normalize_contact(candidate.secondary_phone), _normalize_contact(candidate.email)}
+        overlap = normalized.intersection(candidate_values - {""})
+        name_similarity = SequenceMatcher(None, _normalize_contact(source.full_name), _normalize_contact(candidate.full_name)).ratio() if source else 0.0
+        name_match = bool(source and name_similarity >= 0.88)
+        if overlap or name_match:
+            reasons = ["contact_normalized_match"] if overlap else ["name_similarity"]
+            confidence = 0.98 if overlap else round(min(0.94, 0.70 + name_similarity * 0.24), 3)
+            results.append({"customer": candidate, "match_reasons": reasons, "confidence": confidence})
+    return sorted(results, key=lambda x: x["confidence"], reverse=True)
+
+
+@transaction.atomic
+def transfer_customer(*, user: User, agency_id: Optional[UUID], customer_id: UUID, target_membership_id: UUID, reason: str) -> Customer:
+    from apps.accounts.models import AgencyMembership
+    from .models import CustomerTransfer
+    customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
+    if not reason or not reason.strip():
+        raise ValidationDomainError("علت انتقال مشتری الزامی است.")
+    if not (is_super_admin(user) or has_agency_permission(user, customer.agency_id, "customer.transfer")):
+        raise PermissionDeniedDomainError("مجوز انتقال مشتری را ندارید.")
+    target = AgencyMembership.objects.filter(id=target_membership_id, agency_id=customer.agency_id, status=AgencyMembership.Status.ACTIVE).first()
+    if not target:
+        raise ValidationDomainError("مسئول مقصد عضو فعال همین آژانس نیست.")
+    if customer.assigned_membership_id == target.id:
+        raise ValidationDomainError("مسئول فعلی و مقصد انتقال یکسان هستند.")
+    current = get_active_membership(user, customer.agency_id)
+    if current and current.role.code == "BRANCH_MANAGER" and (not current.branch_id or target.branch_id != current.branch_id):
+        raise PermissionDeniedDomainError("انتقال فقط به اعضای شعبه خود مجاز است.")
+    old_id = customer.assigned_membership_id
+    CustomerTransfer.objects.create(customer=customer, from_membership_id=old_id, to_membership=target, reason=reason.strip(), created_by=user)
+    customer.assigned_membership = target
+    customer.updated_by = user
+    customer.save(update_fields=["assigned_membership", "updated_by", "updated_at"])
+    record_audit_event(action="CUSTOMER_TRANSFERRED", resource_type="Customer", resource_id=str(customer.pk), actor=user, agency_id=customer.agency_id, before_state={"assigned_membership_id": str(old_id) if old_id else None}, after_state={"assigned_membership_id": str(target.pk), "reason": reason.strip()})
+    return customer
+
+
+@transaction.atomic
+def merge_customers(*, user: User, agency_id: Optional[UUID], primary_id: UUID, duplicate_id: UUID) -> Customer:
+    """Merge duplicate into canonical record, re-pointing FK relations and retaining archive/audit evidence."""
+    from django.apps import apps
+    primary = _resolve_customer(user=user, agency_id=agency_id, customer_id=primary_id)
+    duplicate = _resolve_customer(user=user, agency_id=agency_id, customer_id=duplicate_id)
+    if primary.pk == duplicate.pk:
+        raise ValidationDomainError("دو پرونده باید متفاوت باشند.")
+    if primary.agency_id != duplicate.agency_id:
+        raise PermissionDeniedDomainError("ادغام فقط داخل یک آژانس مجاز است.")
+    if not (is_super_admin(user) or has_agency_permission(user, primary.agency_id, "customer.merge")):
+        raise PermissionDeniedDomainError("مجوز ادغام پرونده مشتری را ندارید.")
+    # Keep canonical data; only fill empty fields from duplicate. Never overwrite established values silently.
+    for field in ("secondary_phone", "email", "national_id_encrypted"):
+        if not getattr(primary, field) and getattr(duplicate, field):
+            setattr(primary, field, getattr(duplicate, field))
+    primary.tags = list(dict.fromkeys((primary.tags or []) + (duplicate.tags or [])))
+    if not primary.secondary_phone and duplicate.primary_phone != primary.primary_phone:
+        primary.secondary_phone = duplicate.primary_phone
+    primary.save()
+    reassigned = []
+    # Resolve known one-to-one/unique conflicts before the generic FK rewrite.
+    try:
+        from apps.crm.models import CustomerPipelineItem
+        duplicate_pipeline = CustomerPipelineItem.objects.filter(customer=duplicate).first()
+        primary_pipeline = CustomerPipelineItem.objects.filter(customer=primary).first()
+        if duplicate_pipeline and primary_pipeline:
+            if duplicate_pipeline.notes:
+                merged_notes = "\n\n[یادداشت منتقل‌شده از پرونده ادغام‌شده]\n" + duplicate_pipeline.notes
+                primary_pipeline.notes = (primary_pipeline.notes or "") + merged_notes
+                primary_pipeline.save(update_fields=["notes", "updated_at"])
+            duplicate_pipeline.delete()  # canonical stage/assignment wins; duplicate notes are retained
+            reassigned.append({"model": "crm.CustomerPipelineItem", "field": "customer", "count": 0, "conflict": "canonical_pipeline_kept_notes_appended"})
+    except ImportError:
+        pass
+    try:
+        duplicate_shares = duplicate.shares.all()
+        for share in duplicate_shares:
+            existing = primary.shares.filter(membership_id=share.membership_id).first()
+            if existing:
+                # Preserve the more permissive access level, but do not extend an expiry indefinitely.
+                if existing.access_level == CustomerShare.AccessLevel.VIEW and share.access_level == CustomerShare.AccessLevel.EDIT:
+                    existing.access_level = CustomerShare.AccessLevel.EDIT
+                if existing.expires_at and share.expires_at:
+                    existing.expires_at = min(existing.expires_at, share.expires_at)
+                elif existing.expires_at is None or share.expires_at is None:
+                    existing.expires_at = existing.expires_at or share.expires_at
+                existing.save(update_fields=["access_level", "expires_at", "updated_at"])
+                share.delete()
+    except Exception as exc:
+        raise ValidationDomainError("تعارض اشتراک مشتری هنگام ادغام حل نشد.") from exc
+    for model in apps.get_models():
+        if model is Customer or model._meta.proxy:
+            continue
+        for field in model._meta.fields:
+            if getattr(field, "remote_field", None) and field.remote_field.model is Customer:
+                try:
+                    count = model.objects.filter(**{field.name: duplicate}).update(**{field.name: primary})
+                    if count:
+                        reassigned.append({"model": model._meta.label, "field": field.name, "count": count})
+                except Exception as exc:
+                    raise ValidationDomainError(f"ادغام به علت محدودیت رابطه {model._meta.label}.{field.name} انجام نشد.") from exc
+    duplicate.is_deleted = True
+    duplicate.is_active = False
+    duplicate.deleted_at = timezone.now()
+    duplicate.deleted_by = user
+    duplicate.updated_by = user
+    duplicate.save(update_fields=["is_deleted", "is_active", "deleted_at", "deleted_by", "updated_by", "updated_at"])
+    record_audit_event(action="CUSTOMER_MERGED", resource_type="Customer", resource_id=str(primary.pk), actor=user, agency_id=primary.agency_id, before_state={"duplicate_id": str(duplicate.pk)}, after_state={"canonical_id": str(primary.pk), "relations_reassigned": reassigned})
+    return primary
+
+
+def customer_timeline(*, user: User, agency_id: Optional[UUID], customer_id: UUID, limit: int = 100) -> list[dict]:
+    """Unified, permission-aware activity stream for a customer profile."""
+    detail = get_customer_detail(user=user, agency_id=agency_id, customer_id=customer_id)
+    customer = detail["customer"]
+    events = []
+    for x in detail["interactions"]:
+        events.append({"type":"interaction", "id":str(x.pk), "title":x.channel, "description":x.summary, "private":x.is_private, "actor": x.membership.user.full_name if x.membership and x.membership.user else (x.created_by.full_name if x.created_by else "سیستم"), "at":x.created_at.isoformat()})
+    for x in detail["tasks"]:
+        events.append({"type":"task", "id":str(x.pk), "title":x.title, "description":x.status, "actor":x.created_by.full_name if x.created_by else "سیستم", "at":x.created_at.isoformat(), "due_at":x.due_at.isoformat()})
+    for x in detail["appointments"]:
+        events.append({"type":"appointment", "id":str(x.pk), "title":"بازدید ملک", "description":x.status, "actor":x.agent_membership.user.full_name if x.agent_membership and x.agent_membership.user else "", "at":x.scheduled_start.isoformat()})
+    for x in detail["negotiations"]:
+        events.append({"type":"negotiation", "id":str(x.pk), "title":"مذاکره", "description":str(x.latest_proposed_price), "actor":x.created_by.full_name if x.created_by else "سیستم", "at":x.created_at.isoformat()})
+    for x in detail["contracts"]:
+        events.append({"type":"contract", "id":str(x.pk), "title":"قرارداد", "description":f"{x.contract_number} · {x.status}", "actor":x.created_by.full_name if x.created_by else "سیستم", "at":x.created_at.isoformat()})
+    for x in detail["documents"]:
+        events.append({"type":"document", "id":str(x.pk), "title":"سند پرونده", "description":x.title, "actor":x.created_by.full_name if x.created_by else "سیستم", "at":x.created_at.isoformat()})
+    from .models import CustomerTransfer
+    for x in CustomerTransfer.objects.filter(customer=customer).select_related("created_by", "from_membership__user", "to_membership__user")[:limit]:
+        events.append({"type":"transfer", "id":str(x.pk), "title":"انتقال مسئول مشتری", "description":x.reason, "actor":x.created_by.full_name if x.created_by else "سیستم", "at":x.transferred_at.isoformat(), "from":x.from_membership.user.full_name if x.from_membership else None, "to":x.to_membership.user.full_name})
+    # Lead activities are included only if the current user can see the linked lead.
+    visible_leads = list_leads(user=user, agency_id=customer.agency_id).filter(converted_customer=customer)
+    for lead in visible_leads.prefetch_related("activities__created_by")[:20]:
+        for activity in lead.activities.all()[:limit]:
+            events.append({"type":"lead", "id":str(activity.pk), "title":"فعالیت سرنخ", "description":activity.note, "actor":activity.created_by.full_name if activity.created_by else "سیستم", "at":activity.created_at.isoformat()})
+    return sorted(events, key=lambda item: item["at"], reverse=True)[:limit]
+
+
+@transaction.atomic
+def create_follow_up_task(*, user: User, agency_id: Optional[UUID], customer_id: UUID, assigned_membership_id: UUID, title: str, due_at, ) -> FollowUpTask:
+    customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=customer_id)
+    if not can_edit_customer(user, customer):
+        raise PermissionDeniedDomainError("مجوز ایجاد وظیفه برای مشتری را ندارید.")
+    if not title or not title.strip():
+        raise ValidationDomainError("عنوان وظیفه الزامی است.")
+    from apps.accounts.models import AgencyMembership
+    target = AgencyMembership.objects.filter(id=assigned_membership_id, agency_id=customer.agency_id, status=AgencyMembership.Status.ACTIVE).first()
+    if not target:
+        raise ValidationDomainError("مسئول وظیفه باید عضو فعال همین آژانس باشد.")
+    membership = get_active_membership(user, customer.agency_id)
+    if membership and membership.role.code == "BRANCH_MANAGER" and (not membership.branch_id or target.branch_id != membership.branch_id):
+        raise PermissionDeniedDomainError("تخصیص وظیفه به شعبه دیگر مجاز نیست.")
+    return FollowUpTask.objects.all_tenants().create(agency_id=customer.agency_id, customer=customer, assigned_membership=target, title=title.strip(), due_at=due_at, created_by=user)
+
+
+@transaction.atomic
+def update_follow_up_task(*, user: User, agency_id: Optional[UUID], task_id: UUID, status_value: str, ) -> FollowUpTask:
+    task = FollowUpTask.objects.all_tenants().filter(id=task_id, agency_id=agency_id, is_deleted=False).first()
+    if not task:
+        raise NotFoundDomainError("وظیفه پیدا نشد.")
+    customer = _resolve_customer(user=user, agency_id=agency_id, customer_id=task.customer_id)
+    if not can_edit_customer(user, customer) and task.assigned_membership_id != getattr(get_active_membership(user, customer.agency_id), "id", None):
+        raise PermissionDeniedDomainError("مجوز تغییر وظیفه را ندارید.")
+    if status_value not in FollowUpTask.Status.values:
+        raise ValidationDomainError("وضعیت وظیفه نامعتبر است.")
+    if task.status == FollowUpTask.Status.CANCELLED and status_value != task.status:
+        raise ValidationDomainError("وظیفه لغوشده قابل بازگشایی نیست؛ وظیفه جدید بسازید.")
+    task.status = status_value
+    task.completed_at = timezone.now() if status_value == FollowUpTask.Status.COMPLETED else None
+    task.updated_by = user
+    task.save(update_fields=["status", "completed_at", "updated_by", "updated_at"])
+    record_audit_event(action="FOLLOW_UP_TASK_UPDATED", resource_type="FollowUpTask", resource_id=str(task.pk), actor=user, agency_id=task.agency_id, after_state={"status": status_value})
+    return task

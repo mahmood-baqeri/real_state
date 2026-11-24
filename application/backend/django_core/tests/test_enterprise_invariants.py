@@ -209,10 +209,18 @@ def test_5_commission_precision_and_agent_cannot_approve(seed_base):
         gross_rate_percent=Decimal("1.0000"),
         primary_agent_percent=Decimal("50.0000"),
         co_agent_split_ratio=Decimal("33.3333"),
+        is_published=False,
     )
+    with pytest.raises(ValidationError):
+        calculate_deal_commission(deal=deal, policy_version=ver)
+    ver.is_published = True
+    ver.save(update_fields=["is_published", "updated_at"])
     dc = calculate_deal_commission(deal=deal, policy_version=ver)
-    total_shares = sum((s.calculated_amount for s in dc.shares.all()), Decimal("0"))
+    shares = list(dc.shares.all())
+    total_shares = sum((s.calculated_amount for s in shares), Decimal("0"))
     assert total_shares == dc.net_distributable
+    agency_share = next(s for s in shares if s.beneficiary_type == "AGENCY")
+    assert agency_share.share_percent_of_net == Decimal("50.0000")
 
     with pytest.raises(ValidationError):
         calculate_deal_commission(deal=deal, policy_version=ver)

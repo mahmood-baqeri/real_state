@@ -11,9 +11,6 @@
      <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
 
      <style>
-          /* ============================================
-       THEME VARIABLES
-    ============================================ */
           :root {
                --primary: #6366f1;
                --primary-dark: #4f46e5;
@@ -78,7 +75,6 @@
                color: #fff;
           }
 
-          /* Accessibility */
           *:focus-visible {
                outline: 2px solid var(--primary);
                outline-offset: 3px;
@@ -97,7 +93,6 @@
                }
           }
 
-          /* Scrollbar */
           ::-webkit-scrollbar {
                width: 10px;
           }
@@ -922,12 +917,15 @@
                display: flex;
                height: 100%;
                transition: transform .6s cubic-bezier(.22, 1, .36, 1);
+               direction: ltr;
           }
 
           .property-slider img {
                min-width: 100%;
+               width: 100%;
                height: 100%;
                object-fit: cover;
+               flex-shrink: 0;
           }
 
           .slider-dots {
@@ -1527,7 +1525,11 @@
                z-index: 1;
                border: 4px solid var(--bg-elevated);
                background: linear-gradient(135deg, var(--primary), var(--accent));
-               object-fit: cover;
+               display: grid;
+               place-items: center;
+               color: #fff;
+               font-size: 2rem;
+               font-weight: 900;
           }
 
           .agent-name {
@@ -3049,6 +3051,7 @@
 
 <body>
 
+     <!-- Preloader -->
      <div class="preloader" id="preloader">
           <div class="loader-inner">
                <div class="loader-logo"><i class="bi bi-house-heart-fill"></i></div>
@@ -3082,14 +3085,15 @@
                          <li class="nav-item"><a class="nav-link" href="#testimonials">نظرات</a></li>
                     </ul>
                     <div class="d-flex align-items-center gap-2 mt-3 mt-lg-0">
-                         <button class="nav-icon-btn" id="themeToggle" title="تغییر حالت">
+                         <button class="nav-icon-btn" id="themeToggle" title="تغییر حالت" aria-label="تغییر حالت">
                               <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
                          </button>
-                         <button class="nav-icon-btn" title="علاقه‌مندی‌ها">
+                         <button class="nav-icon-btn" title="علاقه‌مندی‌ها" aria-label="علاقه‌مندی‌ها">
                               <i class="bi bi-heart"></i>
-                              <span class="badge-count" id="wishlistCount">۲</span>
+                              <span class="badge-count" id="wishlistCount">۰</span>
                          </button>
-                         <a href="#" class="btn btn-primary-custom ms-1">ثبت‌نام</a>
+                         <a href="#" class="btn btn-primary-custom ms-1"
+                              onclick="event.preventDefault(); showToast('به صفحه‌ی ثبت‌نام منتقل می‌شوید', 'success')">ثبت‌نام</a>
                     </div>
                </div>
           </div>
@@ -3171,7 +3175,8 @@
                                         </div>
                                    </div>
                                    <div class="col-12 mt-3">
-                                        <button class="btn btn-primary-custom w-100 py-3 fw-bold">
+                                        <button class="btn btn-primary-custom w-100 py-3 fw-bold"
+                                             onclick="showToast('در حال جست‌وجوی املاک...', 'success')">
                                              <i class="bi bi-search me-2"></i> جست‌وجوی املاک
                                         </button>
                                    </div>
@@ -3272,12 +3277,12 @@
                </div>
 
                <div class="filter-toolbar reveal">
-                    <div class="filter-tabs">
-                         <button class="filter-btn active">همه</button>
-                         <button class="filter-btn">آپارتمان</button>
-                         <button class="filter-btn">ویلا</button>
-                         <button class="filter-btn">زمین</button>
-                         <button class="filter-btn">تجاری</button>
+                    <div class="filter-tabs" id="filterTabs">
+                         <button class="filter-btn active" data-filter="all">همه</button>
+                         <button class="filter-btn" data-filter="apartment">آپارتمان</button>
+                         <button class="filter-btn" data-filter="villa">ویلا</button>
+                         <button class="filter-btn" data-filter="land">زمین</button>
+                         <button class="filter-btn" data-filter="commercial">تجاری</button>
                     </div>
                     <div class="view-controls">
                          <select class="sort-select" id="sortSelect">
@@ -3287,34 +3292,38 @@
                               <option value="popular">محبوب‌ترین</option>
                          </select>
                          <div class="view-toggle">
-                              <button class="view-btn active" data-view="grid"><i
+                              <button class="view-btn active" data-view="grid" aria-label="نمایش شبکه‌ای"><i
                                         class="bi bi-grid-3x3-gap-fill"></i></button>
-                              <button class="view-btn" data-view="list"><i class="bi bi-list-ul"></i></button>
+                              <button class="view-btn" data-view="list" aria-label="نمایش لیستی"><i
+                                        class="bi bi-list-ul"></i></button>
                          </div>
                     </div>
                </div>
 
                <div class="row g-4" id="propertyGrid">
                     <!-- Card 1 -->
-                    <div class="col-md-6 col-lg-4 reveal">
+                    <div class="col-md-6 col-lg-4 reveal" data-type="apartment">
                          <div class="property-card">
                               <div class="property-img">
                                    <div class="property-slider">
                                         <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="آپارتمان لوکس">
                                         <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="آپارتمان لوکس">
                                         <img src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="آپارتمان لوکس">
                                    </div>
                                    <span class="property-tag">فروش</span>
-                                   <button class="property-fav"><i class="bi bi-heart"></i></button>
-                                   <button class="slider-nav prev"><i class="bi bi-chevron-right"></i></button>
-                                   <button class="slider-nav next"><i class="bi bi-chevron-left"></i></button>
+                                   <button class="property-fav" aria-label="افزودن به علاقه‌مندی"><i
+                                             class="bi bi-heart"></i></button>
+                                   <button class="slider-nav prev" aria-label="قبلی"><i
+                                             class="bi bi-chevron-right"></i></button>
+                                   <button class="slider-nav next" aria-label="بعدی"><i
+                                             class="bi bi-chevron-left"></i></button>
                                    <div class="slider-dots">
-                                        <button class="slider-dot active"></button>
-                                        <button class="slider-dot"></button>
-                                        <button class="slider-dot"></button>
+                                        <button class="slider-dot active" aria-label="تصویر ۱"></button>
+                                        <button class="slider-dot" aria-label="تصویر ۲"></button>
+                                        <button class="slider-dot" aria-label="تصویر ۳"></button>
                                    </div>
                                    <span class="property-tag video-badge"><i class="bi bi-play-circle-fill"></i>
                                         ویدیو</span>
@@ -3339,22 +3348,25 @@
                     </div>
 
                     <!-- Card 2 -->
-                    <div class="col-md-6 col-lg-4 reveal reveal-delay-1">
+                    <div class="col-md-6 col-lg-4 reveal reveal-delay-1" data-type="villa">
                          <div class="property-card">
                               <div class="property-img">
                                    <div class="property-slider">
                                         <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="ویلا مدرن">
                                         <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="ویلا مدرن">
                                    </div>
                                    <span class="property-tag rent">اجاره</span>
-                                   <button class="property-fav"><i class="bi bi-heart"></i></button>
-                                   <button class="slider-nav prev"><i class="bi bi-chevron-right"></i></button>
-                                   <button class="slider-nav next"><i class="bi bi-chevron-left"></i></button>
+                                   <button class="property-fav" aria-label="افزودن به علاقه‌مندی"><i
+                                             class="bi bi-heart"></i></button>
+                                   <button class="slider-nav prev" aria-label="قبلی"><i
+                                             class="bi bi-chevron-right"></i></button>
+                                   <button class="slider-nav next" aria-label="بعدی"><i
+                                             class="bi bi-chevron-left"></i></button>
                                    <div class="slider-dots">
-                                        <button class="slider-dot active"></button>
-                                        <button class="slider-dot"></button>
+                                        <button class="slider-dot active" aria-label="تصویر ۱"></button>
+                                        <button class="slider-dot" aria-label="تصویر ۲"></button>
                                    </div>
                               </div>
                               <div class="property-body">
@@ -3377,22 +3389,25 @@
                     </div>
 
                     <!-- Card 3 -->
-                    <div class="col-md-6 col-lg-4 reveal reveal-delay-2">
+                    <div class="col-md-6 col-lg-4 reveal reveal-delay-2" data-type="apartment">
                          <div class="property-card">
                               <div class="property-img">
                                    <div class="property-slider">
                                         <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="پنت‌هاوس">
                                         <img src="https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&auto=format&fit=crop"
-                                             alt="">
+                                             alt="پنت‌هاوس">
                                    </div>
                                    <span class="property-tag">فروش</span>
-                                   <button class="property-fav"><i class="bi bi-heart"></i></button>
-                                   <button class="slider-nav prev"><i class="bi bi-chevron-right"></i></button>
-                                   <button class="slider-nav next"><i class="bi bi-chevron-left"></i></button>
+                                   <button class="property-fav" aria-label="افزودن به علاقه‌مندی"><i
+                                             class="bi bi-heart"></i></button>
+                                   <button class="slider-nav prev" aria-label="قبلی"><i
+                                             class="bi bi-chevron-right"></i></button>
+                                   <button class="slider-nav next" aria-label="بعدی"><i
+                                             class="bi bi-chevron-left"></i></button>
                                    <div class="slider-dots">
-                                        <button class="slider-dot active"></button>
-                                        <button class="slider-dot"></button>
+                                        <button class="slider-dot active" aria-label="تصویر ۱"></button>
+                                        <button class="slider-dot" aria-label="تصویر ۲"></button>
                                    </div>
                                    <span class="property-tag video-badge"><i class="bi bi-play-circle-fill"></i>
                                         ویدیو</span>
@@ -3418,8 +3433,9 @@
                </div>
 
                <div class="text-center mt-5 reveal">
-                    <a href="#" class="btn btn-outline-custom px-5">مشاهده‌ی همه‌ی املاک <i
-                              class="bi bi-arrow-left me-1"></i></a>
+                    <a href="#" class="btn btn-outline-custom px-5"
+                         onclick="event.preventDefault(); showToast('به‌زودی همه‌ی املاک نمایش داده می‌شود', 'warning')">مشاهده‌ی
+                         همه‌ی املاک <i class="bi bi-arrow-left me-1"></i></a>
                </div>
           </div>
      </section>
@@ -3438,11 +3454,11 @@
                          <div class="calc-card">
                               <div class="calc-field">
                                    <div class="calc-field-header">
-                                        <span class="calc-field-label">مبلغ وام</span>
+                                        <span class="calc-field-label">مبلغ کل</span>
                                         <span class="calc-field-value" id="loanValue">۲ میلیارد تومان</span>
                                    </div>
                                    <input type="range" class="calc-slider" id="loanAmount" min="100000000"
-                                        max="20000000000" step="100000000" value="2000000000">
+                                        max="20000000000" step="100000000" value="2000000000" aria-label="مبلغ کل">
                               </div>
                               <div class="calc-field">
                                    <div class="calc-field-header">
@@ -3450,7 +3466,7 @@
                                         <span class="calc-field-value" id="downValue">۶۰۰ میلیون تومان</span>
                                    </div>
                                    <input type="range" class="calc-slider" id="downPayment" min="0" max="10000000000"
-                                        step="50000000" value="600000000">
+                                        step="50000000" value="600000000" aria-label="پیش‌پرداخت">
                               </div>
                               <div class="calc-field">
                                    <div class="calc-field-header">
@@ -3458,7 +3474,7 @@
                                         <span class="calc-field-value" id="rateValue">۲۳٪</span>
                                    </div>
                                    <input type="range" class="calc-slider" id="interestRate" min="1" max="35" step="1"
-                                        value="23">
+                                        value="23" aria-label="نرخ سود">
                               </div>
                               <div class="calc-field" style="margin-bottom:0;">
                                    <div class="calc-field-header">
@@ -3466,7 +3482,7 @@
                                         <span class="calc-field-value" id="yearsValue">۲۰ سال</span>
                                    </div>
                                    <input type="range" class="calc-slider" id="loanYears" min="1" max="30" step="1"
-                                        value="20">
+                                        value="20" aria-label="مدت بازپرداخت">
                               </div>
                          </div>
                     </div>
@@ -3491,7 +3507,7 @@
                               </div>
                               <button class="btn btn-white w-100 mt-4"
                                    onclick="showToast('درخواست مشاوره‌ی وام ثبت شد ✅', 'success')">
-                                   <i class="bi bi-telephone me-2"></i> درخواست مشاوره‌ی وام
+                                   <i class="bi bi-telephone me-2"></i> درخواست مشاوره
                               </button>
                          </div>
                     </div>
@@ -3499,524 +3515,191 @@
           </div>
      </section>
 
+     <!-- FEATURES -->
+     <section class="section alt" id="features">
+          <div class="container">
+               <div class="text-center mb-5 reveal">
+                    <span class="section-badge"><i class="bi bi-stars"></i> چرا خانه‌یار؟</span>
+                    <h2 class="section-title">تجربه‌ای متفاوت از خرید و اجاره</h2>
+                    <p class="section-subtitle">با ابزارهای هوشمند و داده‌های دقیق، انتخاب ملک را برایتان ساده‌تر
+                         کرده‌ایم.</p>
+               </div>
+               <div class="row g-4">
+                    <div class="col-md-6 col-lg-3 reveal">
+                         <div class="feature-card">
+                              <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                              <h5>ملک تأیید شده</h5>
+                              <p>همه‌ی املاک توسط کارشناسان ما بازدید و تأیید می‌شوند تا با خیال راحت انتخاب کنید.</p>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-1">
+                         <div class="feature-card">
+                              <div class="feature-icon"><i class="bi bi-cpu"></i></div>
+                              <h5>مشاوره‌ی هوشمند</h5>
+                              <p>دستیار هوشمند ما بر اساس بودجه و سلیقه‌ی شما، بهترین املاک را پیشنهاد می‌دهد.</p>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-2">
+                         <div class="feature-card">
+                              <div class="feature-icon"><i class="bi bi-shuffle"></i></div>
+                              <h5>مقایسه‌ی دقیق</h5>
+                              <p>چند ملک را کنار هم بگذارید و از نظر قیمت، متراژ، امکانات و موقعیت مقایسه کنید.</p>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-3">
+                         <div class="feature-card">
+                              <div class="feature-icon"><i class="bi bi-people-fill"></i></div>
+                              <h5>مشاوران متخصص</h5>
+                              <p>بیش از ۳۲۰ مشاور حرفه‌ای در سراسر کشور آماده‌ی راهنمایی شما در هر مرحله هستند.</p>
+                         </div>
+                    </div>
+               </div>
+          </div>
+     </section>
+
+     <!-- MAP -->
+     <section class="section" id="map">
+          <div class="container">
+               <div class="text-center mb-5 reveal">
+                    <span class="section-badge"><i class="bi bi-geo-alt-fill"></i> نقشه‌ی املاک</span>
+                    <h2 class="section-title">املاک روی نقشه</h2>
+                    <p class="section-subtitle">موقعیت مکانی املاک منتخب را روی نقشه ببینید و بهترین گزینه را انتخاب
+                         کنید.</p>
+               </div>
+               <div class="row g-4">
+                    <div class="col-lg-8 reveal">
+                         <div class="map-wrapper">
+                              <div class="map-grid"></div>
+                              <div class="map-pin" style="top: 20%; right: 25%;" title="آپارتمان سعادت‌آباد"><i
+                                        class="bi bi-house-door-fill"></i></div>
+                              <div class="map-pin" style="top: 40%; right: 55%;" title="ویلای عظیمیه"><i
+                                        class="bi bi-house-fill"></i></div>
+                              <div class="map-pin" style="top: 55%; right: 35%;" title="پنت‌هاوس الهیه"><i
+                                        class="bi bi-building-fill"></i></div>
+                              <div class="map-pin" style="top: 30%; right: 70%;" title="دفتر اداری"><i
+                                        class="bi bi-shop"></i></div>
+                              <div class="map-pin" style="top: 70%; right: 60%;" title="زمین و باغ"><i
+                                        class="bi bi-tree-fill"></i></div>
+                              <div class="map-legend">
+                                   <div class="map-legend-item"><span class="map-legend-dot"
+                                             style="background:#6366f1;"></span> فروش</div>
+                                   <div class="map-legend-item"><span class="map-legend-dot"
+                                             style="background:#10b981;"></span> اجاره</div>
+                                   <div class="map-legend-item"><span class="map-legend-dot"
+                                             style="background:#f59e0b;"></span> رهن</div>
+                              </div>
+                         </div>
+                    </div>
+                    <div class="col-lg-4 reveal reveal-delay-1">
+                         <div class="feature-card h-100 d-flex flex-column justify-content-center">
+                              <div class="feature-icon"><i class="bi bi-search"></i></div>
+                              <h5>جست‌وجوی هوشمند مکانی</h5>
+                              <p class="mb-4">با کشیدن نقشه و انتخاب محله، املاک همان حوالی را ببینید. فیلترهای پیشرفته
+                                   برای نزدیکی به مترو، مدرسه، بیمارستان و مرکز خرید.</p>
+                              <button class="btn btn-primary-custom"
+                                   onclick="showToast('نقشه‌ی تعاملی به‌زودی فعال می‌شود', 'warning')">مشاهده‌ی نقشه‌ی
+                                   کامل</button>
+                         </div>
+                    </div>
+               </div>
+          </div>
+     </section>
+
      <!-- AGENTS -->
      <section class="section alt" id="agents">
           <div class="container">
                <div class="text-center mb-5 reveal">
-                    <span class="section-badge"><i class="bi bi-person-badge-fill"></i> تیم متخصص</span>
-                    <h2 class="section-title">با مشاوران ما آشنا شو</h2>
-                    <p class="section-subtitle">تیم حرفه‌ای خانه‌یار با سال‌ها تجربه، آماده‌ی همراهی شماست.</p>
+                    <span class="section-badge"><i class="bi bi-person-badge-fill"></i> تیم ما</span>
+                    <h2 class="section-title">مشاوران متخصص خانه‌یار</h2>
+                    <p class="section-subtitle">با تجربه‌ترین مشاوران املاک، در کنار شما برای انتخابی مطمئن.</p>
                </div>
                <div class="row g-4">
                     <div class="col-md-6 col-lg-3 reveal">
                          <div class="agent-card">
-                              <img class="agent-avatar"
-                                   src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&auto=format&fit=crop"
-                                   alt="سارا">
-                              <h5 class="agent-name">سارا رضایی</h5>
-                              <p class="agent-role">مشاور ارشد املاک لوکس</p>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i> ۴.۹ <span class="count">(۱۲۴ نظر)</span>
+                              <div class="agent-avatar" style="margin-top: 1rem;">ع</div>
+                              <div class="agent-name">علی رضایی</div>
+                              <div class="agent-role">مشاور ارشد املاک لوکس</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۴.۹ <span class="count">(۱۲۴
+                                        نظر)</span></div>
+                              <div class="agent-stats">
+                                   <div>
+                                        <div class="agent-stat-value">۱۸۶</div>
+                                        <div class="agent-stat-label">معامله</div>
+                                   </div>
+                                   <div>
+                                        <div class="agent-stat-value">۹</div>
+                                        <div class="agent-stat-label">سال تجربه</div>
+                                   </div>
                               </div>
+                              <div class="agent-actions">
+                                   <button class="agent-btn primary"
+                                        onclick="showToast('درخواست تماس با علی رضایی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
+                              </div>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-1">
+                         <div class="agent-card">
+                              <div class="agent-avatar" style="margin-top: 1rem;">س</div>
+                              <div class="agent-name">سارا محمدی</div>
+                              <div class="agent-role">متخصص اجاره و رهن</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۴.۸ <span class="count">(۹۸
+                                        نظر)</span></div>
                               <div class="agent-stats">
                                    <div>
                                         <div class="agent-stat-value">۲۴۵</div>
                                         <div class="agent-stat-label">معامله</div>
                                    </div>
                                    <div>
-                                        <div class="agent-stat-value">۸</div>
+                                        <div class="agent-stat-value">۷</div>
                                         <div class="agent-stat-label">سال تجربه</div>
                                    </div>
                               </div>
                               <div class="agent-actions">
-                                   <button class="agent-btn" onclick="showToast('پروفایل سارا رضایی', 'success')"><i
-                                             class="bi bi-person"></i></button>
                                    <button class="agent-btn primary"
-                                        onclick="showToast('درخواست تماس ثبت شد ✅', 'success')"><i
-                                             class="bi bi-telephone me-1"></i> تماس</button>
-                              </div>
-                         </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3 reveal reveal-delay-1">
-                         <div class="agent-card">
-                              <img class="agent-avatar"
-                                   src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop"
-                                   alt="امیر">
-                              <h5 class="agent-name">امیر حسینی</h5>
-                              <p class="agent-role">متخصص املاک تجاری</p>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i> ۴.۸ <span class="count">(۹۸ نظر)</span>
-                              </div>
-                              <div class="agent-stats">
-                                   <div>
-                                        <div class="agent-stat-value">۱۸۹</div>
-                                        <div class="agent-stat-label">معامله</div>
-                                   </div>
-                                   <div>
-                                        <div class="agent-stat-value">۶</div>
-                                        <div class="agent-stat-label">سال تجربه</div>
-                                   </div>
-                              </div>
-                              <div class="agent-actions">
-                                   <button class="agent-btn" onclick="showToast('پروفایل امیر حسینی', 'success')"><i
-                                             class="bi bi-person"></i></button>
-                                   <button class="agent-btn primary"
-                                        onclick="showToast('درخواست تماس ثبت شد ✅', 'success')"><i
-                                             class="bi bi-telephone me-1"></i> تماس</button>
+                                        onclick="showToast('درخواست تماس با سارا محمدی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
                               </div>
                          </div>
                     </div>
                     <div class="col-md-6 col-lg-3 reveal reveal-delay-2">
                          <div class="agent-card">
-                              <img class="agent-avatar"
-                                   src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop"
-                                   alt="مریم">
-                              <h5 class="agent-name">مریم کریمی</h5>
-                              <p class="agent-role">مشاور سرمایه‌گذاری</p>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i> ۵.۰ <span class="count">(۱۵۶ نظر)</span>
-                              </div>
+                              <div class="agent-avatar" style="margin-top: 1rem;">ر</div>
+                              <div class="agent-name">رضا کریمی</div>
+                              <div class="agent-role">مشاور سرمایه‌گذاری</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۵.۰ <span class="count">(۱۵۶
+                                        نظر)</span></div>
                               <div class="agent-stats">
                                    <div>
                                         <div class="agent-stat-value">۳۱۲</div>
                                         <div class="agent-stat-label">معامله</div>
                                    </div>
                                    <div>
-                                        <div class="agent-stat-value">۱۰</div>
+                                        <div class="agent-stat-value">۱۲</div>
                                         <div class="agent-stat-label">سال تجربه</div>
                                    </div>
                               </div>
                               <div class="agent-actions">
-                                   <button class="agent-btn" onclick="showToast('پروفایل مریم کریمی', 'success')"><i
-                                             class="bi bi-person"></i></button>
                                    <button class="agent-btn primary"
-                                        onclick="showToast('درخواست تماس ثبت شد ✅', 'success')"><i
-                                             class="bi bi-telephone me-1"></i> تماس</button>
+                                        onclick="showToast('درخواست تماس با رضا کریمی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
                               </div>
                          </div>
                     </div>
                     <div class="col-md-6 col-lg-3 reveal reveal-delay-3">
                          <div class="agent-card">
-                              <img class="agent-avatar"
-                                   src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop"
-                                   alt="حسین">
-                              <h5 class="agent-name">حسین نوری</h5>
-                              <p class="agent-role">مشاور املاک مسکونی</p>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i> ۴.۷ <span class="count">(۸۷ نظر)</span>
-                              </div>
+                              <div class="agent-avatar" style="margin-top: 1rem;">م</div>
+                              <div class="agent-name">مریم احمدی</div>
+                              <div class="agent-role">متخصص املاک تجاری</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۴.۷ <span class="count">(۷۸
+                                        نظر)</span></div>
                               <div class="agent-stats">
                                    <div>
-                                        <div class="agent-stat-value">۱۵۶</div>
+                                        <div class="agent-stat-value">۱۴۷</div>
                                         <div class="agent-stat-label">معامله</div>
-                                   </div>
-                                   <div>
-                                        <div class="agent-stat-value">۵</div>
-                                        <div class="agent-stat-label">سال تجربه</div>
-                                   </div>
-                              </div>
-                              <div class="agent-actions">
-                                   <button class="agent-btn" onclick="showToast('پروفایل حسین نوری', 'success')"><i
-                                             class="bi bi-person"></i></button>
-                                   <button class="agent-btn primary"
-                                        onclick="showToast('درخواست تماس ثبت شد ✅', 'success')"><i
-                                             class="bi bi-telephone me-1"></i> تماس</button>
-                              </div>
-                         </div>
-                    </div>
-               </div>
-          </div>
-     </section>
-
-     <!-- FEATURES -->
-     <section class="section" id="features">
-          <div class="container">
-               <div class="text-center mb-5 reveal">
-                    <span class="section-badge"><i class="bi bi-lightning-charge-fill"></i> چرا خانه‌یار؟</span>
-                    <h2 class="section-title">تجربه‌ای متفاوت در خرید و فروش ملک</h2>
-                    <p class="section-subtitle">ما با فناوری و تخصص، مسیر پیدا کردن خانه‌ی مناسب رو ساده و مطمئن
-                         می‌کنیم.</p>
-               </div>
-               <div class="row g-4">
-                    <div class="col-md-6 col-lg-3 reveal">
-                         <div class="feature-card text-center">
-                              <div class="feature-icon mx-auto"><i class="bi bi-shield-check"></i></div>
-                              <h5>املاک تأیید شده</h5>
-                              <p>تمام آگهی‌ها توسط کارشناسان ما بررسی و تأیید می‌شوند.</p>
-                         </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3 reveal reveal-delay-1">
-                         <div class="feature-card text-center">
-                              <div class="feature-icon mx-auto"><i class="bi bi-camera-video"></i></div>
-                              <h5>تور مجازی ۳۶۰°</h5>
-                              <p>با تورهای ۳۶۰ درجه و ویدیو، از هر جای دنیا ملک رو بازدید کنید.</p>
-                         </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3 reveal reveal-delay-2">
-                         <div class="feature-card text-center">
-                              <div class="feature-icon mx-auto"><i class="bi bi-people"></i></div>
-                              <h5>مشاوران متخصص</h5>
-                              <p>تیم حرفه‌ای از مشاوران با تجربه در تمام مراحل همراه شما.</p>
-                         </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3 reveal reveal-delay-3">
-                         <div class="feature-card text-center">
-                              <div class="feature-icon mx-auto"><i class="bi bi-graph-up-arrow"></i></div>
-                              <h5>تحلیل قیمت</h5>
-                              <p>با داده‌های لحظه‌ای بازار، هوشمندانه‌ترین تصمیم رو بگیرید.</p>
-                         </div>
-                    </div>
-               </div>
-          </div>
-     </section>
-
-     <!-- TESTIMONIALS -->
-     <section class="section alt" id="testimonials">
-          <div class="container">
-               <div class="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-3 reveal">
-                    <div>
-                         <span class="section-badge"><i class="bi bi-chat-quote-fill"></i> نظرات کاربران</span>
-                         <h2 class="section-title mb-0">کاربران ما چه می‌گویند؟</h2>
-                    </div>
-                    <div class="d-flex gap-2">
-                         <button class="nav-icon-btn" id="testPrev"><i class="bi bi-arrow-right"></i></button>
-                         <button class="nav-icon-btn" id="testNext"><i class="bi bi-arrow-left"></i></button>
-                    </div>
-               </div>
-               <div class="testimonials-slider" id="testimonialSlider">
-                    <div class="testimonial-card">
-                         <div class="testimonial-avatar">م</div>
-                         <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i></div>
-                         <p class="testimonial-text">"تجربه‌ی فوق‌العاده‌ای بود! تونستم توی کمتر از یک هفته خونه‌ی مورد
-                              نظرم رو پیدا کنم."</p>
-                         <p class="testimonial-author">مریم احمدی</p>
-                         <small class="testimonial-role">خریدار آپارتمان - تهران</small>
-                    </div>
-                    <div class="testimonial-card">
-                         <div class="testimonial-avatar">ع</div>
-                         <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i></div>
-                         <p class="testimonial-text">"آگهیم توی کمتر از ۴۸ ساعت بازدید گرفت. پنل کاربری خیلی حرفه‌ایه."
-                         </p>
-                         <p class="testimonial-author">علی رضایی</p>
-                         <small class="testimonial-role">فروشنده ویلا - کرج</small>
-                    </div>
-                    <div class="testimonial-card">
-                         <div class="testimonial-avatar">س</div>
-                         <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-half"></i></div>
-                         <p class="testimonial-text">"امکانات تور مجازی عالیه! از شهرستان تونستم چند تا ملک رو ببینم و
-                              انتخاب کنم."</p>
-                         <p class="testimonial-author">سارا کریمی</p>
-                         <small class="testimonial-role">اجاره‌کننده - اصفهان</small>
-                    </div>
-                    <div class="testimonial-card">
-                         <div class="testimonial-avatar">ح</div>
-                         <div class="testimonial-stars"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
-                                   class="bi bi-star-fill"></i></div>
-                         <p class="testimonial-text">"مقایسه‌ی املاک خیلی کمک کرد. تونستم سه تا گزینه رو کنار هم ببینم و
-                              انتخاب کنم."</p>
-                         <p class="testimonial-author">حسین نوری</p>
-                         <small class="testimonial-role">سرمایه‌گذار - شیراز</small>
-                    </div>
-               </div>
-          </div>
-     </section>
-
-     <!-- APP -->
-     <section class="app-section">
-          <div class="container app-content">
-               <div class="row align-items-center g-5">
-                    <div class="col-lg-6 text-center text-lg-end">
-                         <div class="phone-mockup">
-                              <div class="phone-notch"></div>
-                              <div class="phone-screen">
-                                   <div class="phone-screen-header">
-                                        <h6 class="mb-2" style="font-size:.85rem;">سلام، خوش اومدی 👋</h6>
-                                        <div
-                                             style="background:rgba(255,255,255,.2); border-radius:10px; padding:.5rem .8rem; font-size:.7rem;">
-                                             <i class="bi bi-search me-1"></i> جست‌وجوی ملک...
-                                        </div>
-                                   </div>
-                                   <div class="phone-screen-content">
-                                        <div class="phone-card-mini"><img
-                                                  src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=100"
-                                                  alt="">
-                                             <div class="phone-card-mini-text">
-                                                  <div class="line"></div>
-                                                  <div class="line short"></div>
-                                                  <div class="line price"></div>
-                                             </div>
-                                        </div>
-                                        <div class="phone-card-mini"><img
-                                                  src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=100"
-                                                  alt="">
-                                             <div class="phone-card-mini-text">
-                                                  <div class="line"></div>
-                                                  <div class="line short"></div>
-                                                  <div class="line price"></div>
-                                             </div>
-                                        </div>
-                                        <div class="phone-card-mini"><img
-                                                  src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=100"
-                                                  alt="">
-                                             <div class="phone-card-mini-text">
-                                                  <div class="line"></div>
-                                                  <div class="line short"></div>
-                                                  <div class="line price"></div>
-                                             </div>
-                                        </div>
-                                   </div>
-                              </div>
-                         </div>
-                    </div>
-                    <div class="col-lg-6">
-                         <span class="hero-badge"
-                              style="background:rgba(255,255,255,.15); color:#fff; border-color:rgba(255,255,255,.3);">
-                              <i class="bi bi-phone"></i> اپلیکیشن موبایل
-                         </span>
-                         <h2 class="fw-bold mb-3" style="font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.3;">
-                              خانه‌یار رو در جیب خودت داشته باش!
-                         </h2>
-                         <p style="opacity:.9; line-height:1.9; margin-bottom:1.5rem;">
-                              با اپلیکیشن خانه‌یار، هر جا که هستی به هزاران ملک دسترسی داری، اعلان لحظه‌ای می‌گیری و
-                              می‌تونی از داخل اپ با مشاورین چت کنی.
-                         </p>
-                         <div class="store-btns">
-                              <a href="#" class="store-btn"><i class="bi bi-google-play"></i>
-                                   <div class="store-btn-text"><small>دریافت از</small><strong>Google Play</strong>
-                                   </div>
-                              </a>
-                              <a href="#" class="store-btn"><i class="bi bi-apple"></i>
-                                   <div class="store-btn-text"><small>دریافت از</small><strong>App Store</strong></div>
-                              </a>
-                         </div>
-                    </div>
-               </div>
-          </div>
-     </section>
-
-     <!-- CTA -->
-     <section class="cta-section">
-          <div class="container">
-               <div class="cta-box reveal">
-                    <h2>همین حالا شروع کن! 🎯</h2>
-                    <p>اولین قدم برای پیدا کردن خانه‌ی رویایی‌ات رو با ما بردار.</p>
-                    <div class="d-flex justify-content-center gap-3 flex-wrap">
-                         <a href="#" class="btn btn-white"><i class="bi bi-person-plus me-2"></i> ساخت حساب کاربری</a>
-                         <a href="#" class="btn btn-outline-light px-4 py-3 rounded-3 fw-bold"><i
-                                   class="bi bi-telephone me-2"></i> مشاوره رایگان</a>
-                    </div>
-               </div>
-          </div>
-     </section>
-
-     <!-- FOOTER -->
-     <footer>
-          <div class="container">
-               <div class="row g-4">
-                    <div class="col-lg-4">
-                         <div class="footer-brand">
-                              <span class="logo-badge"><i class="bi bi-house-heart-fill"></i></span>
-                              خانه‌یار
-                         </div>
-                         <p style="font-size:.93rem; line-height:1.9;">پلتفرم جامع املاک ایران؛ جایی که خرید، فروش و
-                              اجاره‌ی ملک تبدیل به تجربه‌ای ساده، مطمئن و لذت‌بخش می‌شود.</p>
-                         <div class="newsletter-form">
-                              <input type="email" id="newsletterEmail" placeholder="ایمیل شما برای خبرنامه">
-                              <button class="btn btn-primary-custom px-3" id="newsletterBtn"><i
-                                        class="bi bi-send"></i></button>
-                         </div>
-                         <div class="social-links">
-                              <a href="#"><i class="bi bi-instagram"></i></a>
-                              <a href="#"><i class="bi bi-telegram"></i></a>
-                              <a href="#"><i class="bi bi-linkedin"></i></a>
-                              <a href="#"><i class="bi bi-twitter-x"></i></a>
-                         </div>
-                    </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>دسترسی سریع</h6>
-                         <a href="#">صفحه اصلی</a><a href="#">املاک</a><a href="#">مشاوران</a><a href="#">وبلاگ</a>
-                    </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>خدمات</h6>
-                         <a href="#">خرید ملک</a><a href="#">فروش ملک</a><a href="#">اجاره</a><a href="#">مشاوره</a>
-                    </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>پشتیبانی</h6>
-                         <a href="#">تماس با ما</a><a href="#">سوالات متداول</a><a href="#">حریم خصوصی</a><a
-                              href="#">قوانین</a>
-                    </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>ارتباط با ما</h6>
-                         <a href="#"><i class="bi bi-telephone me-2"></i>۰۲۱-۱۲۳۴۵۶۷۸</a>
-                         <a href="#"><i class="bi bi-envelope me-2"></i>info@khanehyar.ir</a>
-                         <a href="#"><i class="bi bi-geo-alt me-2"></i>تهران، ولیعصر</a>
-                    </div>
-               </div>
-               <div class="footer-bottom">
-                    © ۱۴۰۳ خانه‌یار — تمامی حقوق محفوظ است. ساخته شده با <span style="color:#ef4444;">❤</span> در ایران
-               </div>
-          </div>
-     </footer>
-
-     <!-- Floating Buttons -->
-     <div class="floating-buttons">
-          <button class="float-btn ai-chat" id="chatBtn" title="دستیار هوشمند"><i class="bi bi-robot"></i></button>
-          <button class="float-btn whatsapp" title="واتساپ"><i class="bi bi-whatsapp"></i></button>
-          <button class="float-btn back-top" id="backTop" title="بازگشت به بالا"><i class="bi bi-arrow-up"></i></button>
-     </div>
-
-     <!-- Compare Bar -->
-     <div class="compare-bar" id="compareBar">
-          <span class="compare-count"><span id="compareCount">۰</span> ملک</span>
-          <div class="d-flex gap-1" id="compareThumbs"></div>
-          <button class="btn btn-primary-custom">مقایسه کن</button>
-          <button class="nav-icon-btn" id="clearCompare" style="width:36px;height:36px;"><i
-                    class="bi bi-x-lg"></i></button>
-     </div>
-
-     <!-- Mobile Nav -->
-     <nav class="mobile-nav">
-          <a href="#" class="mobile-nav-item active"><i class="bi bi-house-door-fill"></i><span>خانه</span></a>
-          <a href="#properties" class="mobile-nav-item"><i class="bi bi-search"></i><span>جست‌وجو</span></a>
-          <a href="#" class="mobile-nav-item"><i class="bi bi-heart"></i><span>علاقه‌مندی</span></a>
-          <a href="#agents" class="mobile-nav-item"><i class="bi bi-person"></i><span>مشاوران</span></a>
-          <a href="#" class="mobile-nav-item"><i class="bi bi-person-circle"></i><span>پروفایل</span></a>
-     </nav>
-
-     <!-- AI Chat Panel -->
-     <div class="chat-panel" id="chatPanel">
-          <div class="chat-header">
-               <div class="chat-avatar"><i class="bi bi-robot"></i></div>
-               <div class="chat-header-info">
-                    <div class="chat-header-name">دستیار هوشمند خانه‌یار</div>
-                    <div class="chat-header-status">آنلاین • پاسخ فوری</div>
-               </div>
-               <button class="chat-close" id="chatClose"><i class="bi bi-x-lg"></i></button>
-          </div>
-          <div class="chat-messages" id="chatMessages"></div>
-          <div class="chat-suggestions" id="chatSuggestions">
-               <button class="chat-suggestion">قیمت آپارتمان در سعادت‌آباد</button>
-               <button class="chat-suggestion">مشاوره رایگان</button>
-               <button class="chat-suggestion">چطور وام بگیرم؟</button>
-          </div>
-          <div class="chat-input-wrap">
-               <input type="text" class="chat-input" id="chatInput" placeholder="پیامت رو بنویس...">
-               <button class="chat-send-btn" id="chatSend"><i class="bi bi-send-fill"></i></button>
-          </div>
-     </div>
-
-     <!-- Property Modal -->
-     <div class="modal-overlay" id="propertyModal">
-          <div class="modal-content-custom">
-               <button class="modal-close" id="modalClose"><i class="bi bi-x-lg"></i></button>
-               <div class="modal-gallery">
-                    <img id="modalMainImg" src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200"
-                         alt="">
-                    <button class="modal-gallery-nav prev" id="modalPrev"><i class="bi bi-chevron-right"></i></button>
-                    <button class="modal-gallery-nav next" id="modalNext"><i class="bi bi-chevron-left"></i></button>
-                    <div class="modal-gallery-thumbs" id="modalThumbs"></div>
-               </div>
-               <div class="modal-body-custom">
-                    <div class="modal-badges">
-                         <span class="modal-badge success"><i class="bi bi-shield-check me-1"></i> تأیید شده</span>
-                         <span class="modal-badge">🏠 آپارتمان</span>
-                         <span class="modal-badge">فروش</span>
-                    </div>
-                    <div class="modal-price" id="modalPrice">۴,۲۰۰,۰۰۰,۰۰۰ تومان</div>
-                    <h3 class="modal-title" id="modalTitle">آپارتمان لوکس ۱۴۵ متری سعادت‌آباد</h3>
-                    <div class="modal-location"><i class="bi bi-geo-alt"></i> <span id="modalLocation">تهران،
-                              سعادت‌آباد، خیابان علامه جنوبی</span></div>
-
-                    <div class="modal-specs">
-                         <div class="modal-spec"><i class="bi bi-house"></i>
-                              <div class="modal-spec-value">۳</div>
-                              <div class="modal-spec-label">اتاق خواب</div>
-                         </div>
-                         <div class="modal-spec"><i class="bi bi-droplet"></i>
-                              <div class="modal-spec-value">۲</div>
-                              <div class="modal-spec-label">سرویس</div>
-                         </div>
-                         <div class="modal-spec"><i class="bi bi-rulers"></i>
-                              <div class="modal-spec-value">۱۴۵ م</div>
-                              <div class="modal-spec-label">متراژ</div>
-                         </div>
-                         <div class="modal-spec"><i class="bi bi-building"></i>
-                              <div class="modal-spec-value">۵</div>
-                              <div class="modal-spec-label">طبقه</div>
-                         </div>
-                    </div>
-
-                    <h6 class="fw-bold mb-3">امکانات ملک</h6>
-                    <div class="modal-features-list">
-                         <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> پارکینگ اختصاصی</div>
-                         <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> آسانسور</div>
-                         <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> انباری</div>
-                         <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> بالکن</div>
-                         <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> کمد دیواری</div>
-                         <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> سیستم گرمایش از کف
-                         </div>
-                    </div>
-
-                    <h6 class="fw-bold mb-3">مشاور املاک</h6>
-                    <div class="modal-agent-card">
-                         <div class="modal-agent-avatar">س</div>
-                         <div class="modal-agent-info">
-                              <div class="modal-agent-name">سارا رضایی</div>
-                              <div class="modal-agent-role">مشاور ارشد املاک لوکس</div>
-                              <div class="modal-agent-rating"><i class="bi bi-star-fill"></i> ۴.۹ (۱۲۴ نظر)</div>
-                         </div>
-                         <button class="nav-icon-btn" onclick="showToast('درخواست تماس ثبت شد ✅', 'success')"
-                              title="تماس"><i class="bi bi-telephone"></i></button>
-                    </div>
-
-                    <div class="modal-actions">
-
-
-
-                         <button class="btn btn-white w-100 mt-4"
-                              onclick="showToast('درخواست مشاوره‌ی شما با موفقیت ثبت شد. کارشناسان ما به‌زودی با شما تماس می‌گیرند.', 'success')">
-                              <i class="bi bi-telephone-fill me-2"></i> دریافت مشاوره‌ی رایگان
-                         </button>
-                    </div>
-               </div>
-          </div>
-     </div>
-     </section>
-
-     <!-- AGENTS -->
-     <section class="section alt" id="agents">
-          <div class="container">
-               <div class="text-center mb-5 reveal">
-                    <span class="section-badge"><i class="bi bi-people-fill"></i> تیم متخصصین</span>
-                    <h2 class="section-title">با بهترین مشاوران ما آشنا شوید</h2>
-                    <p class="section-subtitle">تیمی از متخصصین با تجربه که شما را در تمام مراحل خرید، فروش و اجاره
-                         همراهی می‌کنند.</p>
-               </div>
-
-               <div class="row g-4 justify-content-center">
-                    <!-- Agent 1 -->
-                    <div class="col-md-6 col-lg-4 reveal">
-                         <div class="agent-card">
-                              <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop"
-                                   alt="مشاور" class="agent-avatar">
-                              <h5 class="agent-name">سارا محمدی</h5>
-                              <div class="agent-role">مشاور ارشد املاک لوکس</div>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i>
-                                   <span>۴.۹</span>
-                                   <span class="count">(۱۲۴ نظر)</span>
-                              </div>
-                              <div class="agent-stats">
-                                   <div>
-                                        <div class="agent-stat-value">۱۸۴</div>
-                                        <div class="agent-stat-label">معامله موفق</div>
                                    </div>
                                    <div>
                                         <div class="agent-stat-value">۶</div>
@@ -4024,84 +3707,10 @@
                                    </div>
                               </div>
                               <div class="agent-actions">
-                                   <button class="agent-btn"
-                                        onclick="showToast('اطلاعات تماس در حال نمایش...', 'info')">
-                                        <i class="bi bi-telephone me-1"></i> تماس
-                                   </button>
                                    <button class="agent-btn primary"
-                                        onclick="showToast('پروفایل مشاور به‌زودی...', 'info')">
-                                        پروفایل <i class="bi bi-arrow-left ms-1"></i>
-                                   </button>
-                              </div>
-                         </div>
-                    </div>
-
-                    <!-- Agent 2 -->
-                    <div class="col-md-6 col-lg-4 reveal reveal-delay-1">
-                         <div class="agent-card">
-                              <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&auto=format&fit=crop"
-                                   alt="مشاور" class="agent-avatar">
-                              <h5 class="agent-name">رضا کریمی</h5>
-                              <div class="agent-role">متخصص ویلا و باغ‌ویلا</div>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i>
-                                   <span>۴.۸</span>
-                                   <span class="count">(۹۸ نظر)</span>
-                              </div>
-                              <div class="agent-stats">
-                                   <div>
-                                        <div class="agent-stat-value">۲۱۰</div>
-                                        <div class="agent-stat-label">معامله موفق</div>
-                                   </div>
-                                   <div>
-                                        <div class="agent-stat-value">۸</div>
-                                        <div class="agent-stat-label">سال تجربه</div>
-                                   </div>
-                              </div>
-                              <div class="agent-actions">
+                                        onclick="showToast('درخواست تماس با مریم احمدی ثبت شد', 'success')">تماس</button>
                                    <button class="agent-btn"
-                                        onclick="showToast('اطلاعات تماس در حال نمایش...', 'info')">
-                                        <i class="bi bi-telephone me-1"></i> تماس
-                                   </button>
-                                   <button class="agent-btn primary"
-                                        onclick="showToast('پروفایل مشاور به‌زودی...', 'info')">
-                                        پروفایل <i class="bi bi-arrow-left ms-1"></i>
-                                   </button>
-                              </div>
-                         </div>
-                    </div>
-
-                    <!-- Agent 3 -->
-                    <div class="col-md-6 col-lg-4 reveal reveal-delay-2">
-                         <div class="agent-card">
-                              <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&auto=format&fit=crop"
-                                   alt="مشاور" class="agent-avatar">
-                              <h5 class="agent-name">نیلوفر احمدی</h5>
-                              <div class="agent-role">مشاور سرمایه‌گذاری املاک</div>
-                              <div class="agent-rating">
-                                   <i class="bi bi-star-fill"></i>
-                                   <span>۵.۰</span>
-                                   <span class="count">(۱۵۶ نظر)</span>
-                              </div>
-                              <div class="agent-stats">
-                                   <div>
-                                        <div class="agent-stat-value">۲۶۰</div>
-                                        <div class="agent-stat-label">معامله موفق</div>
-                                   </div>
-                                   <div>
-                                        <div class="agent-stat-value">۱۰</div>
-                                        <div class="agent-stat-label">سال تجربه</div>
-                                   </div>
-                              </div>
-                              <div class="agent-actions">
-                                   <button class="agent-btn"
-                                        onclick="showToast('اطلاعات تماس در حال نمایش...', 'info')">
-                                        <i class="bi bi-telephone me-1"></i> تماس
-                                   </button>
-                                   <button class="agent-btn primary"
-                                        onclick="showToast('پروفایل مشاور به‌زودی...', 'info')">
-                                        پروفایل <i class="bi bi-arrow-left ms-1"></i>
-                                   </button>
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
                               </div>
                          </div>
                     </div>
@@ -4112,65 +3721,59 @@
      <!-- TESTIMONIALS -->
      <section class="section" id="testimonials">
           <div class="container">
-               <div class="d-flex justify-content-between align-items-end mb-5 flex-wrap gap-3 reveal">
-                    <div>
-                         <span class="section-badge"><i class="bi bi-chat-quote-fill"></i> نظرات کاربران</span>
-                         <h2 class="section-title mb-0">کاربران ما چه می‌گویند؟</h2>
-                    </div>
-                    <div class="d-flex gap-2">
-                         <button class="nav-icon-btn" id="testPrev"><i class="bi bi-arrow-right"></i></button>
-                         <button class="nav-icon-btn" id="testNext"><i class="bi bi-arrow-left"></i></button>
-                    </div>
+               <div class="text-center mb-5 reveal">
+                    <span class="section-badge"><i class="bi bi-chat-heart-fill"></i> نظرات مشتریان</span>
+                    <h2 class="section-title">آن‌ها از ما چه می‌گویند؟</h2>
+                    <p class="section-subtitle">تجربه‌ی کاربرانی که با خانه‌یار خانه‌ی رویایی خود را پیدا کردند.</p>
                </div>
-
-               <div class="testimonials-slider" id="testimonialSlider">
+               <div class="testimonials-slider">
                     <div class="testimonial-card">
-                         <div class="testimonial-avatar">م</div>
+                         <div class="testimonial-avatar">ن</div>
                          <div class="testimonial-stars">
                               <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i>
                          </div>
-                         <p class="testimonial-text">"تجربه‌ی فوق‌العاده‌ای بود! تونستم توی کمتر از یک هفته خونه‌ی مورد
-                              نظرم رو پیدا کنم. مشاوره‌ی تخصصی تیم واقعاً کمک‌کننده بود."</p>
-                         <p class="testimonial-author">مریم احمدی</p>
-                         <small class="testimonial-role">خریدار آپارتمان - تهران</small>
+                         <p class="testimonial-text">«بعد از ماه‌ها جست‌وجو، تونستم آپارتمان دلخواهم رو از طریق خانه‌یار
+                              پیدا کنم. اطلاعات دقیق، عکس‌های واقعی و مشاوره‌ی خیلی خوب تیم، همه‌چیز رو آسون کرد.»</p>
+                         <p class="testimonial-author">نگار حسینی</p>
+                         <span class="testimonial-role">خریدار آپارتمان، تهران</span>
                     </div>
                     <div class="testimonial-card">
-                         <div class="testimonial-avatar">ع</div>
+                         <div class="testimonial-avatar">ا</div>
                          <div class="testimonial-stars">
                               <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i>
                          </div>
-                         <p class="testimonial-text">"به‌عنوان فروشنده، آگهیم توی کمتر از ۴۸ ساعت بازدید گرفت. پنل
-                              کاربری و مدیریت آگهی‌ها خیلی ساده و حرفه‌ایه."</p>
-                         <p class="testimonial-author">علی رضایی</p>
-                         <small class="testimonial-role">فروشنده ویلا - کرج</small>
+                         <p class="testimonial-text">«ویلای خوب در کرج رو با کمک مشاوران پیدا کردم. ماشین‌حساب وام هم
+                              خیلی بهم کمک کرد که تصمیم درست بگیرم. کاملاً پیشنهاد می‌کنم.»</p>
+                         <p class="testimonial-author">امیر تهرانی</p>
+                         <span class="testimonial-role">خریدار ویلا، کرج</span>
                     </div>
                     <div class="testimonial-card">
-                         <div class="testimonial-avatar">س</div>
+                         <div class="testimonial-avatar">ف</div>
                          <div class="testimonial-stars">
                               <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-half"></i>
                          </div>
-                         <p class="testimonial-text">"امکانات تور مجازی عالیه! از شهرستان تونستم با خیال راحت چند تا ملک
-                              رو ببینم و نهایتاً انتخاب کنم. ممنون خانه‌یار!"</p>
-                         <p class="testimonial-author">سارا کریمی</p>
-                         <small class="testimonial-role">اجاره‌کننده - اصفهان</small>
+                         <p class="testimonial-text">«برای اجاره‌ی خونه خیلی دنبال جای مطمئن بودم. پلتفرم خانه‌یار با
+                              املاک تأیید شده و نظرات کاربران، انتخاب رو برام راحت کرد.»</p>
+                         <p class="testimonial-author">فاطمه رحیمی</p>
+                         <span class="testimonial-role">مستأجر، اصفهان</span>
                     </div>
                     <div class="testimonial-card">
-                         <div class="testimonial-avatar">ح</div>
+                         <div class="testimonial-avatar">ب</div>
                          <div class="testimonial-stars">
                               <i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i
                                    class="bi bi-star-fill"></i>
                          </div>
-                         <p class="testimonial-text">"مقایسه‌ی املاک خیلی به من کمک کرد. تونستم سه تا گزینه رو کنار هم
-                              ببینم و با آرامش انتخاب کنم. سرویس فوق‌العاده!"</p>
-                         <p class="testimonial-author">حسین نوری</p>
-                         <small class="testimonial-role">سرمایه‌گذار - شیراز</small>
+                         <p class="testimonial-text">«به‌عنوان سرمایه‌گذار، اطلاعات بازار و تحلیل‌های خانه‌یار برام خیلی
+                              ارزشمند بود. تونستم با اطمینان بیشتری سرمایه‌گذاری کنم.»</p>
+                         <p class="testimonial-author">بهروز صادقی</p>
+                         <span class="testimonial-role">سرمایه‌گذار، مشهد</span>
                     </div>
                </div>
           </div>
@@ -4180,21 +3783,39 @@
      <section class="app-section">
           <div class="container app-content">
                <div class="row align-items-center g-5">
-                    <div class="col-lg-6 text-center text-lg-end">
+                    <div class="col-lg-6">
+                         <h2 class="fw-bold mb-3" style="font-size: clamp(1.9rem, 3.5vw, 2.6rem); font-weight: 900;">
+                              خانه‌یار را همراه خودتان داشته باشید</h2>
+                         <p class="mb-4" style="opacity:.92; line-height:1.9; font-size:1.05rem;">
+                              اپلیکیشن خانه‌یار روی موبایل شما، املاک را به‌صورت هوشمندانه فیلتر می‌کند، اعلان ملک‌های
+                              جدید را می‌فرستد و امکان تماس مستقیم با مشاور را فراهم می‌کند.
+                         </p>
+                         <div class="store-btns">
+                              <a href="#" class="store-btn"
+                                   onclick="event.preventDefault(); showToast('به‌زودی در App Store', 'warning')">
+                                   <i class="bi bi-apple"></i>
+                                   <div class="store-btn-text"><small>دریافت از</small><strong>App Store</strong></div>
+                              </a>
+                              <a href="#" class="store-btn"
+                                   onclick="event.preventDefault(); showToast('به‌زودی در Google Play', 'warning')">
+                                   <i class="bi bi-google-play"></i>
+                                   <div class="store-btn-text"><small>دریافت از</small><strong>Google Play</strong>
+                                   </div>
+                              </a>
+                         </div>
+                    </div>
+                    <div class="col-lg-6">
                          <div class="phone-mockup">
                               <div class="phone-notch"></div>
                               <div class="phone-screen">
                                    <div class="phone-screen-header">
-                                        <h6 class="mb-2" style="font-size:.85rem;">سلام، خوش اومدی 👋</h6>
-                                        <div
-                                             style="background:rgba(255,255,255,.2); border-radius:10px; padding:.5rem .8rem; font-size:.7rem;">
-                                             <i class="bi bi-search me-1"></i> جست‌وجوی ملک...
-                                        </div>
+                                        <div class="fw-bold fs-6">خانه‌یار</div>
+                                        <div style="font-size:.72rem; opacity:.85;">املاک منتخب برای شما</div>
                                    </div>
                                    <div class="phone-screen-content">
                                         <div class="phone-card-mini">
-                                             <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=100"
-                                                  alt="">
+                                             <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=120&auto=format&fit=crop"
+                                                  alt="ملک">
                                              <div class="phone-card-mini-text">
                                                   <div class="line"></div>
                                                   <div class="line short"></div>
@@ -4202,8 +3823,8 @@
                                              </div>
                                         </div>
                                         <div class="phone-card-mini">
-                                             <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=100"
-                                                  alt="">
+                                             <img src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=120&auto=format&fit=crop"
+                                                  alt="ملک">
                                              <div class="phone-card-mini-text">
                                                   <div class="line"></div>
                                                   <div class="line short"></div>
@@ -4211,17 +3832,8 @@
                                              </div>
                                         </div>
                                         <div class="phone-card-mini">
-                                             <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=100"
-                                                  alt="">
-                                             <div class="phone-card-mini-text">
-                                                  <div class="line"></div>
-                                                  <div class="line short"></div>
-                                                  <div class="line price"></div>
-                                             </div>
-                                        </div>
-                                        <div class="phone-card-mini">
-                                             <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=100"
-                                                  alt="">
+                                             <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=120&auto=format&fit=crop"
+                                                  alt="ملک">
                                              <div class="phone-card-mini-text">
                                                   <div class="line"></div>
                                                   <div class="line short"></div>
@@ -4232,52 +3844,6 @@
                               </div>
                          </div>
                     </div>
-                    <div class="col-lg-6">
-                         <span class="hero-badge"
-                              style="background:rgba(255,255,255,.15); color:#fff; border-color:rgba(255,255,255,.3);">
-                              <i class="bi bi-phone"></i> اپلیکیشن موبایل
-                         </span>
-                         <h2 class="fw-bold mb-3" style="font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.3;">
-                              خانه‌یار رو در جیب خودت داشته باش!
-                         </h2>
-                         <p style="opacity:.9; line-height:1.9; margin-bottom:1.5rem;">
-                              با اپلیکیشن خانه‌یار، هر جا که هستی به هزاران ملک دسترسی داری، اعلان لحظه‌ای از ملک‌های
-                              جدید می‌گیری و حتی می‌تونی از داخل اپ با مشاورین چت کنی.
-                         </p>
-                         <div class="d-flex flex-column gap-2 mb-4">
-                              <div class="d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i> اعلان
-                                   لحظه‌ای املاک جدید</div>
-                              <div class="d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i> چت
-                                   آنلاین با مشاور</div>
-                              <div class="d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i>
-                                   جست‌وجو با موقعیت مکانی</div>
-                              <div class="d-flex align-items-center gap-2"><i class="bi bi-check-circle-fill"></i>
-                                   تور مجازی ۳۶۰ درجه</div>
-                         </div>
-                         <div class="store-btns">
-                              <a href="#" class="store-btn">
-                                   <i class="bi bi-google-play"></i>
-                                   <div class="store-btn-text">
-                                        <small>دریافت از</small>
-                                        <strong>Google Play</strong>
-                                   </div>
-                              </a>
-                              <a href="#" class="store-btn">
-                                   <i class="bi bi-apple"></i>
-                                   <div class="store-btn-text">
-                                        <small>دریافت از</small>
-                                        <strong>App Store</strong>
-                                   </div>
-                              </a>
-                              <a href="#" class="store-btn">
-                                   <i class="bi bi-download"></i>
-                                   <div class="store-btn-text">
-                                        <small>دریافت مستقیم</small>
-                                        <strong>APK</strong>
-                                   </div>
-                              </a>
-                         </div>
-                    </div>
                </div>
           </div>
      </section>
@@ -4286,16 +3852,11 @@
      <section class="cta-section">
           <div class="container">
                <div class="cta-box reveal">
-                    <h2>همین حالا شروع کن! 🎯</h2>
-                    <p>اولین قدم برای پیدا کردن خانه‌ی رویایی‌ات رو با ما بردار. ثبت‌نام کاملاً رایگانه.</p>
-                    <div class="d-flex justify-content-center gap-3 flex-wrap">
-                         <a href="#" class="btn btn-white">
-                              <i class="bi bi-person-plus me-2"></i> ساخت حساب کاربری
-                         </a>
-                         <a href="#" class="btn btn-outline-light px-4 py-3 rounded-3 fw-bold">
-                              <i class="bi bi-telephone me-2"></i> مشاوره رایگان
-                         </a>
-                    </div>
+                    <h2>آماده‌اید خانه‌ی رویایی‌تان را پیدا کنید؟</h2>
+                    <p>همین حالا ثبت‌نام کنید و از میان هزاران ملک تأیید شده انتخاب کنید.</p>
+                    <button class="btn btn-white" onclick="showToast('به صفحه‌ی ثبت‌نام منتقل می‌شوید', 'success')">
+                         <i class="bi bi-person-plus me-2"></i> شروع رایگان
+                    </button>
                </div>
           </div>
      </section>
@@ -4304,597 +3865,688 @@
      <footer>
           <div class="container">
                <div class="row g-4">
-                    <div class="col-lg-4">
+                    <div class="col-lg-4 col-md-6">
                          <div class="footer-brand">
                               <span class="logo-badge"><i class="bi bi-house-heart-fill"></i></span>
                               خانه‌یار
                          </div>
-                         <p style="font-size:.93rem; line-height:1.9;">
-                              پلتفرم جامع املاک ایران؛ جایی که خرید، فروش و اجاره‌ی ملک تبدیل به تجربه‌ای ساده، مطمئن و
-                              لذت‌بخش می‌شود.
-                         </p>
-                         <div class="newsletter-form">
-                              <input type="email" placeholder="ایمیل شما برای خبرنامه" id="newsletterInput">
-                              <button class="btn btn-primary-custom px-3" onclick="subscribeNewsletter()"><i
-                                        class="bi bi-send"></i></button>
-                         </div>
+                         <p style="line-height:1.9; font-size:.92rem;">پلتفرم جامع املاک ایران؛ جست‌وجو، مقایسه و انتخاب
+                              هوشمندانه‌ی خانه‌ی رویایی. با اطمینان انتخاب کنید.</p>
                          <div class="social-links">
-                              <a href="#" title="Instagram"><i class="bi bi-instagram"></i></a>
-                              <a href="#" title="Telegram"><i class="bi bi-telegram"></i></a>
-                              <a href="#" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
-                              <a href="#" title="Twitter"><i class="bi bi-twitter-x"></i></a>
+                              <a href="#" aria-label="اینستاگرام"
+                                   onclick="event.preventDefault(); showToast('اینستاگرام خانه‌یار', 'warning')"><i
+                                        class="bi bi-instagram"></i></a>
+                              <a href="#" aria-label="تلگرام"
+                                   onclick="event.preventDefault(); showToast('تلگرام خانه‌یار', 'warning')"><i
+                                        class="bi bi-telegram"></i></a>
+                              <a href="#" aria-label="توییتر"
+                                   onclick="event.preventDefault(); showToast('توییتر خانه‌یار', 'warning')"><i
+                                        class="bi bi-twitter-x"></i></a>
+                              <a href="#" aria-label="لینکدین"
+                                   onclick="event.preventDefault(); showToast('لینکدین خانه‌یار', 'warning')"><i
+                                        class="bi bi-linkedin"></i></a>
                          </div>
                     </div>
-                    <div class="col-6 col-lg-2">
+                    <div class="col-lg-2 col-md-6 col-6">
                          <h6>دسترسی سریع</h6>
-                         <a href="#">صفحه اصلی</a>
+                         <a href="#">صفحه‌ی اصلی</a>
                          <a href="#properties">املاک</a>
                          <a href="#agents">مشاوران</a>
-                         <a href="#">وبلاگ</a>
+                         <a href="#calculator">ماشین‌حساب</a>
                     </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>خدمات</h6>
-                         <a href="#">خرید ملک</a>
-                         <a href="#">فروش ملک</a>
-                         <a href="#">اجاره</a>
-                         <a href="#calculator">ماشین‌حساب وام</a>
+                    <div class="col-lg-2 col-md-6 col-6">
+                         <h6>دسته‌بندی‌ها</h6>
+                         <a href="#">آپارتمان</a>
+                         <a href="#">ویلا</a>
+                         <a href="#">زمین و باغ</a>
+                         <a href="#">تجاری</a>
                     </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>پشتیبانی</h6>
-                         <a href="#">تماس با ما</a>
-                         <a href="#">سوالات متداول</a>
-                         <a href="#">حریم خصوصی</a>
-                         <a href="#">قوانین</a>
-                    </div>
-                    <div class="col-6 col-lg-2">
-                         <h6>ارتباط با ما</h6>
-                         <a href="#"><i class="bi bi-telephone me-2"></i>۰۲۱-۱۲۳۴۵۶۷۸</a>
-                         <a href="#"><i class="bi bi-envelope me-2"></i>info@khanehyar.ir</a>
-                         <a href="#"><i class="bi bi-geo-alt me-2"></i>تهران، ولیعصر</a>
+                    <div class="col-lg-4 col-md-6">
+                         <h6>خبرنامه</h6>
+                         <p style="font-size:.9rem;">از جدیدترین املاک و تخفیف‌ها باخبر شوید.</p>
+                         <form class="newsletter-form"
+                              onsubmit="event.preventDefault(); showToast('عضویت در خبرنامه با موفقیت انجام شد ✅', 'success'); this.reset();">
+                              <input type="email" placeholder="ایمیل شما" required>
+                              <button type="submit" class="btn btn-primary-custom"><i class="bi bi-send"></i></button>
+                         </form>
                     </div>
                </div>
                <div class="footer-bottom">
-                    © ۱۴۰۳ خانه‌یار — تمامی حقوق محفوظ است. ساخته شده با <span style="color:#ef4444;">❤</span> در ایران
+                    © ۱۴۰۳ خانه‌یار — تمامی حقوق محفوظ است.
                </div>
           </div>
      </footer>
 
+     <!-- FLOATING BUTTONS -->
+     <div class="floating-buttons">
+          <button class="float-btn ai-chat" id="chatToggle" title="دستیار هوشمند" aria-label="چت با دستیار هوشمند">
+               <i class="bi bi-chat-dots-fill"></i>
+          </button>
+          <button class="float-btn whatsapp" title="واتساپ" aria-label="واتساپ"
+               onclick="showToast('پشتیبانی واتساپ به‌زودی', 'success')">
+               <i class="bi bi-whatsapp"></i>
+          </button>
+          <button class="float-btn back-top" id="backTop" title="بازگشت به بالا" aria-label="بازگشت به بالا">
+               <i class="bi bi-arrow-up"></i>
+          </button>
+     </div>
+
+     <!-- COMPARE BAR -->
+     <div class="compare-bar" id="compareBar">
+          <span class="compare-count" id="compareCount">۰ ملک</span>
+          <div id="compareThumbs" class="d-flex gap-2"></div>
+          <button class="btn btn-primary-custom" onclick="showToast('صفحه‌ی مقایسه به‌زودی', 'warning')">مقایسه</button>
+          <button class="btn btn-sm" style="color:var(--danger);" onclick="clearCompare()"><i
+                    class="bi bi-x-lg"></i></button>
+     </div>
+
+     <!-- MOBILE NAV -->
+     <nav class="mobile-nav">
+          <a href="#" class="mobile-nav-item active"><i class="bi bi-house-door-fill"></i><span>خانه</span></a>
+          <a href="#properties" class="mobile-nav-item"><i class="bi bi-buildings"></i><span>املاک</span></a>
+          <a href="#agents" class="mobile-nav-item"><i class="bi bi-person-badge"></i><span>مشاوران</span></a>
+          <a href="#calculator" class="mobile-nav-item"><i class="bi bi-calculator"></i><span>محاسبه</span></a>
+          <a href="#testimonials" class="mobile-nav-item"><i class="bi bi-chat-heart"></i><span>نظرات</span></a>
+     </nav>
+
+     <!-- MODAL -->
+     <div class="modal-overlay" id="propertyModal">
+          <div class="modal-content-custom">
+               <button class="modal-close" id="modalClose" aria-label="بستن"><i class="bi bi-x-lg"></i></button>
+               <div class="modal-gallery">
+                    <img src="" alt="" id="modalMainImage">
+                    <button class="modal-gallery-nav prev" id="modalPrev" aria-label="قبلی"><i
+                              class="bi bi-chevron-right"></i></button>
+                    <button class="modal-gallery-nav next" id="modalNext" aria-label="بعدی"><i
+                              class="bi bi-chevron-left"></i></button>
+                    <div class="modal-gallery-thumbs" id="modalThumbs"></div>
+               </div>
+               <div class="modal-body-custom">
+                    <div class="modal-badges">
+                         <span class="modal-badge" id="modalTag">فروش</span>
+                         <span class="modal-badge success"><i class="bi bi-shield-check"></i> ملک تأیید شده</span>
+                    </div>
+                    <div class="modal-price" id="modalPrice">-</div>
+                    <div class="modal-title" id="modalTitle">-</div>
+                    <div class="modal-location"><i class="bi bi-geo-alt"></i> <span id="modalLocation">-</span></div>
+                    <div class="modal-specs" id="modalSpecs"></div>
+                    <div class="modal-features-list" id="modalFeatures"></div>
+                    <div class="modal-agent-card">
+                         <div class="modal-agent-avatar">م</div>
+                         <div class="modal-agent-info">
+                              <div class="modal-agent-name">مشاور خانه‌یار</div>
+                              <div class="modal-agent-role">مشاور ارشد املاک</div>
+                              <div class="modal-agent-rating"><i class="bi bi-star-fill"></i> ۴.۹ (۱۲۴ نظر)</div>
+                         </div>
+                    </div>
+                    <div class="modal-actions">
+                         <button class="modal-btn-primary" onclick="showToast('درخواست بازدید ثبت شد ✅', 'success')"><i
+                                   class="bi bi-calendar-check me-2"></i> درخواست بازدید</button>
+                         <button class="modal-btn-secondary" onclick="showToast('تماس با مشاور', 'success')"><i
+                                   class="bi bi-telephone me-2"></i> تماس با مشاور</button>
+                    </div>
+               </div>
+          </div>
+     </div>
+
+     <!-- AI CHAT -->
+     <div class="chat-panel" id="chatPanel">
+          <div class="chat-header">
+               <div class="chat-avatar"><i class="bi bi-robot"></i></div>
+               <div class="chat-header-info">
+                    <div class="chat-header-name">دستیار هوشمند خانه‌یار</div>
+                    <div class="chat-header-status">آنلاین — پاسخگویی فوری</div>
+               </div>
+               <button class="chat-close" id="chatClose" aria-label="بستن چت"><i class="bi bi-x-lg"></i></button>
+          </div>
+          <div class="chat-messages" id="chatMessages">
+               <div class="chat-bubble bot">سلام 👋 من دستیار هوشمند خانه‌یار هستم. چطور می‌تونم کمکتون کنم؟ می‌تونید
+                    درباره‌ی قیمت، وام، محله‌ها یا هر چیز دیگه‌ای بپرسید.</div>
+          </div>
+          <div class="chat-suggestions" id="chatSuggestions">
+               <button class="chat-suggestion">قیمت آپارتمان در تهران</button>
+               <button class="chat-suggestion">راهنمای وام مسکن</button>
+               <button class="chat-suggestion">بهترین محله برای زندگی</button>
+          </div>
+          <form class="chat-input-wrap" id="chatForm">
+               <input type="text" class="chat-input" id="chatInput" placeholder="پیام خود را بنویسید..."
+                    autocomplete="off">
+               <button type="submit" class="chat-send-btn" aria-label="ارسال"><i class="bi bi-send-fill"></i></button>
+          </form>
+     </div>
+
      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
      <script>
           /* ============ HELPERS ============ */
-          const faNum = n => Number(n).toLocaleString('fa-IR');
+          const toFa = n => Number(n).toLocaleString('fa-IR');
+          const $ = s => document.querySelector(s);
+          const $$ = s => document.querySelectorAll(s);
 
-          /* ============ TOASTS ============ */
-          function showToast(msg, type = 'info') {
-               const container = document.getElementById('toastContainer');
-               const icons = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', warning: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
-               const t = document.createElement('div');
-               t.className = `toast-custom ${type}`;
-               t.innerHTML = `<div class="toast-icon"><i class="bi ${icons[type] || icons.info}"></i></div><div class="toast-msg">${msg}</div>`;
-               container.appendChild(t);
+          function formatMoney(n) {
+               if (n >= 1e9) return toFa((n / 1e9).toFixed(1)) + ' میلیارد تومان';
+               if (n >= 1e6) return toFa(Math.round(n / 1e6)) + ' میلیون تومان';
+               return toFa(n) + ' تومان';
+          }
+
+          /* ============ TOAST ============ */
+          window.showToast = function (msg, type = '') {
+               const container = $('#toastContainer');
+               const icons = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', warning: 'bi-exclamation-triangle-fill', '': 'bi-info-circle-fill' };
+               const el = document.createElement('div');
+               el.className = 'toast-custom ' + type;
+               el.innerHTML = `<div class="toast-icon"><i class="bi ${icons[type] || icons['']}"></i></div><div class="toast-msg">${msg}</div>`;
+               container.appendChild(el);
                setTimeout(() => {
-                    t.classList.add('removing');
-                    setTimeout(() => t.remove(), 400);
-               }, 3500);
-          }
-          window.showToast = showToast;
-
-          /* ============ THEME ============ */
-          const themeToggle = document.getElementById('themeToggle');
-          const themeIcon = document.getElementById('themeIcon');
-          const savedTheme = localStorage.getItem('theme');
-          if (savedTheme === 'dark') {
-               document.body.classList.add('dark');
-               themeIcon.className = 'bi bi-sun-fill';
-          }
-          themeToggle.addEventListener('click', () => {
-               document.body.classList.toggle('dark');
-               const isDark = document.body.classList.contains('dark');
-               themeIcon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
-               localStorage.setItem('theme', isDark ? 'dark' : 'light');
-          });
+                    el.classList.add('removing');
+                    setTimeout(() => el.remove(), 400);
+               }, 3200);
+          };
 
           /* ============ PRELOADER ============ */
           window.addEventListener('load', () => {
-               setTimeout(() => document.getElementById('preloader').classList.add('hidden'), 1200);
+               setTimeout(() => $('#preloader').classList.add('hidden'), 1400);
           });
 
-          /* ============ SCROLL PROGRESS / NAVBAR ============ */
-          const navbar = document.getElementById('navbar');
-          const progress = document.getElementById('scrollProgress');
-          const backTop = document.getElementById('backTop');
+          /* ============ SCROLL PROGRESS + NAVBAR + BACK TOP ============ */
+          const navbar = $('#navbar');
+          const scrollProgress = $('#scrollProgress');
+          const backTop = $('#backTop');
           window.addEventListener('scroll', () => {
-               const y = window.scrollY;
-               navbar.classList.toggle('scrolled', y > 50);
-               const dh = document.documentElement.scrollHeight - window.innerHeight;
-               progress.style.width = (y / dh) * 100 + '%';
-               backTop.classList.toggle('visible', y > 400);
-          }, { passive: true });
+               const scrolled = window.scrollY;
+               const docH = document.documentElement.scrollHeight - window.innerHeight;
+               const pct = (scrolled / docH) * 100;
+               scrollProgress.style.width = pct + '%';
+               navbar.classList.toggle('scrolled', scrolled > 50);
+               backTop.classList.toggle('visible', scrolled > 400);
+          });
           backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-          /* ============ PARTICLES ============ */
-          const canvas = document.getElementById('particleCanvas');
-          const ctx = canvas.getContext('2d');
-          let particles = [];
-          function resizeCanvas() {
-               const rect = canvas.parentElement.getBoundingClientRect();
-               canvas.width = rect.width;
-               canvas.height = rect.height;
+          /* ============ THEME TOGGLE ============ */
+          const themeToggle = $('#themeToggle');
+          const themeIcon = $('#themeIcon');
+          function applyTheme(dark) {
+               document.body.classList.toggle('dark', dark);
+               themeIcon.className = dark ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+               localStorage.setItem('theme', dark ? 'dark' : 'light');
           }
-          resizeCanvas();
-          window.addEventListener('resize', resizeCanvas);
-
-          const isDark = () => document.body.classList.contains('dark');
-          function createParticles() {
-               particles = [];
-               const count = Math.min(70, Math.floor(canvas.width / 25));
-               for (let i = 0; i < count; i++) {
-                    particles.push({
-                         x: Math.random() * canvas.width,
-                         y: Math.random() * canvas.height,
-                         vx: (Math.random() - 0.5) * 0.4,
-                         vy: (Math.random() - 0.5) * 0.4,
-                         r: Math.random() * 2 + 1
-                    });
-               }
-          }
-          createParticles();
-
-          function drawParticles() {
-               ctx.clearRect(0, 0, canvas.width, canvas.height);
-               const color = isDark() ? '139,92,246' : '99,102,241';
-               particles.forEach(p => {
-                    p.x += p.vx; p.y += p.vy;
-                    if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-                    if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(${color}, .6)`;
-                    ctx.fill();
-               });
-               for (let i = 0; i < particles.length; i++) {
-                    for (let j = i + 1; j < particles.length; j++) {
-                         const dx = particles[i].x - particles[j].x;
-                         const dy = particles[i].y - particles[j].y;
-                         const dist = Math.sqrt(dx * dx + dy * dy);
-                         if (dist < 120) {
-                              ctx.beginPath();
-                              ctx.strokeStyle = `rgba(${color}, ${(1 - dist / 120) * .2})`;
-                              ctx.lineWidth = .6;
-                              ctx.moveTo(particles[i].x, particles[i].y);
-                              ctx.lineTo(particles[j].x, particles[j].y);
-                              ctx.stroke();
-                         }
-                    }
-               }
-               requestAnimationFrame(drawParticles);
-          }
-          if (canvas) drawParticles();
+          applyTheme(localStorage.getItem('theme') === 'dark');
+          themeToggle.addEventListener('click', () => applyTheme(!document.body.classList.contains('dark')));
 
           /* ============ SEARCH TABS ============ */
-          const tabs = document.querySelectorAll('.search-tab');
-          const pill = document.getElementById('tabPill');
-          function setPill(tab) {
-               if (!tab) return;
-               const p = tab.parentElement.getBoundingClientRect();
-               const t = tab.getBoundingClientRect();
-               pill.style.width = t.width + 'px';
-               pill.style.right = (p.right - t.right) + 'px';
+          const searchTabs = $('#searchTabs');
+          const tabPill = $('#tabPill');
+          function movePill(activeTab) {
+               const parentRect = searchTabs.getBoundingClientRect();
+               const tabRect = activeTab.getBoundingClientRect();
+               tabPill.style.right = (parentRect.right - tabRect.right) + 'px';
+               tabPill.style.width = tabRect.width + 'px';
           }
-          if (tabs.length) {
-               setPill(tabs[0]);
-               tabs.forEach(tab => tab.addEventListener('click', () => {
-                    tabs.forEach(t => t.classList.remove('active'));
+          function initTabs() {
+               const active = searchTabs.querySelector('.search-tab.active');
+               if (active) movePill(active);
+          }
+          searchTabs.querySelectorAll('.search-tab').forEach(tab => {
+               tab.addEventListener('click', () => {
+                    searchTabs.querySelectorAll('.search-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    setPill(tab);
-               }));
-               window.addEventListener('resize', () => setPill(document.querySelector('.search-tab.active')));
-          }
-
-          /* ============ FILTER BUTTONS ============ */
-          document.querySelectorAll('.filter-btn').forEach(btn => {
-               btn.addEventListener('click', () => {
-                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+                    movePill(tab);
                });
           });
+          window.addEventListener('load', initTabs);
+          window.addEventListener('resize', initTabs);
+          initTabs();
 
           /* ============ QUICK CHIPS ============ */
-          document.querySelectorAll('.quick-chip').forEach(chip => {
-               chip.addEventListener('click', () => chip.classList.toggle('active'));
+          $$('.quick-chip').forEach(chip => {
+               chip.addEventListener('click', () => {
+                    chip.classList.toggle('active');
+                    showToast('فیلتر «' + chip.textContent.trim() + '» اعمال شد', 'success');
+               });
           });
 
-          /* ============ PROPERTY SLIDER ============ */
-          document.querySelectorAll('.property-img').forEach(imgContainer => {
-               const slider = imgContainer.querySelector('.property-slider');
+          /* ============ PROPERTY SLIDERS ============ */
+          $$('.property-img').forEach(imgWrap => {
+               const slider = imgWrap.querySelector('.property-slider');
                if (!slider) return;
-               const dots = imgContainer.querySelectorAll('.slider-dot');
-               const prevBtn = imgContainer.querySelector('.slider-nav.prev');
-               const nextBtn = imgContainer.querySelector('.slider-nav.next');
-               const total = slider.children.length;
-               let current = 0;
+               const imgs = slider.querySelectorAll('img');
+               const dots = imgWrap.querySelectorAll('.slider-dot');
+               const prev = imgWrap.querySelector('.slider-nav.prev');
+               const next = imgWrap.querySelector('.slider-nav.next');
+               let idx = 0;
+               const total = imgs.length;
 
-               function update() {
-                    slider.style.transform = `translateX(${current * 100}%)`;
-                    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+               function go(i) {
+                    idx = (i + total) % total;
+                    slider.style.transform = `translateX(-${idx * 100}%)`;
+                    dots.forEach((d, k) => d.classList.toggle('active', k === idx));
                }
-               if (prevBtn) prevBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    current = (current - 1 + total) % total;
-                    update();
-               });
-               if (nextBtn) nextBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    current = (current + 1) % total;
-                    update();
-               });
-               dots.forEach((d, i) => d.addEventListener('click', e => {
-                    e.stopPropagation();
-                    current = i;
-                    update();
-               }));
-               let startX = 0;
-               slider.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
-               slider.addEventListener('touchend', e => {
-                    const dx = e.changedTouches[0].clientX - startX;
-                    if (Math.abs(dx) > 40) {
-                         current = dx > 0 ? (current - 1 + total) % total : (current + 1) % total;
-                         update();
-                    }
-               });
+               if (prev) prev.addEventListener('click', e => { e.stopPropagation(); go(idx - 1); });
+               if (next) next.addEventListener('click', e => { e.stopPropagation(); go(idx + 1); });
+               dots.forEach((d, k) => d.addEventListener('click', e => { e.stopPropagation(); go(k); }));
           });
 
-          /* ============ FAVORITES ============ */
-          let wishlistCount = 2;
-          document.querySelectorAll('.property-fav').forEach(btn => {
+          /* ============ WISHLIST ============ */
+          let wishCount = 0;
+          const wishlistEl = $('#wishlistCount');
+          $$('.property-fav').forEach(btn => {
                btn.addEventListener('click', e => {
                     e.stopPropagation();
-                    btn.classList.toggle('liked');
-                    const icon = btn.querySelector('i');
-                    if (btn.classList.contains('liked')) {
-                         icon.className = 'bi bi-heart-fill';
-                         wishlistCount++;
-                         showToast('به علاقه‌مندی‌ها اضافه شد.', 'success');
-                    } else {
-                         icon.className = 'bi bi-heart';
-                         wishlistCount = Math.max(0, wishlistCount - 1);
-                    }
-                    document.getElementById('wishlistCount').textContent = faNum(wishlistCount);
+                    const liked = btn.classList.toggle('liked');
+                    btn.querySelector('i').className = liked ? 'bi bi-heart-fill' : 'bi bi-heart';
+                    wishCount += liked ? 1 : -1;
+                    if (wishCount < 0) wishCount = 0;
+                    wishlistEl.textContent = toFa(wishCount);
+                    if (liked) showToast('به علاقه‌مندی‌ها اضافه شد ❤️', 'success');
                });
           });
+          wishlistEl.textContent = toFa(wishCount);
 
-          /* ============ PROPERTY DATA FOR MODAL & COMPARE ============ */
-          const propertyData = {
-               1: {
-                    title: 'آپارتمان لوکس ۱۴۵ متری', price: '۴,۲۰۰,۰۰۰,۰۰۰ تومان',
-                    location: 'تهران، سعادت‌آباد', beds: 3, baths: 2, area: 145,
-                    tag: 'فروش', tagClass: '',
-                    imgs: [
-                         'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1000&auto=format&fit=crop',
-                         'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&auto=format&fit=crop',
-                         'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1000&auto=format&fit=crop'
-                    ],
-                    features: ['پارکینگ اختصاصی', 'آسانسور', 'بالکن', 'انباری', 'کولر گازی', 'سیستم امنیتی']
-               },
-               2: {
-                    title: 'ویلای دوبلکس مدرن', price: '۲۸,۰۰۰,۰۰۰ تومان/ماه',
-                    location: 'کرج، عظیمیه', beds: 4, baths: 3, area: 280,
-                    tag: 'اجاره', tagClass: 'rent',
-                    imgs: [
-                         'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1000&auto=format&fit=crop',
-                         'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1000&auto=format&fit=crop'
-                    ],
-                    features: ['پارکینگ', 'استخر', 'باغچه', 'بالکن', 'سرمایش/گرمایش', 'درب ریموت']
-               },
-               3: {
-                    title: 'پنت‌هاوس با ویو شهر', price: '۹,۵۰۰,۰۰۰,۰۰۰ تومان',
-                    location: 'تهران، الهیه', beds: 3, baths: 2, area: 200,
-                    tag: 'فروش', tagClass: '',
-                    imgs: [
-                         'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1000&auto=format&fit=crop',
-                         'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=1000&auto=format&fit=crop'
-                    ],
-                    features: ['پارکینگ ۲ ماشین', 'آسانسور', 'تراس', 'انباری', 'ویو شهر', 'لابی مجلل']
-               }
-          };
-
-          /* ============ QUICKVIEW MODAL ============ */
-          const modal = document.getElementById('quickviewModal');
-          let modalCurrent = { id: null, imgIndex: 0 };
-
-          document.querySelectorAll('.btn-quickview').forEach(btn => {
-               btn.addEventListener('click', () => openModal(btn.dataset.id));
-          });
-
-          function openModal(id) {
-               const p = propertyData[id];
-               if (!p) return;
-               modalCurrent = { id, imgIndex: 0 };
-
-               document.getElementById('modalTitle').textContent = p.title;
-               document.getElementById('modalPrice').textContent = p.price;
-               document.getElementById('modalLocation').innerHTML = `<i class="bi bi-geo-alt"></i> ${p.location}`;
-               document.getElementById('modalBadges').innerHTML = `
-                    <span class="modal-badge ${p.tagClass === 'rent' ? 'success' : ''}">${p.tag}</span>
-                    <span class="modal-badge"><i class="bi bi-shield-check me-1"></i> تأیید شده</span>
-                    <span class="modal-badge"><i class="bi bi-eye me-1"></i> ${faNum(248)} بازدید</span>
-               `;
-
-               const specs = [];
-               if (p.beds) specs.push({ icon: 'bi-house', value: faNum(p.beds), label: 'خواب' });
-               if (p.baths) specs.push({ icon: 'bi-droplet', value: faNum(p.baths), label: 'سرویس' });
-               specs.push({ icon: 'bi-rulers', value: faNum(p.area), label: 'متر' });
-               specs.push({ icon: 'bi-calendar', value: '۱۴۰۲', label: 'سال ساخت' });
-               document.getElementById('modalSpecs').innerHTML = specs.map(s => `
-                    <div class="modal-spec">
-                         <i class="bi ${s.icon}"></i>
-                         <div class="modal-spec-value">${s.value}</div>
-                         <div class="modal-spec-label">${s.label}</div>
-                    </div>
-               `).join('');
-
-               document.getElementById('modalFeatures').innerHTML = p.features.map(f => `
-                    <div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> ${f}</div>
-               `).join('');
-
-               renderModalGallery();
-               modal.classList.add('show');
-               document.body.style.overflow = 'hidden';
-          }
-
-          function renderModalGallery() {
-               const p = propertyData[modalCurrent.id];
-               if (!p) return;
-               document.getElementById('modalMainImg').src = p.imgs[modalCurrent.imgIndex];
-               document.getElementById('modalThumbs').innerHTML = p.imgs.map((src, i) => `
-                    <img src="${src}" class="${i === modalCurrent.imgIndex ? 'active' : ''}" data-i="${i}">
-               `).join('');
-               document.querySelectorAll('#modalThumbs img').forEach(img => {
-                    img.addEventListener('click', () => {
-                         modalCurrent.imgIndex = +img.dataset.i;
-                         renderModalGallery();
+          /* ============ FILTER TABS ============ */
+          const filterTabs = $('#filterTabs');
+          filterTabs.querySelectorAll('.filter-btn').forEach(btn => {
+               btn.addEventListener('click', () => {
+                    filterTabs.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const f = btn.dataset.filter;
+                    $$('#propertyGrid > [data-type]').forEach(card => {
+                         card.style.display = (f === 'all' || card.dataset.type === f) ? '' : 'none';
                     });
                });
-          }
-
-          document.getElementById('modalPrev').addEventListener('click', () => {
-               const p = propertyData[modalCurrent.id];
-               if (!p) return;
-               modalCurrent.imgIndex = (modalCurrent.imgIndex - 1 + p.imgs.length) % p.imgs.length;
-               renderModalGallery();
-          });
-          document.getElementById('modalNext').addEventListener('click', () => {
-               const p = propertyData[modalCurrent.id];
-               if (!p) return;
-               modalCurrent.imgIndex = (modalCurrent.imgIndex + 1) % p.imgs.length;
-               renderModalGallery();
           });
 
-          function closeModal() {
-               modal.classList.remove('show');
-               document.body.style.overflow = '';
+          /* ============ VIEW TOGGLE ============ */
+          const grid = $('#propertyGrid');
+          $$('.view-btn').forEach(btn => {
+               btn.addEventListener('click', () => {
+                    $$('.view-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    grid.classList.toggle('list-view', btn.dataset.view === 'list');
+               });
+          });
+
+          /* ============ SORT ============ */
+          $('#sortSelect').addEventListener('change', e => {
+               showToast('مرتب‌سازی: ' + e.target.options[e.target.selectedIndex].text, 'success');
+          });
+
+          /* ============ COUNTERS ============ */
+          const counterObs = new IntersectionObserver((entries, obs) => {
+               entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    const el = entry.target;
+                    const target = +el.dataset.target;
+                    const dur = 1600;
+                    const start = performance.now();
+                    function tick(now) {
+                         const p = Math.min((now - start) / dur, 1);
+                         const eased = 1 - Math.pow(1 - p, 3);
+                         el.textContent = toFa(Math.floor(target * eased));
+                         if (p < 1) requestAnimationFrame(tick);
+                         else el.textContent = toFa(target);
+                    }
+                    requestAnimationFrame(tick);
+                    obs.unobserve(el);
+               });
+          }, { threshold: 0.4 });
+          $$('.counter').forEach(c => counterObs.observe(c));
+
+          /* ============ REVEAL ============ */
+          const revealObs = new IntersectionObserver((entries, obs) => {
+               entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                         entry.target.classList.add('revealed');
+                         obs.unobserve(entry.target);
+                    }
+               });
+          }, { threshold: 0.15 });
+          $$('.reveal').forEach(el => revealObs.observe(el));
+
+          /* ============ MORTGAGE CALCULATOR ============ */
+          const calc = {
+               loanAmount: $('#loanAmount'),
+               downPayment: $('#downPayment'),
+               interestRate: $('#interestRate'),
+               loanYears: $('#loanYears'),
+               loanValue: $('#loanValue'),
+               downValue: $('#downValue'),
+               rateValue: $('#rateValue'),
+               yearsValue: $('#yearsValue'),
+               monthlyPayment: $('#monthlyPayment'),
+               totalInfo: $('#totalInfo'),
+               barPrincipal: $('#barPrincipal'),
+               barInterest: $('#barInterest')
+          };
+
+          function updateCalc() {
+               const amount = +calc.loanAmount.value;
+               const down = +calc.downPayment.value;
+               const rate = +calc.interestRate.value;
+               const years = +calc.loanYears.value;
+
+               calc.loanValue.textContent = formatMoney(amount);
+               calc.downValue.textContent = formatMoney(down);
+               calc.rateValue.textContent = toFa(rate) + '٪';
+               calc.yearsValue.textContent = toFa(years) + ' سال';
+
+               const principal = Math.max(amount - down, 0);
+               const n = years * 12;
+               const r = rate / 100 / 12;
+
+               let monthly = 0;
+               if (principal > 0 && n > 0) {
+                    monthly = r === 0 ? principal / n : principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+               }
+               const total = monthly * n;
+               const totalInterest = Math.max(total - principal, 0);
+
+               calc.monthlyPayment.textContent = monthly > 0 ? formatMoney(Math.round(monthly)) + '/ماه' : '۰ تومان';
+               calc.totalInfo.textContent = 'مبلغ کل بازپرداخت: ' + formatMoney(Math.round(total));
+
+               const principalPct = total > 0 ? (principal / total) * 100 : 70;
+               const interestPct = 100 - principalPct;
+               calc.barPrincipal.style.width = principalPct + '%';
+               calc.barInterest.style.width = interestPct + '%';
           }
-          document.getElementById('modalClose').addEventListener('click', closeModal);
-          modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-          document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+          Object.values(calc).forEach(el => {
+               if (el && el.type === 'range') el.addEventListener('input', updateCalc);
+          });
+          updateCalc();
 
           /* ============ COMPARE ============ */
-          const compareSet = new Set();
-          const compareBar = document.getElementById('compareBar');
-          const compareCount = document.getElementById('compareCount');
-          const compareThumbs = document.getElementById('compareThumbs');
+          const compareBar = $('#compareBar');
+          const compareCount = $('#compareCount');
+          const compareThumbs = $('#compareThumbs');
+          let compareList = [];
 
-          document.querySelectorAll('.btn-compare').forEach(btn => {
+          function updateCompareBar() {
+               compareCount.textContent = toFa(compareList.length) + ' ملک';
+               compareThumbs.innerHTML = compareList.map(p => `<img src="${p.img}" alt="" class="compare-thumb">`).join('');
+               compareBar.classList.toggle('visible', compareList.length > 0);
+          }
+
+          window.clearCompare = function () {
+               compareList = [];
+               $$('.btn-compare').forEach(b => b.classList.remove('added'));
+               updateCompareBar();
+               showToast('لیست مقایسه خالی شد', 'warning');
+          };
+
+          $$('.btn-compare').forEach(btn => {
                btn.addEventListener('click', () => {
                     const id = btn.dataset.id;
-                    if (compareSet.has(id)) {
-                         compareSet.delete(id);
+                    const card = btn.closest('.property-card');
+                    const img = card.querySelector('.property-slider img').src;
+                    const title = card.querySelector('.property-title').textContent;
+
+                    if (btn.classList.contains('added')) {
                          btn.classList.remove('added');
-                         btn.innerHTML = '<i class="bi bi-shuffle me-1"></i> مقایسه';
+                         compareList = compareList.filter(p => p.id !== id);
                     } else {
-                         if (compareSet.size >= 4) { showToast('حداکثر ۴ ملک قابل مقایسه است.', 'warning'); return; }
-                         compareSet.add(id);
+                         if (compareList.length >= 4) {
+                              showToast('حداکثر ۴ ملک قابل مقایسه است', 'warning');
+                              return;
+                         }
                          btn.classList.add('added');
-                         btn.innerHTML = '<i class="bi bi-check me-1"></i> اضافه شد';
-                         showToast('به لیست مقایسه اضافه شد.', 'success');
+                         compareList.push({ id, img, title });
+                         showToast('«' + title + '» به مقایسه اضافه شد', 'success');
                     }
                     updateCompareBar();
                });
           });
 
-          function updateCompareBar() {
-               compareCount.textContent = faNum(compareSet.size);
-               compareThumbs.innerHTML = '';
-               compareSet.forEach(id => {
-                    const p = propertyData[id];
-                    if (p) {
-                         const img = document.createElement('img');
-                         img.src = p.imgs[0];
-                         img.className = 'compare-thumb';
-                         compareThumbs.appendChild(img);
-                    }
-               });
-               compareBar.classList.toggle('visible', compareSet.size > 0);
-          }
-
-          document.getElementById('clearCompare').addEventListener('click', () => {
-               compareSet.clear();
-               document.querySelectorAll('.btn-compare').forEach(b => {
-                    b.classList.remove('added');
-                    b.innerHTML = '<i class="bi bi-shuffle me-1"></i> مقایسه';
-               });
-               updateCompareBar();
-          });
-
-          /* ============ TESTIMONIAL SLIDER ============ */
-          const testSlider = document.getElementById('testimonialSlider');
-          document.getElementById('testPrev').addEventListener('click', () => {
-               testSlider.scrollBy({ left: 360, behavior: 'smooth' });
-          });
-          document.getElementById('testNext').addEventListener('click', () => {
-               testSlider.scrollBy({ left: -360, behavior: 'smooth' });
-          });
-
-          /* ============ MORTGAGE CALCULATOR ============ */
-          const loanAmount = document.getElementById('loanAmount');
-          const downPayment = document.getElementById('downPayment');
-          const interestRate = document.getElementById('interestRate');
-          const loanYears = document.getElementById('loanYears');
-          const loanValue = document.getElementById('loanValue');
-          const downValue = document.getElementById('downValue');
-          const rateValue = document.getElementById('rateValue');
-          const yearsValue = document.getElementById('yearsValue');
-          const monthlyPaymentEl = document.getElementById('monthlyPayment');
-          const totalInfoEl = document.getElementById('totalInfo');
-          const barPrincipal = document.getElementById('barPrincipal');
-          const barInterest = document.getElementById('barInterest');
-
-          function formatToman(v) {
-               if (v >= 1e9) return (v / 1e9).toFixed(1).replace('.0', '') + ' میلیارد';
-               if (v >= 1e6) return Math.round(v / 1e6).toLocaleString('fa-IR') + ' میلیون';
-               return faNum(v);
-          }
-
-          function calcMortgage() {
-               const P = +loanAmount.value - Math.min(+downPayment.value, +loanAmount.value * 0.9);
-               const annual = +interestRate.value / 100;
-               const months = +loanYears.value * 12;
-               const r = annual / 12;
-               const monthly = r > 0 ? (P * r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1) : P / months;
-               const total = monthly * months;
-               const interestTotal = total - P;
-
-               loanValue.textContent = formatToman(+loanAmount.value) + ' تومان';
-               downValue.textContent = formatToman(+downPayment.value) + ' تومان';
-               rateValue.textContent = faNum(+interestRate.value) + '٪';
-               yearsValue.textContent = faNum(+loanYears.value) + ' سال';
-
-               monthlyPaymentEl.textContent = faNum(Math.round(monthly)) + ' تومان';
-               totalInfoEl.textContent = 'مبلغ کل بازپرداخت: ' + formatToman(total) + ' تومان';
-
-               const pPercent = (P / total) * 100;
-               const iPercent = (interestTotal / total) * 100;
-               barPrincipal.style.width = pPercent + '%';
-               barInterest.style.width = iPercent + '%';
-          }
-
-          [loanAmount, downPayment, interestRate, loanYears].forEach(el => {
-               el.addEventListener('input', calcMortgage);
-          });
-          calcMortgage();
-
-          /* ============ NEWSLETTER ============ */
-          function subscribeNewsletter() {
-               const input = document.getElementById('newsletterInput');
-               const v = input.value.trim();
-               if (!v || !v.includes('@')) {
-                    showToast('لطفاً ایمیل معتبر وارد کنید.', 'error');
-                    return;
+          /* ============ PROPERTY DATA (for modal) ============ */
+          const PROPERTIES = {
+               1: {
+                    title: 'آپارتمان لوکس ۱۴۵ متری',
+                    price: '۴,۲۰۰,۰۰۰,۰۰۰ تومان',
+                    location: 'تهران، سعادت‌آباد',
+                    tag: 'فروش',
+                    beds: 3, baths: 2, area: 145, parking: 2,
+                    images: [
+                         'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1000&auto=format&fit=crop',
+                         'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&auto=format&fit=crop',
+                         'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1000&auto=format&fit=crop'
+                    ],
+                    features: ['پارکینگ', 'آسانسور', 'انباری', 'استخر', 'سونا', 'جکوزی', 'امنیت ۲۴ ساعته', 'لابی']
+               },
+               2: {
+                    title: 'ویلای دوبلکس مدرن',
+                    price: '۲۸,۰۰۰,۰۰۰ تومان/ماه',
+                    location: 'کرج، عظیمیه',
+                    tag: 'اجاره',
+                    beds: 4, baths: 3, area: 280, parking: 2,
+                    images: [
+                         'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1000&auto=format&fit=crop',
+                         'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1000&auto=format&fit=crop'
+                    ],
+                    features: ['حیاط اختصاصی', 'استخر', 'باغ', 'پارکینگ', 'سونا', 'آلاچیق']
+               },
+               3: {
+                    title: 'پنت‌هاوس با ویو شهر',
+                    price: '۹,۵۰۰,۰۰۰,۰۰۰ تومان',
+                    location: 'تهران، الهیه',
+                    tag: 'فروش',
+                    beds: 3, baths: 2, area: 200, parking: 2,
+                    images: [
+                         'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1000&auto=format&fit=crop',
+                         'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=1000&auto=format&fit=crop'
+                    ],
+                    features: ['ویو پانوراما', 'روف‌گاردن', 'استخر', 'سالن ورزش', 'لابی مجلل', 'پارکینگ']
                }
-               input.value = '';
-               showToast('عضویت شما در خبرنامه ثبت شد. 🎉', 'success');
+          };
+
+          /* ============ MODAL ============ */
+          const modal = $('#propertyModal');
+          const modalMainImage = $('#modalMainImage');
+          const modalThumbs = $('#modalThumbs');
+          let modalIdx = 0, modalImages = [], currentProperty = null;
+
+          function openModal(id) {
+               const p = PROPERTIES[id];
+               if (!p) return;
+               currentProperty = p;
+               modalImages = p.images;
+               modalIdx = 0;
+
+               $('#modalTag').textContent = p.tag;
+               $('#modalTag').className = 'modal-badge' + (p.tag === 'اجاره' ? ' success' : '');
+               $('#modalPrice').textContent = p.price;
+               $('#modalTitle').textContent = p.title;
+               $('#modalLocation').textContent = p.location;
+
+               $('#modalSpecs').innerHTML = `
+                    <div class="modal-spec"><i class="bi bi-house"></i><div class="modal-spec-value">${toFa(p.beds)}</div><div class="modal-spec-label">خواب</div></div>
+                    <div class="modal-spec"><i class="bi bi-droplet"></i><div class="modal-spec-value">${toFa(p.baths)}</div><div class="modal-spec-label">سرویس</div></div>
+                    <div class="modal-spec"><i class="bi bi-rulers"></i><div class="modal-spec-value">${toFa(p.area)}</div><div class="modal-spec-label">متراژ</div></div>
+                    <div class="modal-spec"><i class="bi bi-car-front"></i><div class="modal-spec-value">${toFa(p.parking)}</div><div class="modal-spec-label">پارکینگ</div></div>
+               `;
+               $('#modalFeatures').innerHTML = p.features.map(f => `<div class="modal-feature-item"><i class="bi bi-check-circle-fill"></i> ${f}</div>`).join('');
+
+               updateModalImage();
+
+               modalThumbs.innerHTML = p.images.map((src, i) =>
+                    `<img src="${src}" alt="" class="${i === 0 ? 'active' : ''}" data-i="${i}">`
+               ).join('');
+               modalThumbs.querySelectorAll('img').forEach(t => {
+                    t.addEventListener('click', () => {
+                         modalIdx = +t.dataset.i;
+                         updateModalImage();
+                    });
+               });
+
+               modal.classList.add('show');
+               document.body.style.overflow = 'hidden';
           }
-          window.subscribeNewsletter = subscribeNewsletter;
+
+          function updateModalImage() {
+               modalMainImage.src = modalImages[modalIdx];
+               modalThumbs.querySelectorAll('img').forEach((t, i) => t.classList.toggle('active', i === modalIdx));
+          }
+
+          function closeModal() {
+               modal.classList.remove('show');
+               document.body.style.overflow = '';
+          }
+
+          $$('.btn-quickview').forEach(btn => {
+               btn.addEventListener('click', () => openModal(btn.dataset.id));
+          });
+          $('#modalClose').addEventListener('click', closeModal);
+          modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+          $('#modalPrev').addEventListener('click', () => { modalIdx = (modalIdx - 1 + modalImages.length) % modalImages.length; updateModalImage(); });
+          $('#modalNext').addEventListener('click', () => { modalIdx = (modalIdx + 1) % modalImages.length; updateModalImage(); });
+          document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
           /* ============ AI CHAT ============ */
-          const chatToggle = document.getElementById('chatToggle');
-          const chatPanel = document.getElementById('chatPanel');
-          const chatClose = document.getElementById('chatClose');
-          const chatMessages = document.getElementById('chatMessages');
-          const chatInput = document.getElementById('chatInput');
-          const chatSend = document.getElementById('chatSend');
+          const chatPanel = $('#chatPanel');
+          const chatToggle = $('#chatToggle');
+          const chatClose = $('#chatClose');
+          const chatForm = $('#chatForm');
+          const chatInput = $('#chatInput');
+          const chatMessages = $('#chatMessages');
+          const chatSuggestions = $('#chatSuggestions');
 
-          chatToggle.addEventListener('click', () => {
-               chatPanel.classList.toggle('open');
-          });
-          chatClose.addEventListener('click', () => chatPanel.classList.remove('open'));
-
-          const botReplies = [
-               'چه سوال خوبی! بذار کمکت کنم. برای این مورد پیشنهاد می‌کنم با یکی از مشاوران متخصص ما صحبت کنی.',
-               'بر اساس فیلترهای شما، چند گزینه‌ی عالی پیدا کردم. توی صفحه‌ی املاک می‌تونی جزئیات کامل رو ببینی.',
-               'برای این مورد می‌تونم راهنمایی‌ت کنم. اول بگو بودجه‌ی تقریبی‌ت چقدره؟',
-               'بله حتماً! خانه‌یار تور مجازی ۳۶۰ درجه هم داره که می‌تونی بدون بازدید حضوری، ملک رو ببینی.',
-               'عالی! می‌خوای برات لیست بهترین گزینه‌ها رو آماده کنم؟ فقط کافیه بگی کدوم منطقه رو ترجیح می‌دی.'
-          ];
-          let botReplyIdx = 0;
-
-          function sendChatMessage(text) {
-               if (!text.trim()) return;
-               addBubble(text, 'user');
-               chatInput.value = '';
-               const typing = document.createElement('div');
-               typing.className = 'chat-bubble bot typing';
-               typing.innerHTML = '<span></span><span></span><span></span>';
-               chatMessages.appendChild(typing);
-               chatMessages.scrollTop = chatMessages.scrollHeight;
-
-               setTimeout(() => {
-                    typing.remove();
-                    addBubble(botReplies[botReplyIdx % botReplies.length], 'bot');
-                    botReplyIdx++;
-               }, 1200);
+          function toggleChat(open) {
+               const willOpen = open ?? !chatPanel.classList.contains('open');
+               chatPanel.classList.toggle('open', willOpen);
           }
+          chatToggle.addEventListener('click', () => toggleChat());
+          chatClose.addEventListener('click', () => toggleChat(false));
 
-          function addBubble(text, who) {
+          function addBubble(text, sender) {
                const b = document.createElement('div');
-               b.className = `chat-bubble ${who}`;
+               b.className = 'chat-bubble ' + sender;
                b.textContent = text;
                chatMessages.appendChild(b);
                chatMessages.scrollTop = chatMessages.scrollHeight;
+               return b;
           }
 
-          chatSend.addEventListener('click', () => sendChatMessage(chatInput.value));
-          chatInput.addEventListener('keypress', e => {
-               if (e.key === 'Enter') sendChatMessage(chatInput.value);
+          function typing() {
+               const b = document.createElement('div');
+               b.className = 'chat-bubble bot typing';
+               b.innerHTML = '<span></span><span></span><span></span>';
+               chatMessages.appendChild(b);
+               chatMessages.scrollTop = chatMessages.scrollHeight;
+               return b;
+          }
+
+          function botReply(text) {
+               const t = typing();
+               setTimeout(() => {
+                    t.remove();
+                    let reply = 'متوجه شدم! برای راهنمایی دقیق‌تر، لطفاً سوال‌تان را واضح‌تر بپرسید یا با یکی از مشاوران ما تماس بگیرید.';
+                    const msg = text.toLowerCase();
+
+                    if (msg.includes('قیمت') || msg.includes('price')) {
+                         reply = '💰 قیمت‌ها در مناطق مختلف تهران متفاوت است. مثلاً آپارتمان در سعادت‌آباد حدود ۲۸ تا ۳۵ میلیون تومان بر متر، در الهیه ۴۵ تا ۶۰ میلیون تومان بر متر. برای تحلیل دقیق‌تر، از ماشین‌حساب وام استفاده کنید.';
+                    } else if (msg.includes('وام') || msg.includes('قرض') || msg.includes('قسط')) {
+                         reply = '🏦 برای وام مسکن، بانک‌های مختلف نرخ‌های متفاوتی دارند. به‌طور متوسط نرخ سود ۱۸ تا ۲۳ درصد با بازپرداخت تا ۲۰ سال. با کشیدن اسلایدرهای ماشین‌حساب وام، قسط ماهانه‌تان را دقیق ببینید.';
+                    } else if (msg.includes('محله') || msg.includes('منطقه') || msg.includes('زندگی')) {
+                         reply = '📍 انتخاب محله به سبک زندگی شما بستگی دارد: سعادت‌آباد و الهیه برای خانواده‌های مرفه، پونک و اکباتان برای اقتصاد متوسط، و ونک و جردن برای دسترسی به مرکز شهر.';
+                    } else if (msg.includes('اجاره') || msg.includes('رهن')) {
+                         reply = '🔑 برای اجاره، معمولاً ودیعه ۳ تا ۶ ماه اجاره و اجاره‌ی ماهانه‌ی توافقی است. در مناطق خوب تهران، ودیعه از ۵۰۰ میلیون تا ۲ میلیارد تومان متغیر است.';
+                    } else if (msg.includes('سلام') || msg.includes('hi') || msg.includes('hello')) {
+                         reply = 'سلام و درود 👋 چطور می‌توانم کمک کنم؟ درباره‌ی قیمت، وام، محله یا هر چیز دیگری می‌توانید بپرسید.';
+                    } else if (msg.includes('ممنون') || msg.includes('مرسی') || msg.includes('تشکر')) {
+                         reply = 'خواهش می‌کنم 🌹 اگر سوال دیگری داشتید، در خدمتم.';
+                    }
+                    addBubble(reply, 'bot');
+               }, 900);
+          }
+
+          chatForm.addEventListener('submit', e => {
+               e.preventDefault();
+               const text = chatInput.value.trim();
+               if (!text) return;
+               addBubble(text, 'user');
+               chatInput.value = '';
+               botReply(text);
           });
 
-          document.querySelectorAll('.chat-suggestion').forEach(btn => {
-               btn.addEventListener('click', () => sendChatMessage(btn.dataset.q));
+          chatSuggestions.querySelectorAll('.chat-suggestion').forEach(s => {
+               s.addEventListener('click', () => {
+                    addBubble(s.textContent, 'user');
+                    botReply(s.textContent);
+               });
           });
 
-          /* ============ SCROLL REVEAL & COUNTERS ============ */
-          const observer = new IntersectionObserver(entries => {
-               entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                         entry.target.classList.add('revealed');
-                         entry.target.querySelectorAll('.counter').forEach(counter => {
-                              if (counter.dataset.done) return;
-                              counter.dataset.done = '1';
-                              const target = +counter.dataset.target;
-                              const duration = 2000;
-                              const start = performance.now();
-                              const animate = now => {
-                                   const p = Math.min((now - start) / duration, 1);
-                                   const eased = 1 - Math.pow(1 - p, 3);
-                                   counter.textContent = Math.floor(eased * target).toLocaleString('fa-IR');
-                                   if (p < 1) requestAnimationFrame(animate);
-                              };
-                              requestAnimationFrame(animate);
+          /* ============ PARTICLES ============ */
+          (function () {
+               const canvas = $('#particleCanvas');
+               if (!canvas) return;
+               const ctx = canvas.getContext('2d');
+               let w, h, particles = [];
+               const COUNT = 45;
+
+               function resize() {
+                    w = canvas.width = canvas.offsetWidth;
+                    h = canvas.height = canvas.offsetHeight;
+               }
+               function init() {
+                    particles = [];
+                    for (let i = 0; i < COUNT; i++) {
+                         particles.push({
+                              x: Math.random() * w,
+                              y: Math.random() * h,
+                              r: Math.random() * 2 + 0.5,
+                              vx: (Math.random() - 0.5) * 0.4,
+                              vy: (Math.random() - 0.5) * 0.4,
+                              a: Math.random() * 0.5 + 0.1
                          });
-                         observer.unobserve(entry.target);
+                    }
+               }
+               function draw() {
+                    ctx.clearRect(0, 0, w, h);
+                    const dark = document.body.classList.contains('dark');
+                    const color = dark ? '180,190,255' : '99,102,241';
+                    particles.forEach(p => {
+                         p.x += p.vx; p.y += p.vy;
+                         if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+                         if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+                         ctx.beginPath();
+                         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                         ctx.fillStyle = `rgba(${color},${p.a})`;
+                         ctx.fill();
+                    });
+                    // lines between close particles
+                    for (let i = 0; i < particles.length; i++) {
+                         for (let j = i + 1; j < particles.length; j++) {
+                              const dx = particles[i].x - particles[j].x;
+                              const dy = particles[i].y - particles[j].y;
+                              const d = Math.hypot(dx, dy);
+                              if (d < 110) {
+                                   ctx.beginPath();
+                                   ctx.moveTo(particles[i].x, particles[i].y);
+                                   ctx.lineTo(particles[j].x, particles[j].y);
+                                   ctx.strokeStyle = `rgba(${color},${0.08 * (1 - d / 110)})`;
+                                   ctx.stroke();
+                              }
+                         }
+                    }
+                    requestAnimationFrame(draw);
+               }
+               function setup() { resize(); init(); }
+               window.addEventListener('resize', setup);
+               setup();
+               draw();
+          })();
+
+          /* ============ SMOOTH SCROLL FOR HASH LINKS ============ */
+          document.querySelectorAll('a[href^="#"]').forEach(a => {
+               a.addEventListener('click', e => {
+                    const href = a.getAttribute('href');
+                    if (href.length > 1) {
+                         const target = document.querySelector(href);
+                         if (target) {
+                              e.preventDefault();
+                              window.scrollTo({ top: target.offsetTop - 80, behavior: 'smooth' });
+                         }
                     }
                });
-          }, { threshold: 0.12 });
-
-          document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
-          /* ============ SORT / VIEW TOGGLE (Demo) ============ */
-          document.getElementById('sortSelect').addEventListener('change', e => {
-               showToast('مرتب‌سازی: ' + e.target.selectedOptions[0].text, 'info');
           });
 
-          document.querySelectorAll('.view-btn').forEach(btn => {
-               btn.addEventListener('click', () => {
-                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    const grid = document.getElementById('propertyGrid');
-                    if (btn.dataset.view === 'list') {
-                         grid.classList.add('list-view');
-                    } else {
-                         grid.classList.remove('list-view');
-                    }
-               });
-          });
+          console.log('%c🏠 خانه‌یار بارگذاری شد', 'color:#6366f1; font-weight:bold; font-size:14px;');
      </script>
 </body>
 

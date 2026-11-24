@@ -69,6 +69,47 @@ export default function CustomerDetailPage() {
       ).data,
   });
 
+  const timelineQ = useQuery({
+    queryKey: ["customer-timeline", params.id, activeAgencyId],
+    enabled: !!accessToken && !!custQ.data,
+    queryFn: async () => (await apiFetch<Array<{ id: string; type: string; title: string; description: string; actor?: string; at: string; due_at?: string; from?: string; to?: string }>>(`/api/v1/customers/${params.id}/timeline`, {
+      token: accessToken,
+      agencyId: activeAgencyId || custQ.data?.agency || null,
+    })).data,
+  });
+
+  const duplicateQ = useQuery({
+    queryKey: ["customer-duplicates", params.id, activeAgencyId],
+    enabled: !!accessToken && !!custQ.data,
+    queryFn: async () => (await apiFetch<Array<{ customer: CustomerItem; confidence: number; match_reasons: string[] }>>(`/api/v1/customers/${params.id}/duplicates`, {
+      token: accessToken, agencyId: activeAgencyId || custQ.data?.agency || null,
+    })).data,
+  });
+  const teamQ = useQuery({
+    queryKey: ["team-members", activeAgencyId],
+    enabled: !!accessToken && !!custQ.data,
+    queryFn: async () => (await apiFetch<Array<{ id: string; full_name: string; branch_name?: string | null; status: string }>>(`/api/v1/team/members`, {
+      token: accessToken, agencyId: activeAgencyId || custQ.data?.agency || null,
+    })).data,
+  });
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const transferMut = useMutation({
+    mutationFn: async () => apiFetch(`/api/v1/customers/${params.id}/transfer`, {
+      method: "POST", token: accessToken, agencyId: activeAgencyId || c?.agency || null,
+      body: JSON.stringify({ target_membership_id: transferTarget, reason: transferReason.trim() }),
+    }),
+    onSuccess: () => { setTransferReason(""); setNotice("مسئول پرونده با ثبت تاریخچه انتقال تغییر کرد."); setErrMsg(null); qc.invalidateQueries({ queryKey: ["customer-detail", params.id] }); qc.invalidateQueries({ queryKey: ["customer-timeline", params.id] }); },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
+  const mergeMut = useMutation({
+    mutationFn: async (duplicateId: string) => apiFetch(`/api/v1/customers/merge`, {
+      method: "POST", token: accessToken, agencyId: activeAgencyId || c?.agency || null,
+      body: JSON.stringify({ primary_customer_id: params.id, duplicate_customer_id: duplicateId }),
+    }),
+    onSuccess: () => { setNotice("پرونده تکراری ادغام و آرشیو شد."); setErrMsg(null); qc.invalidateQueries({ queryKey: ["customer-detail", params.id] }); qc.invalidateQueries({ queryKey: ["customer-timeline", params.id] }); qc.invalidateQueries({ queryKey: ["customer-duplicates", params.id] }); qc.invalidateQueries({ queryKey: ["customers"] }); },
+    onError: (e: Error) => setErrMsg(e.message),
+  });
   const c = custQ.data;
   const targetAgencyId = activeAgencyId || c?.agency || null;
 
@@ -89,6 +130,7 @@ export default function CustomerDetailPage() {
       setErrMsg(null);
       setNotice("تعامل جدید با موفقیت در تایم‌لاین پرونده ثبت شد.");
       qc.invalidateQueries({ queryKey: ["customer-detail", params.id] });
+      qc.invalidateQueries({ queryKey: ["customer-timeline", params.id] });
     },
     onError: (e: Error) => setErrMsg(e.message),
   });
@@ -391,6 +433,51 @@ export default function CustomerDetailPage() {
                 </div>
               )}
             </div>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">تاریخچه یکپارچه پرونده</h3>
+              {timelineQ.isLoading ? <p className="text-xs text-slate-500">در حال بارگذاری تاریخچه…</p> : timelineQ.error ? <p className="text-xs text-rose-600">بارگذاری Timeline ناموفق بود.</p> : timelineQ.data?.length ? (
+                <ol className="space-y-2.5">
+                  {timelineQ.data.map((event) => (
+                    <li key={`${event.type}-${event.id}`} className="border-r-2 border-teal-600 pr-3 py-1">
+                      <div className="flex flex-wrap justify-between gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        <span>{event.type === "interaction" ? (CHANNEL_LABELS[event.title] || event.title) : event.type === "task" ? `وظیفه: ${event.title}` : event.title}</span>
+                        <DateDisplay value={event.at} className="text-[11px] text-slate-500" />
+                      </div>
+                      <p className="mt-1 whitespace-pre-line text-xs text-slate-600 dark:text-slate-300">{event.description}</p>
+                      {event.type === "transfer" && <p className="mt-1 text-[11px] text-slate-500">{event.from || "بدون مسئول قبلی"} ← {event.to}</p>}
+                      {event.actor && <p className="mt-1 text-[11px] text-slate-400">ثبت‌کننده: {event.actor}</p>}
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="text-xs text-slate-400">هنوز رویدادی در Timeline ثبت نشده است.</p>}
+            </section>
+
+
+            <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">انتقال مسئول پرونده</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)} className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950">
+                  <option value="">انتخاب مسئول جدید…</option>
+                  {(teamQ.data || []).filter((m) => m.status === "ACTIVE").map((m) => <option key={m.id} value={m.id}>{m.full_name}{m.branch_name ? ` — ${m.branch_name}` : ""}</option>)}
+                </select>
+                <input value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder="علت انتقال (الزامی)" className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+              </div>
+              <button type="button" disabled={!transferTarget || !transferReason.trim() || transferMut.isPending} onClick={() => transferMut.mutate()} className="h-8 rounded-lg bg-slate-800 px-4 text-xs font-semibold text-white disabled:opacity-50 dark:bg-slate-700">
+                {transferMut.isPending ? "در حال انتقال…" : "ثبت انتقال مسئول"}
+              </button>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">بررسی پرونده‌های احتمالی تکراری</h3>
+              {duplicateQ.isLoading ? <p className="text-xs text-slate-500">در حال بررسی موارد مشابه…</p> : duplicateQ.error ? <p className="text-xs text-rose-600">بررسی مشابه‌ها انجام نشد.</p> : duplicateQ.data?.length ? duplicateQ.data.map((match) => (
+                <div key={match.customer.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+                  <div className="text-xs"><div className="font-bold text-slate-900 dark:text-slate-100">{match.customer.full_name}</div><div className="mt-1 text-slate-600 dark:text-slate-300">{match.customer.primary_phone} · شباهت {Math.round(match.confidence * 100)}٪</div></div>
+                  <button type="button" disabled={mergeMut.isPending} onClick={async () => { if (await confirmDialog({ title: "ادغام پرونده تکراری", message: `«${match.customer.full_name}» به پرونده فعلی ادغام می‌شود و پرونده آن آرشیو خواهد شد. ادامه می‌دهید؟`, danger: true })) mergeMut.mutate(match.customer.id); }} className="h-8 rounded-lg border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:bg-slate-900 dark:text-amber-300">ادغام با پرونده فعلی</button>
+                </div>
+              )) : <p className="text-xs text-slate-400">مورد مشابه قابل مشاهده پیدا نشد.</p>}
+            </section>
+
 
             {/* Customer Interactions Log & Timeline */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 space-y-4">

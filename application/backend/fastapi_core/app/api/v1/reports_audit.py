@@ -12,6 +12,22 @@ from app.core.uploads import read_upload_limited
 router = APIRouter(tags=["Reports & Audit Logs"])
 
 
+@router.get("/reports/daily-work")
+async def daily_work_hub_endpoint(
+    branch_id: Optional[UUID] = None,
+    agent_membership_id: Optional[UUID] = None,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    """Role-scoped operational work queue for the current agency context."""
+    def _op():
+        from apps.reports.daily_work import get_daily_work_hub
+        return get_daily_work_hub(
+            user=ctx.user, agency_id=ctx.agency_id,
+            branch_id=branch_id, agent_membership_id=agent_membership_id,
+        )
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
 class DashboardLayoutBody(BaseModel):
     widgets: Optional[list[dict]] = None
     default_period_days: Optional[int] = None

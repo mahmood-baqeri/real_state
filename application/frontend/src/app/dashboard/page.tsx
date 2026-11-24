@@ -255,6 +255,9 @@ export default function DashboardOverviewPage() {
         breadcrumbs={[{ label: "میز کار" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Link href="/dashboard/work-hub" className="inline-flex h-8 items-center gap-2 rounded-lg bg-teal-700 px-3 text-xs font-semibold text-white transition hover:bg-teal-800">
+              <Calendar className="h-4 w-4" /> مرکز کار روزانه
+            </Link>
             <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-900">
               {PERIOD_OPTIONS.map((p) => (
                 <button

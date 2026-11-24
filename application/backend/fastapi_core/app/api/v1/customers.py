@@ -1,5 +1,7 @@
 from decimal import Decimal
 from datetime import datetime
+from django.utils import timezone
+from django.db import models
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
@@ -112,8 +114,9 @@ def _ser_customer(c) -> dict:
                 "membership_id": str(s.membership_id),
                 "agent_name": s.membership.user.full_name,
                 "access_level": s.access_level,
+                "expires_at": s.expires_at.isoformat() if s.expires_at else None,
             }
-            for s in c.shares.all()
+            for s in c.shares.filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now()))
         ],
         "requirements": [
             {
@@ -348,6 +351,15 @@ async def post_customer_share(
     return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
 
 
+@router.delete("/customers/{customer_id}/share/{membership_id}")
+async def delete_customer_share_endpoint(customer_id: UUID, membership_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import revoke_customer_share
+        revoked = revoke_customer_share(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, membership_id=membership_id)
+        return {"revoked": revoked}
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
 @router.post("/customers/{customer_id}/requirements", status_code=201)
 async def post_customer_req(
     customer_id: UUID, body: CustomerRequirementBody, ctx: RequestContext = Depends(require_agency_context)
@@ -462,4 +474,85 @@ async def convert_lead(lead_id: UUID, ctx: RequestContext = Depends(require_agen
         lead, cust = convert_lead_to_customer(user=ctx.user, agency_id=ctx.agency_id, lead_id=lead_id)
         return {"lead": _ser_lead(lead), "customer_id": str(cust.id)}
 
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+class CustomerTransferBody(BaseModel):
+    target_membership_id: UUID
+    reason: str
+
+
+class CustomerMergeBody(BaseModel):
+    primary_customer_id: UUID
+    duplicate_customer_id: UUID
+
+
+class FollowUpTaskCreateBody(BaseModel):
+    assigned_membership_id: UUID
+    title: str
+    due_at: datetime
+
+
+class FollowUpTaskStatusBody(BaseModel):
+    status: str
+
+
+@router.get("/customers/{customer_id}/timeline")
+async def customer_timeline_endpoint(
+    customer_id: UUID, limit: int = Query(default=100, ge=1, le=300),
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.customers.services import customer_timeline
+        return customer_timeline(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, limit=limit)
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+
+@router.get("/customers/{customer_id}/duplicates")
+async def customer_duplicates_endpoint(customer_id: UUID, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import find_customer_duplicates
+        matches = find_customer_duplicates(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id)
+        return [{"customer": _ser_customer(m["customer"]), "match_reasons": m["match_reasons"], "confidence": m["confidence"]} for m in matches]
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+
+@router.post("/customers/merge")
+async def merge_customers_endpoint(body: CustomerMergeBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import merge_customers
+        customer = merge_customers(user=ctx.user, agency_id=ctx.agency_id, primary_id=body.primary_customer_id, duplicate_id=body.duplicate_customer_id)
+        return {"canonical_customer": _ser_customer(customer), "merged": True}
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+
+@router.post("/customers/{customer_id}/transfer")
+async def transfer_customer_endpoint(customer_id: UUID, body: CustomerTransferBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import transfer_customer
+        customer = transfer_customer(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, target_membership_id=body.target_membership_id, reason=body.reason)
+        return {"customer_id": str(customer.id), "assigned_membership_id": str(customer.assigned_membership_id), "transferred": True}
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+
+@router.post("/customers/{customer_id}/tasks", status_code=201)
+async def create_customer_task_endpoint(customer_id: UUID, body: FollowUpTaskCreateBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import create_follow_up_task
+        task = create_follow_up_task(user=ctx.user, agency_id=ctx.agency_id, customer_id=customer_id, assigned_membership_id=body.assigned_membership_id, title=body.title, due_at=body.due_at)
+        return {"id": str(task.id), "title": task.title, "status": task.status, "due_at": task.due_at.isoformat(), "assigned_membership_id": str(task.assigned_membership_id)}
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+
+@router.patch("/customer-tasks/{task_id}/status")
+async def update_customer_task_status_endpoint(task_id: UUID, body: FollowUpTaskStatusBody, ctx: RequestContext = Depends(require_agency_context)):
+    def _op():
+        from apps.customers.services import update_follow_up_task
+        task = update_follow_up_task(user=ctx.user, agency_id=ctx.agency_id, task_id=task_id, status_value=body.status)
+        return {"id": str(task.id), "status": task.status, "completed_at": task.completed_at.isoformat() if task.completed_at else None}
     return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

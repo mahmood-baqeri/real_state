@@ -16,6 +16,7 @@ const compile = spawnSync(
     "--skipLibCheck",
     "--strict",
     "--outDir", output,
+    "scripts/node-test-shims.d.ts",
     "src/lib/formatters.test.ts",
     "src/lib/role-navigation.test.ts",
     "src/lib/theme-table.test.ts",

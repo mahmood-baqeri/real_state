@@ -30,9 +30,20 @@ def calculate_deal_commission(
         raise ValidationError("Commission has already been calculated for this deal.")
     if policy_version.policy.agency_id != locked_deal.agency_id:
         raise ValidationError("Commission policy version belongs to another agency.")
+    if not policy_version.is_published:
+        raise ValidationError("Only a published commission policy version can be used.")
+    if not locked_deal.primary_agent or locked_deal.primary_agent.agency_id != locked_deal.agency_id:
+        raise ValidationError("Primary agent must belong to the deal agency.")
+    if locked_deal.co_agent_id and (
+        locked_deal.co_agent.agency_id != locked_deal.agency_id
+        or locked_deal.co_agent_id == locked_deal.primary_agent_id
+    ):
+        raise ValidationError("Co-agent must be a different membership in the deal agency.")
 
     currency_code = locked_deal.currency_id
     base = Decimal(locked_deal.deal_value)
+    if base <= 0:
+        raise ValidationError("Deal value must be greater than zero to calculate commission.")
     policy_percentages = [
         Decimal(policy_version.platform_share_percent),
         Decimal(policy_version.agency_house_percent),
@@ -47,6 +58,10 @@ def calculate_deal_commission(
         raise ValidationError("Agency house and agent pool percentages must total exactly 100%.")
     if discount_amount < 0:
         raise ValidationError("Commission discount cannot be negative.")
+    if Decimal(policy_version.fixed_amount) < 0:
+        raise ValidationError("Fixed commission amount cannot be negative.")
+    if policy_version.formula_type not in CommissionPolicyVersion.FormulaType.values:
+        raise ValidationError("Unsupported commission formula type.")
 
     if policy_version.formula_type == CommissionPolicyVersion.FormulaType.FIXED:
         gross = quantize_amount(policy_version.fixed_amount, currency_code)
@@ -91,8 +106,6 @@ def calculate_deal_commission(
     discount = quantize_amount(discount_amount, currency_code)
     if discount > gross:
         raise ValidationError("Commission discount cannot exceed gross commission.")
-    if policy_version.fixed_amount < 0:
-        raise ValidationError("Fixed commission amount cannot be negative.")
     after_discount = max(Decimal("0.00"), gross - discount)
     tax = quantize_amount(
         (after_discount * policy_version.tax_rate_percent) / Decimal("100"),
@@ -350,7 +363,9 @@ def update_commission_status(*, user: User, agency_id: UUID, commission_id: UUID
         or has_agency_permission(user, agency_id, "agency.manage_policy")
     ):
         raise PermissionDeniedDomainError("فقط مدیر آژانس یا حسابدار مجاز به تأیید یا تسویه کمیسیون است.")
-    dc = DealCommission.objects.all_tenants().filter(id=commission_id, agency_id=agency_id).first()
+    dc = DealCommission.objects.all_tenants().select_for_update().filter(
+        id=commission_id, agency_id=agency_id
+    ).first()
     if not dc:
         raise NotFoundDomainError("کمیسیون یافت نشد.")
     allowed_transitions = {

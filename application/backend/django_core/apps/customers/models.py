@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from common.encryption import decrypt_sensitive_value, encrypt_sensitive_value
 from common.models import BaseModel, SoftDeleteMixin, TenantScopedModel
 
@@ -101,3 +102,20 @@ class CustomerRequirement(TenantScopedModel):
 
     class Meta:
         db_table = "customers_requirement"
+
+
+class CustomerTransfer(BaseModel):
+    """Immutable audit trail for ownership/assignment transfers within an agency."""
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="transfer_history")
+    from_membership = models.ForeignKey(
+        "accounts.AgencyMembership", null=True, blank=True, on_delete=models.SET_NULL, related_name="customer_transfers_from"
+    )
+    to_membership = models.ForeignKey(
+        "accounts.AgencyMembership", on_delete=models.PROTECT, related_name="customer_transfers_to"
+    )
+    reason = models.CharField(max_length=500)
+    transferred_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "customers_transfer_history"
+        ordering = ["-transferred_at"]
