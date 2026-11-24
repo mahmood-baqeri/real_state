@@ -11,6 +11,10 @@ from app.schemas.common import ok
 router = APIRouter(tags=["Contracts & Deals"])
 
 
+class DealPaymentScheduleBody(BaseModel):
+    items: list[dict[str, Any]] = []
+
+
 class ContractTemplateCreateBody(BaseModel):
     country_id: str = "IR"
     contract_type: str
@@ -167,6 +171,7 @@ def _ser_deal(d) -> dict:
         "closed_at": d.closed_at.isoformat() if d.closed_at else None,
         "created_at": d.created_at.isoformat(),
         "deal_room": (d.contract.obligations_json or {}).get("deal_room", {"checklist": [], "events": []}),
+        "payment_schedule": (d.contract.obligations_json or {}).get("deal_payment_schedule", {"items": []}),
     }
 
 
@@ -521,4 +526,50 @@ async def update_deal_room_endpoint(
         deal.contract.save(update_fields=["obligations_json", "updated_by", "updated_at"])
         record_audit_event(action="DEAL_ROOM_UPDATED", resource_type="Deal", resource_id=str(deal.id), actor=ctx.user, agency_id=deal.agency_id, after_state=room)
         return room
+    return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))
+
+
+@router.put("/deals/{deal_id}/payment-schedule")
+async def update_deal_payment_schedule_endpoint(
+    deal_id: UUID,
+    body: DealPaymentScheduleBody,
+    ctx: RequestContext = Depends(require_agency_context),
+):
+    def _op():
+        from apps.contracts.services import get_deal
+        from common.permissions import can_edit_property
+        from apps.audit.services import record_audit_event
+        from common.exceptions import PermissionDeniedDomainError, ValidationDomainError
+
+
+        deal = get_deal(user=ctx.user, agency_id=ctx.agency_id, deal_id=deal_id)
+        if not can_edit_property(ctx.user, deal.property):
+            raise PermissionDeniedDomainError("مجوز ویرایش برنامه پرداخت معامله را ندارید.")
+        if len(body.items) > 100:
+            raise ValidationDomainError("حداکثر ۱۰۰ قسط/مرحله پرداخت مجاز است.")
+        cleaned = []
+        allowed = {"planned", "paid"}
+        for item in body.items:
+            title = str(item.get("title", "")).strip()[:160]
+            due_date = str(item.get("due_date", ""))[:10]
+            if not title or len(due_date) != 10:
+                continue
+            try:
+                amount = Decimal(str(item.get("amount", "0")))
+            except Exception:
+                raise ValidationDomainError("مبلغ مرحله پرداخت معتبر نیست.")
+            if amount < 0:
+                raise ValidationDomainError("مبلغ مرحله پرداخت نمی‌تواند منفی باشد.")
+            status = str(item.get("status", "planned"))
+            if status not in allowed:
+                status = "planned"
+            cleaned.append({"id": str(item.get("id", ""))[:64], "title": title, "due_date": due_date,
+                         "amount": str(amount), "status": status, "note": str(item.get("note", ""))[:500]})
+        obligations = dict(deal.contract.obligations_json or {})
+        obligations["deal_payment_schedule"] = {"items": cleaned}
+        deal.contract.obligations_json = obligations
+        deal.contract.updated_by = ctx.user
+        deal.contract.save(update_fields=["obligations_json", "updated_by", "updated_at"])
+        record_audit_event(action="DEAL_PAYMENT_SCHEDULE_UPDATED", resource_type="Deal", resource_id=str(deal.id), actor=ctx.user, agency_id=deal.agency_id, after_state={"items": cleaned})
+        return {"items": cleaned}
     return ok(await run_django(_op, agency_id=ctx.agency_id, user_id=ctx.user.id if ctx.user else None))

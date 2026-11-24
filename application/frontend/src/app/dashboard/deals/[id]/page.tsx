@@ -23,6 +23,7 @@ interface DealDetail extends DealItem {
     receivable_balance: string;
   } | null;
   deal_room?: { checklist?: { id: string; title: string; done: boolean }[]; events?: { id: string; title: string; date: string; note?: string }[] };
+  payment_schedule?: { items?: { id: string; title: string; due_date: string; amount: string; status: "planned" | "paid"; note?: string }[] };
   commission: {
     id: string;
     gross_commission: string;
@@ -39,6 +40,10 @@ export default function DealDetailPage() {
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventNote, setEventNote] = useState("");
+  const [payTitle, setPayTitle] = useState("");
+  const [payDate, setPayDate] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payNote, setPayNote] = useState("");
 
   const detailQ = useQuery({
     queryKey: ["deal-detail", id, activeAgencyId],
@@ -57,6 +62,13 @@ export default function DealDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+
+  const scheduleMut = useMutation({
+    mutationFn: async (items: NonNullable<DealDetail["payment_schedule"]>["items"] = []) =>
+      apiFetch(`/api/v1/deals/${id}/payment-schedule`, { method: "PUT", token: accessToken, agencyId: activeAgencyId, body: JSON.stringify({ items }) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["deal-detail", id, activeAgencyId] }); toast.success("برنامه پرداخت ذخیره شد."); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const closeWonMut = useMutation({
     mutationFn: async () =>
@@ -206,6 +218,21 @@ export default function DealDetailPage() {
           </div>
         </section>
       </div>
+
+      <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
+        <h2 className="flex items-center gap-2 text-sm font-bold"><Wallet className="h-4 w-4 text-teal-700" /> برنامه اقساط و سررسیدها</h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+          <input value={payTitle} onChange={e => setPayTitle(e.target.value)} placeholder="عنوان پرداخت (مثلاً پیش‌پرداخت)" className="h-9 rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+          <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="h-9 rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+          <input type="number" min="0" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="مبلغ" className="h-9 rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+          <button disabled={scheduleMut.isPending || !payTitle.trim() || !payDate || !payAmount} onClick={() => { const items = deal.payment_schedule?.items || []; scheduleMut.mutate([...items, { id: `pay-${Date.now()}`, title: payTitle.trim(), due_date: payDate, amount: payAmount, status: "planned" as const, note: payNote.trim() }]); setPayTitle(""); setPayDate(""); setPayAmount(""); setPayNote(""); }} className="h-9 rounded-md bg-teal-700 px-3 text-xs font-semibold text-white disabled:opacity-50">افزودن سررسید</button>
+        </div>
+        <input value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="توضیحات اختیاری" className="h-9 w-full rounded-md border px-3 text-xs dark:bg-slate-950 dark:border-slate-700" />
+        {(() => { const items = deal.payment_schedule?.items || []; const total = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0); const paid = items.filter(x => x.status === "paid").reduce((sum, item) => sum + (Number(item.amount) || 0), 0); return <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3"><div className="rounded border p-2"><span className="text-slate-500">جمع برنامه</span><p className="font-bold">{total.toLocaleString("fa-IR")} {deal.currency}</p></div><div className="rounded border p-2"><span className="text-slate-500">علامت‌خورده پرداخت</span><p className="font-bold text-emerald-700">{paid.toLocaleString("fa-IR")} {deal.currency}</p></div><div className="rounded border p-2"><span className="text-slate-500">باقی برنامه</span><p className="font-bold">{Math.max(0, total-paid).toLocaleString("fa-IR")} {deal.currency}</p></div></div>; })()}
+        <ul className="space-y-2">{(deal.payment_schedule?.items || []).slice().sort((a,b) => a.due_date.localeCompare(b.due_date)).map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded border p-3 text-xs"><div><div className="font-semibold">{item.title} — {item.due_date}</div><div className="mt-1 text-slate-500">{Number(item.amount).toLocaleString("fa-IR")} {deal.currency}{item.note ? ` · ${item.note}` : ""}</div></div><div className="flex gap-2"><button disabled={scheduleMut.isPending} onClick={() => scheduleMut.mutate((deal.payment_schedule?.items || []).map(x => x.id === item.id ? { ...x, status: (x.status === "paid" ? "planned" : "paid") as "paid" | "planned" } : x))} className={`rounded px-2 py-1 ${item.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}>{item.status === "paid" ? "پرداخت شد ✓" : "علامت پرداخت"}</button><button disabled={scheduleMut.isPending} onClick={() => scheduleMut.mutate((deal.payment_schedule?.items || []).filter(x => x.id !== item.id))} className="text-rose-600">حذف</button></div></li>)}{!(deal.payment_schedule?.items?.length) && <li className="text-xs text-slate-500">سررسیدی ثبت نشده است.</li>}</ul>
+        <p className="text-[11px] text-amber-700 dark:text-amber-400">این بخش فقط برنامه و وضعیت سررسیدها را نگه می‌دارد؛ علامت پرداخت، ثبت دریافت در کاردکس مالی نیست.</p>
+      </section>
+
       <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-4">
         <h2 className="flex items-center gap-2 text-sm font-bold"><ClipboardCheck className="h-4 w-4 text-teal-700" /> اتاق معامله — چک‌لیست و تقویم</h2>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
