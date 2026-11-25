@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ملکینو | معاملات ملکی، متفاوت‌تر از همیشه</title>
+<meta name="description" content="جستجوی هوشمند ملک، قیمت‌یاب، محاسبه‌گر وام، نقشه‌ی تعاملی و ثبت آگهی رایگان در ملکینو.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏡%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;800;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+<style>
+:root{--a:#10b981;--b:#2563eb;--c:#06b6d4;--bg:#f5f7fc;--sf:#ffffff;--cd:rgba(255,255,255,.72);--ln:rgba(30,41,90,.11);--tx:#0f172a;--mt:#64748b;--sh:0 30px 60px -30px rgba(37,99,235,.45);--g:linear-gradient(135deg,var(--a),var(--c) 55%,var(--b))}
+[data-bs-theme=dark]{--bg:#080b16;--sf:#10142a;--cd:rgba(20,25,52,.72);--ln:rgba(255,255,255,.1);--tx:#e8ecff;--mt:#94a3b8;--sh:0 30px 60px -30px rgba(0,0,0,.95)}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{font-family:'Vazirmatn',Tahoma,sans-serif;background:var(--bg);color:var(--tx);overflow-x:hidden;transition:background .4s,color .4s;-webkit-font-smoothing:antialiased}
+.text-secondary{color:var(--mt)!important}
+a{text-decoration:none}
+.aur{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.aur i{position:absolute;border-radius:50%;filter:blur(100px);opacity:.34;animation:dr 20s ease-in-out infinite}
+[data-bs-theme=dark] .aur i{opacity:.22}
+.aur i:nth-child(1){width:48vw;height:48vw;background:var(--a);top:-14vw;right:-12vw}
+.aur i:nth-child(2){width:42vw;height:42vw;background:var(--b);bottom:-16vw;left:-10vw;animation-delay:-7s}
+.aur i:nth-child(3){width:26vw;height:26vw;background:var(--c);top:42%;left:38%;animation-delay:-13s;opacity:.2}
+@keyframes dr{50%{transform:translate(5vw,-4vw) scale(1.15)}}
+#pg{position:fixed;top:0;right:0;height:3px;width:0;background:var(--g);z-index:2000}
+.gt{background:linear-gradient(90deg,var(--a),var(--c),var(--b),var(--a));background-size:300% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sh 9s linear infinite}
+@keyframes sh{to{background-position:300% center}}
+.btn-x{background:var(--g);color:#fff;border:0;border-radius:14px;font-weight:700;position:relative;overflow:hidden;box-shadow:0 14px 28px -14px var(--a);transition:.3s}
+.btn-x::after{content:"";position:absolute;top:0;right:-120%;width:55%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-20deg);transition:.8s}
+.btn-x:hover{color:#fff;transform:translateY(-2px)}.btn-x:hover::after{right:130%}
+.btn-soft{background:var(--cd);border:1px solid var(--ln);border-radius:14px;color:var(--tx);font-weight:600;transition:.3s;align-items:center;gap:.4rem}
+.btn-soft:hover{border-color:var(--b);color:var(--b)}
+.navbar{backdrop-filter:blur(18px);background:var(--cd);border-bottom:1px solid var(--ln);transition:.3s}
+.navbar.sc{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
+.navbar-brand{font-weight:900;font-size:1.45rem}
+.nav-link{font-weight:600;color:var(--tx);border-radius:10px}.nav-link:hover{color:var(--b)}
+.ib{width:42px;height:42px;border-radius:50%;border:1px solid var(--ln);background:var(--cd);color:var(--tx);transition:.4s;position:relative}
+.ib:hover{transform:scale(1.1)}
+.bd{position:absolute;top:-5px;left:-5px;background:var(--a);color:#fff;font-size:.68rem;border-radius:99px;min-width:19px;height:19px;display:grid;place-items:center;padding:0 4px}
+.hero{padding:8.2rem 0 2.5rem;position:relative}
+.pill{display:inline-flex;gap:.5rem;align-items:center;padding:.4rem 1rem;border-radius:99px;background:var(--cd);border:1px solid var(--ln);font-size:.85rem;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pu 1.8s infinite}
+@keyframes pu{to{box-shadow:0 0 0 12px rgba(34,197,94,0)}}
+.hero h1{font-weight:900;line-height:1.35;font-size:clamp(2.3rem,5.6vw,4.5rem);letter-spacing:-1px}
+.w{display:inline-block;opacity:0;transform:translateY(40px) rotate(4deg);animation:wi .9s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes wi{to{opacity:1;transform:none}}
+@property --ang{syntax:"<angle>";initial-value:0deg;inherits:false}
+.sb{border:2px solid transparent;background:linear-gradient(var(--sf),var(--sf)) padding-box,conic-gradient(from var(--ang),var(--a),var(--c),var(--b),var(--a)) border-box;animation:rot 7s linear infinite;border-radius:26px;padding:1rem;box-shadow:var(--sh)}
+@keyframes rot{to{--ang:360deg}}
+.sg button,.seg button{border:0;background:transparent;border-radius:12px;font-weight:600;color:var(--tx);padding:.4rem 1rem;transition:.25s}
+.sg button.on,.seg button.on{background:var(--g);color:#fff;box-shadow:0 8px 18px -8px var(--b)}
+.seg{display:inline-flex;gap:.2rem;padding:.25rem;border-radius:16px;background:var(--cd);border:1px solid var(--ln);flex-wrap:wrap}
+.form-control,.form-select{border-radius:14px;padding:.7rem 1rem;background-color:transparent;border-color:var(--ln);color:var(--tx)}
+.form-select option{color:#111}
+.form-control:focus,.form-select:focus{border-color:var(--b);box-shadow:0 0 0 .25rem rgba(37,99,235,.2);background-color:transparent;color:var(--tx)}
+.form-control::placeholder{color:var(--mt)}
+.sug{position:absolute;top:105%;right:0;left:0;z-index:50;background:var(--sf);border:1px solid var(--ln);border-radius:16px;box-shadow:var(--sh);overflow:hidden;max-height:300px;overflow-y:auto}
+.sug button{display:flex;width:100%;gap:.6rem;align-items:center;border:0;background:transparent;padding:.6rem 1rem;color:var(--tx);text-align:right}
+.sug button:hover,.sug button.on{background:var(--ln)}
+.sug small{color:var(--mt);margin-inline-start:auto}
+.chp,.qc{border:1px solid var(--ln);background:transparent;border-radius:99px;padding:.15rem .8rem;font-size:.8rem;color:var(--tx);transition:.3s}
+.chp:hover,.qc:hover,.chp.on{background:var(--g);color:#fff;border-color:transparent}
+.avs span{width:34px;height:34px;border-radius:50%;border:2px solid var(--bg);margin-right:-10px;display:inline-grid;place-items:center;color:#fff;font-weight:800;font-size:.8rem}
+.vis{position:relative;height:460px}
+.ring{position:absolute;top:40px;right:20px;width:360px;height:360px;border-radius:50%;background:conic-gradient(var(--a),var(--c),var(--b),var(--a));filter:blur(46px);opacity:.45;animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fc{position:absolute;border-radius:22px;background:var(--cd);backdrop-filter:blur(14px);border:1px solid var(--ln);box-shadow:var(--sh);padding:.8rem 1.1rem;transition:transform .2s ease-out;animation:bob 6s ease-in-out infinite}
+@keyframes bob{50%{margin-top:-12px}}
+.hc{top:10px;right:10px;width:300px;padding:0;overflow:hidden;cursor:pointer}
+.statbar{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:3rem;background:var(--cd);border:1px solid var(--ln);border-radius:28px;padding:1.4rem;backdrop-filter:blur(14px);box-shadow:var(--sh)}
+.statbar>div{text-align:center;border-inline-start:1px solid var(--ln)}.statbar>div:first-child{border:0}
+.big{font-size:clamp(1.8rem,3.6vw,2.8rem);font-weight:900;line-height:1.15}
+.mq{overflow:hidden;white-space:nowrap;mask:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent);-webkit-mask:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent)}
+.mq div{display:inline-block;animation:mq 40s linear infinite}
+.mq span{margin:0 1.8rem;font-weight:800;font-size:1.3rem;opacity:.3}
+@keyframes mq{to{transform:translateX(50%)}}
+section{padding:4.2rem 0}
+.st{font-weight:900;font-size:clamp(1.6rem,3.2vw,2.5rem)}
+.bt{background:var(--cd);border:1px solid var(--ln);border-radius:26px;padding:1.5rem;height:100%;position:relative;overflow:hidden;backdrop-filter:blur(10px);transition:transform .5s cubic-bezier(.2,.8,.2,1),box-shadow .5s}
+.bt.hv:hover{transform:translateY(-6px);box-shadow:var(--sh)}
+.bt::after{content:"";position:absolute;top:0;right:0;left:0;height:3px;background:var(--g);opacity:0;transition:.4s}.bt.hv:hover::after{opacity:1}
+.ic{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:1.6rem;background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(37,99,235,.2));margin-bottom:.9rem}
+.cc{cursor:pointer;text-align:right;border:1px solid var(--ln);background:var(--cd);border-radius:22px;padding:1rem;width:100%;transition:.35s;color:var(--tx);display:block}
+.cc:hover{transform:translateY(-5px);box-shadow:var(--sh);border-color:var(--b)}
+.pr{background:var(--sf);border:1px solid var(--ln);border-radius:24px;overflow:hidden;height:100%;cursor:pointer;transition:transform .15s,box-shadow .4s;transform-style:preserve-3d;position:relative;animation:pop .6s both}
+@keyframes pop{from{opacity:0;transform:translateY(24px)}}
+.pr:hover{box-shadow:var(--sh)}
+.pr.lv{display:flex}.pr.lv .cv{width:300px;height:auto;min-height:200px;flex-shrink:0}.pr.lv .pb{flex:1}
+@media(max-width:767px){.pr.lv{display:block}.pr.lv .cv{width:100%;height:200px}}
+.cv{height:205px;position:relative;overflow:hidden}
+.cv svg{width:100%;height:100%;transition:transform .8s;display:block}
+.pr:hover .cv svg{transform:scale(1.1)}
+.tg{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;border-radius:99px;padding:.2rem .8rem;font-size:.76rem;backdrop-filter:blur(6px)}
+.tg.nw{top:44px;background:var(--a)}
+.vw{position:absolute;bottom:10px;right:12px;color:#fff;font-size:.75rem;background:rgba(0,0,0,.45);border-radius:99px;padding:.1rem .6rem}
+.fv{position:absolute;top:10px;left:10px;width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.92);font-size:1.1rem;color:#333;transition:.35s}
+.fv.on{background:var(--a);color:#fff;animation:hb .5s}
+@keyframes hb{40%{transform:scale(1.4)}}
+.sp{display:flex;gap:.9rem;font-size:.84rem;color:var(--mt);flex-wrap:wrap}
+.pc{font-weight:900;color:var(--b)}[data-bs-theme=dark] .pc{color:#93b4ff}
+.flt{position:sticky;top:90px;height:auto}
+.fl{font-size:.85rem;font-weight:700;margin-bottom:.4rem;display:flex;justify-content:space-between}
+input[type=range]{accent-color:var(--b)}
+.ck{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--ln);border-radius:99px;padding:.25rem .75rem;font-size:.82rem;cursor:pointer;transition:.25s;user-select:none}
+.ck input{display:none}.ck:has(input:checked){background:var(--g);color:#fff;border-color:transparent}
+.rc button{border:1px solid var(--ln);background:transparent;color:var(--tx);border-radius:10px;width:40px;height:36px;font-weight:700;transition:.25s}
+.rc button.on{background:var(--g);color:#fff;border-color:transparent}
+.fch{display:inline-flex;align-items:center;gap:.4rem;background:var(--ln);border-radius:99px;padding:.15rem .4rem .15rem .8rem;font-size:.8rem;border:0;color:var(--tx)}
+.fch b{width:18px;height:18px;border-radius:50%;background:var(--mt);color:#fff;display:grid;place-items:center;font-size:.7rem}
+.mapw{position:relative;height:460px;border-radius:26px;overflow:hidden;border:1px solid var(--ln);background:linear-gradient(160deg,rgba(16,185,129,.12),rgba(37,99,235,.14));background-color:var(--sf)}
+.mapg{position:absolute;inset:0;background-image:linear-gradient(var(--ln) 1px,transparent 1px),linear-gradient(90deg,var(--ln) 1px,transparent 1px);background-size:36px 36px;transform-origin:50% 50%;transition:transform .5s}
+.mp{position:absolute;border:0;background:none;padding:0;transform:scale(var(--iz,1));transition:.3s}
+.mp i{display:block;width:20px;height:20px;border-radius:50%;background:var(--g);border:3px solid #fff;box-shadow:0 6px 14px -4px var(--b)}
+.mp.rent i{background:linear-gradient(135deg,#f59e0b,#ef4444)}
+.mp::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:2px solid var(--a);animation:rp 2.4s infinite;pointer-events:none}
+@keyframes rp{from{transform:scale(.5);opacity:1}to{transform:scale(2);opacity:0}}
+.mp span{position:absolute;bottom:28px;right:50%;transform:translateX(50%) scale(.85);white-space:nowrap;background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:.3rem .7rem;font-size:.78rem;font-weight:700;opacity:0;pointer-events:none;transition:.3s;color:var(--tx)}
+.mp:hover span,.mp:focus-visible span,.mp.hl span{opacity:1;transform:translateX(50%)}
+.mp:hover,.mp.hl{z-index:9;filter:brightness(1.1)}
+.mzc{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:.4rem;z-index:20}
+.mzc button{width:38px;height:38px;border-radius:12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);font-weight:800}
+.mpl{max-height:460px;overflow:auto}
+.mi{display:flex;gap:.7rem;align-items:center;padding:.6rem;border-radius:16px;border:1px solid transparent;cursor:pointer;transition:.25s;width:100%;background:transparent;color:var(--tx);text-align:right}
+.mi:hover{background:var(--cd);border-color:var(--ln)}
+.mi .sw{width:54px;height:54px;border-radius:14px;overflow:hidden;flex-shrink:0}.mi .sw svg{width:100%;height:100%}
+.tabs{display:flex;gap:.4rem;flex-wrap:wrap}
+.tabs button{border:1px solid var(--ln);background:var(--cd);color:var(--tx);border-radius:14px;padding:.55rem 1.1rem;font-weight:700;transition:.3s}
+.tabs button.on{background:var(--g);color:#fff;border-color:transparent;box-shadow:0 10px 22px -10px var(--b)}
+.dn{width:190px;height:190px;border-radius:50%;margin:0 auto;display:grid;place-items:center;background:conic-gradient(var(--a) 0 var(--p,60%),var(--b) 0);transition:.4s}.dn::before{content:"";grid-area:1/1;width:144px;height:144px;border-radius:50%;background:var(--sf)}.dn>div{grid-area:1/1;text-align:center;position:relative}
+.kv{display:flex;justify-content:space-between;padding:.45rem 0;border-bottom:1px dashed var(--ln);font-size:.9rem}
+.res{background:var(--g);color:#fff;border-radius:22px;padding:1.2rem;text-align:center}
+.cht{position:relative;direction:ltr}
+.cht svg{width:100%;height:auto;display:block}
+.cl{fill:none;stroke:url(#tlg);stroke-width:3.5;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:dash 1.5s ease forwards}
+@keyframes dash{to{stroke-dashoffset:0}}
+.ctip{position:absolute;pointer-events:none;background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:.35rem .7rem;font-size:.8rem;font-weight:700;box-shadow:var(--sh);transform:translate(-50%,-120%);opacity:0;transition:opacity .2s;direction:rtl;white-space:nowrap}
+.stp{position:relative;padding-right:3.4rem;padding-bottom:2rem}
+.stp::before{content:attr(data-n);position:absolute;right:0;top:0;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#fff;background:var(--g);z-index:1}
+.stp::after{content:"";position:absolute;right:21px;top:44px;bottom:0;width:2px;background:var(--ln)}.stp:last-child::after{display:none}
+.ag{text-align:center}
+.av{width:68px;height:68px;border-radius:50%;background:var(--g);color:#fff;display:grid;place-items:center;font-weight:800;font-size:1.5rem;margin:0 auto .7rem;box-shadow:0 12px 24px -10px var(--b)}
+.rs{display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;padding:.4rem .2rem 1rem;scrollbar-width:none}.rs::-webkit-scrollbar{display:none}
+.rs>div{flex:0 0 min(380px,86%);scroll-snap-align:start}
+.q{font-size:3.6rem;line-height:.6;font-weight:900}
+.accordion-item{background:var(--cd);border:1px solid var(--ln)!important;border-radius:18px!important;margin-bottom:.7rem;overflow:hidden;color:var(--tx)}
+.accordion-button{background:transparent!important;font-weight:700;box-shadow:none!important;color:var(--tx)!important}
+.accordion-body{color:var(--mt)}
+.cta{border-radius:36px;padding:4rem 1.5rem;color:#fff;text-align:center;background:var(--g);background-size:220% 220%;animation:bgm 10s ease infinite;box-shadow:var(--sh)}
+@keyframes bgm{50%{background-position:100% 50%}}
+.cta .btn{background:#fff;color:#2563eb;font-weight:800;border-radius:16px;padding:.85rem 2.4rem;margin:.3rem}
+.modal-content{background:var(--sf);color:var(--tx);border:1px solid var(--ln);border-radius:28px;overflow:hidden}
+.gal{position:relative;height:300px;overflow:hidden;background:#000}
+.gal svg{width:100%;height:100%;display:block}
+.gal .nv{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.9);font-size:1.2rem;color:#111}
+.gal .xb{position:absolute;top:14px;left:14px;z-index:5}
+.th{display:flex;gap:.5rem;padding:.6rem;overflow-x:auto}
+.th button{width:74px;height:50px;border-radius:12px;overflow:hidden;border:2px solid transparent;padding:0;flex-shrink:0;opacity:.6}.th button.on{border-color:var(--a);opacity:1}.th svg{width:100%;height:100%}
+.spec{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem}
+.spec div{background:var(--cd);border:1px solid var(--ln);border-radius:16px;padding:.6rem;text-align:center;font-size:.85rem}.spec b{display:block;font-size:1.02rem}
+.chs{display:flex;gap:.5rem;flex-wrap:wrap}
+.chs button{border:1px solid var(--ln);background:transparent;border-radius:14px;padding:.5rem .9rem;color:var(--tx);font-weight:600;transition:.25s}
+.chs button.on{background:var(--g);color:#fff;border-color:transparent}
+.wp{height:6px;border-radius:9px;background:var(--ln);overflow:hidden}.wp i{display:block;height:100%;background:var(--g);transition:.5s}
+.invalid-m{color:#ef4444;font-size:.8rem;margin-top:.25rem;min-height:1.1em}
+footer{border-top:1px solid var(--ln);padding:2.5rem 0;color:var(--mt)}
+.fk a{color:var(--mt);display:block;margin-bottom:.5rem;transition:.3s}.fk a:hover{color:var(--a);transform:translateX(-4px)}
+.rv{opacity:0;transform:translateY(36px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}.rv.in{opacity:1;transform:none}
+#ts{position:fixed;bottom:22px;left:22px;z-index:2100;display:flex;flex-direction:column;gap:.6rem;max-width:340px;pointer-events:none}
+.tst{background:var(--cd);backdrop-filter:blur(16px);border:1px solid var(--ln);border-radius:16px;padding:.7rem 1rem;box-shadow:var(--sh);font-size:.9rem;font-weight:600;animation:wi .5s both;color:var(--tx)}
+#up{position:fixed;bottom:22px;right:22px;z-index:1800;width:48px;height:48px;border-radius:50%;border:0;color:#fff;background:var(--g);box-shadow:0 12px 26px -8px var(--b);transform:scale(0);transition:.4s}#up.on{transform:scale(1)}
+#ai{position:fixed;bottom:82px;right:22px;z-index:1800;width:58px;height:58px;border-radius:50%;border:0;font-size:1.5rem;color:#fff;background:var(--g);box-shadow:0 14px 30px -8px var(--b);animation:bob 4s ease-in-out infinite}
+#cp{position:fixed;bottom:152px;right:22px;z-index:1850;width:min(360px,calc(100vw - 44px));background:var(--sf);border:1px solid var(--ln);border-radius:24px;box-shadow:var(--sh);overflow:hidden;transform:translateY(30px) scale(.95);opacity:0;pointer-events:none;transition:.4s cubic-bezier(.2,.8,.2,1)}#cp.on{transform:none;opacity:1;pointer-events:auto}
+.bb{background:var(--ln);border-radius:14px;padding:.5rem .8rem;margin-bottom:.5rem;font-size:.88rem;width:fit-content;max-width:92%;animation:wi .5s forwards;line-height:1.7}.bb.u{margin-inline-start:auto;background:var(--g);color:#fff}
+.bb button{display:block;margin-top:.3rem;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:10px;padding:.2rem .6rem;font-size:.8rem;text-align:right;width:100%}
+#cb{position:fixed;bottom:22px;left:50%;z-index:1850;transform:translate(-50%,140px);display:flex;gap:.8rem;align-items:center;background:var(--cd);backdrop-filter:blur(16px);border:1px solid var(--ln);border-radius:99px;padding:.5rem .6rem .5rem 1.2rem;box-shadow:var(--sh);transition:.5s cubic-bezier(.2,.8,.2,1);font-weight:700;max-width:96vw}#cb.on{transform:translate(-50%,0)}
+.offcanvas{background:var(--sf);color:var(--tx)}
+.tbl th,.tbl td{border-color:var(--ln);color:var(--tx);background:transparent}
+:focus-visible{outline:3px solid var(--c);outline-offset:3px}
+@media(max-width:991px){.fc{display:none}.flt{position:static}.statbar{grid-template-columns:repeat(2,1fr)}.statbar>div:nth-child(3){border:0}}
+@media(max-width:767px){.hero{padding-top:6.5rem}section{padding:3rem 0}.gal{height:230px}.mapw{height:360px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rv,.w{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="aur"><i></i><i></i><i></i></div><div id="pg"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top" id="nav"><div class="container">
+ <a class="navbar-brand d-flex align-items-center gap-2" href="#top"><span style="width:36px;height:36px;border-radius:12px;background:var(--g);display:grid;place-items:center;color:#fff;box-shadow:0 8px 18px -6px var(--b)">⌂</span><span class="gt">ملکینو</span></a>
+ <div class="d-flex gap-2 order-lg-3 align-items-center">
+  <button class="ib" data-act="drawer" aria-label="علاقه‌مندی‌ها">♥<span class="bd" id="fc">۰</span></button>
+  <button class="ib" id="tb" aria-label="تغییر تم">🌙</button>
+  <button class="btn btn-soft d-none d-md-inline-flex px-3" id="authb" data-act="auth">👤 ورود / ثبت‌نام</button>
+  <button class="navbar-toggler border-0" data-bs-toggle="collapse" data-bs-target="#nv" aria-label="منو"><span class="navbar-toggler-icon"></span></button>
+ </div>
+ <div class="collapse navbar-collapse" id="nv">
+  <ul class="navbar-nav mx-lg-auto">
+   <li class="nav-item"><a class="nav-link" href="#explore">کاوش</a></li>
+   <li class="nav-item"><a class="nav-link" href="#listings">آگهی‌ها</a></li>
+   <li class="nav-item"><a class="nav-link" href="#mapsec">نقشه</a></li>
+   <li class="nav-item"><a class="nav-link" href="#tools">ابزارها</a></li>
+   <li class="nav-item"><a class="nav-link" href="#agents">مشاوران</a></li>
+   <li class="nav-item"><a class="nav-link" href="#blog">مجله</a></li>
+   <li class="nav-item"><a class="nav-link" href="#faq">سوالات</a></li>
+   <li class="nav-item d-md-none"><a class="nav-link" href="#" data-act="auth">👤 ورود / ثبت‌نام</a></li>
+  </ul>
+  <button class="btn btn-x px-4 my-2 my-lg-0" data-act="wizard">＋ ثبت آگهی رایگان</button>
+ </div>
+</div></nav>
+
+<header class="hero" id="top"><div class="container position-relative">
+ <div class="row align-items-center g-5">
+  <div class="col-lg-7">
+   <span class="pill"><i class="dot"></i> <span id="liveN">۱۲٬۴۰۰</span> ملک فعال همین الان</span>
+   <h1 class="mt-4" id="h1">خانه‌ات را پیدا کن، <span class="gt">نه فقط یک آگهی</span></h1>
+   <p class="lead text-secondary mt-3" style="max-width:580px">جستجوی هوشمند، قیمت‌گذاری شفاف، نقشه‌ی زنده و قرارداد دیجیتال؛ همه در یک تجربه‌ی سریع و دلنشین.</p>
+   <div class="d-flex align-items-center gap-3 mt-3"><div class="avs"><span style="background:#0fb981">م</span><span style="background:#06b6d4">ر</span><span style="background:#2563eb">س</span><span style="background:#059669">ا</span></div><div class="small"><b>۴٫۹ ★</b> رضایت از ۲٬۱۰۰ تجربه‌ی خرید و اجاره</div></div>
+   <div class="sb mt-4" style="max-width:660px">
+    <div class="sg d-flex gap-1 mb-3" id="hmode"><button class="on" data-k="all">همه</button><button data-k="sale">خرید</button><button data-k="rent">رهن و اجاره</button></div>
+    <div class="row g-2">
+     <div class="col-12 position-relative"><input id="hq" class="form-control" placeholder="🔍 محله، شهر یا عنوان آگهی… (کلید / )" autocomplete="off" aria-label="جستجو"><div id="sug" class="sug d-none"></div></div>
+     <div class="col-6 col-md-3"><select id="hcity" class="form-select" aria-label="شهر"></select></div>
+     <div class="col-6 col-md-3"><select id="htype" class="form-select" aria-label="نوع"></select></div>
+     <div class="col-6 col-md-3"><select id="hprice" class="form-select" aria-label="قیمت"><option value="60">بدون سقف قیمت</option><option value="3">تا ۳ میلیارد</option><option value="5">تا ۵ میلیارد</option><option value="10">تا ۱۰ میلیارد</option><option value="20">تا ۲۰ میلیارد</option><option value="40">تا ۴۰ میلیارد</option></select></div>
+     <div class="col-6 col-md-3 d-grid"><button class="btn btn-x py-2" id="hgo">جستجو</button></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mt-3" id="hchips"><span class="small text-secondary align-self-center">پیشنهاد:</span></div>
+   </div>
+  </div>
+  <div class="col-lg-5 d-none d-lg-block"><div class="vis" id="stage"><div class="ring"></div>
+   <div class="fc hc" data-d="26" id="hcard"></div>
+   <div class="fc" data-d="55" style="bottom:90px;left:0">📈 <b>قیمت منطقه</b><div class="small text-secondary">+۱۲٪ در ۶ ماه گذشته</div></div>
+   <div class="fc" data-d="-40" style="bottom:10px;right:40px">✅ <b>مشاور تأییدشده</b><div class="small text-secondary">پاسخ‌گویی زیر ۵ دقیقه</div></div>
+   <div class="fc" data-d="-30" style="top:0;left:10px;padding:.5rem .9rem">🔥 <b id="viewers">۸</b> نفر در حال دیدن</div>
+  </div></div>
+ </div>
+ <div class="statbar rv">
+  <div><div class="big gt" data-n="12400">۰</div><div class="text-secondary small">ملک فعال</div></div>
+  <div><div class="big gt" data-n="8650">۰</div><div class="text-secondary small">معامله‌ی موفق</div></div>
+  <div><div class="big gt" data-n="940">۰</div><div class="text-secondary small">مشاور تأییدشده</div></div>
+  <div><div class="big gt" data-n="98" data-s="٪">۰</div><div class="text-secondary small">رضایت کاربران</div></div>
+ </div>
+</div></header>
+<div class="mq py-3"><div id="mq"></div></div>
+
+<section id="explore"><div class="container">
+ <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-4 rv"><div><h2 class="st">کاوش <span class="gt">شهرها و دسته‌ها</span></h2><p class="text-secondary mb-0">با یک کلیک، آگهی‌های همان شهر یا دسته را ببینید.</p></div></div>
+ <div class="row g-3 mb-3" id="tg"></div>
+ <div class="row g-3" id="cg"></div>
+</div></section>
+
+<section id="listings"><div class="container">
+ <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4 rv"><div><h2 class="st">آگهی‌های <span class="gt">منتخب</span></h2><p class="text-secondary mb-0" id="fcnt"></p></div>
+  <button class="btn btn-soft d-lg-none px-3" data-bs-toggle="collapse" data-bs-target="#fpanel">⚙️ فیلترها</button></div>
+ <div class="row g-4">
+  <aside class="col-lg-3"><div class="collapse d-lg-block" id="fpanel"><div class="bt flt">
+   <div class="d-flex justify-content-between align-items-center mb-3"><b>فیلتر پیشرفته</b><button class="btn btn-sm btn-soft px-2" id="freset">↺ پاک‌سازی</button></div>
+   <div class="seg mb-3 w-100" id="fmode"><button class="on" data-k="all">همه</button><button data-k="sale">خرید</button><button data-k="rent">اجاره</button></div>
+   <input id="fq" class="form-control mb-2" placeholder="جستجو در آگهی‌ها…" aria-label="جستجو">
+   <div class="row g-2 mb-2"><div class="col-6"><select id="fcity" class="form-select px-2" aria-label="شهر"></select></div><div class="col-6"><select id="ftype" class="form-select px-2" aria-label="نوع"></select></div></div>
+   <div class="fl mt-3">سقف قیمت <span id="fpv"></span></div><input type="range" class="form-range" id="fprice" min="0.5" max="60" step="0.5" value="60">
+   <div class="fl mt-2">حداقل متراژ <span id="fav"></span></div><input type="range" class="form-range" id="farea" min="0" max="500" step="10" value="0">
+   <div class="fl mt-2">تعداد خواب</div><div class="rc d-flex gap-1 flex-wrap mb-3" id="frooms"><button class="on" data-r="0">همه</button><button data-r="1">۱</button><button data-r="2">۲</button><button data-r="3">۳</button><button data-r="4">+۴</button></div>
+   <div class="fl">امکانات</div><div class="d-flex flex-wrap gap-2 mb-3" id="ffeats"></div>
+   <div class="fl">نمایش</div><div class="seg w-100" id="fonly"><button class="on" data-o="">همه</button><button data-o="feat">⭐ ویژه</button><button data-o="fav">♥ ذخیره‌شده</button></div>
+  </div></div></aside>
+  <div class="col-lg-9">
+   <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+    <div class="d-flex gap-2 align-items-center flex-wrap"><select id="fsort" class="form-select form-select-sm" style="width:auto" aria-label="مرتب‌سازی"><option value="new">جدیدترین</option><option value="cheap">ارزان‌ترین</option><option value="exp">گران‌ترین</option><option value="area">بزرگ‌ترین متراژ</option><option value="pop">پربازدیدترین</option></select>
+    <button class="btn btn-soft btn-sm px-3" data-act="savesearch">🔔 ذخیره‌ی جستجو</button></div>
+    <div class="seg" id="fview"><button class="on" data-v="grid" aria-label="شبکه‌ای">▦</button><button data-v="list" aria-label="لیستی">☰</button></div>
+   </div>
+   <div class="d-flex flex-wrap gap-2 mb-3" id="fchips"></div>
+   <div class="row g-4" id="grid"></div>
+   <div class="text-center text-secondary py-5 d-none" id="empty"><div style="font-size:3rem">🔎</div>ملکی با این فیلترها پیدا نشد.<br><button class="btn btn-x px-4 mt-3" id="freset2">پاک‌سازی فیلترها</button></div>
+   <div class="text-center mt-4"><button class="btn btn-soft px-5 py-2 d-none" id="more">نمایش بیشتر ↓</button></div>
+  </div>
+ </div>
+</div></section>
+
+<section id="mapsec"><div class="container">
+ <div class="mb-4 rv"><h2 class="st">نقشه‌ی <span class="gt">تعاملی</span></h2><p class="text-secondary mb-0">پین‌ها همان آگهی‌های فیلتر‌شده‌ی شما هستند. 🟢 فروش · 🟠 رهن و اجاره</p></div>
+ <div class="row g-3"><div class="col-lg-8 rv"><div class="mapw"><div class="mapg" id="mapin">
+  <svg viewBox="0 0 1000 460" preserveAspectRatio="none" class="position-absolute top-0 start-0 w-100 h-100" aria-hidden="true"><defs><linearGradient id="rg" x1="0" x2="1"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs>
+   <path d="M0 330 C250 240 400 400 650 260 S900 130 1000 170" fill="none" stroke="url(#rg)" stroke-opacity=".45" stroke-width="12" stroke-linecap="round"/>
+   <path d="M200 0 C260 180 180 290 300 460 M720 0 C680 160 790 290 760 460" fill="none" stroke="var(--ln)" stroke-width="14"/>
+   <path d="M0 90 C200 60 380 130 560 90 S860 40 1000 80" fill="none" stroke="#38bdf8" stroke-opacity=".35" stroke-width="22" stroke-linecap="round"/>
+   <circle cx="470" cy="300" r="54" fill="#10b981" fill-opacity=".12"/><circle cx="830" cy="330" r="40" fill="#10b981" fill-opacity=".12"/></svg>
+  <div id="mapPins"></div></div>
+  <div class="mzc"><button id="zin" aria-label="بزرگ‌نمایی">＋</button><button id="zout" aria-label="کوچک‌نمایی">−</button></div></div></div>
+  <div class="col-lg-4 rv"><div class="bt p-3"><div class="d-flex justify-content-between mb-2"><b>نتایج روی نقشه</b><span class="small text-secondary" id="mcnt"></span></div><div class="mpl" id="mpl"></div></div></div></div>
+</div></section>
+
+<section id="tools"><div class="container">
+ <div class="text-center mb-4 rv"><h2 class="st">ابزارهای <span class="gt">تصمیم‌گیری</span></h2><p class="text-secondary">قبل از هر معامله، عددها را خودتان بسنجید.</p></div>
+ <div class="tabs justify-content-center mb-4 rv" id="ttabs"><button class="on" data-t="0">🏦 وام مسکن</button><button data-t="1">🏷️ قیمت‌یاب</button><button data-t="2">⚖️ اجاره یا خرید؟</button><button data-t="3">🔄 تبدیل رهن و اجاره</button></div>
+ <div class="bt rv" style="min-height:360px">
+  <div class="tp" id="tp0"><div class="row g-4 align-items-center"><div class="col-md-6">
+   <label class="fl">قیمت ملک <span id="m1"></span></label><input type="range" class="form-range" id="c1" min="1" max="60" value="12">
+   <label class="fl">پیش‌پرداخت <span id="m2"></span></label><input type="range" class="form-range" id="c2" min="10" max="80" step="5" value="30">
+   <label class="fl">مدت بازپرداخت <span id="m3"></span></label><input type="range" class="form-range" id="c3" min="3" max="25" value="15">
+   <label class="fl">سود سالانه <span id="m4"></span></label><input type="range" class="form-range" id="c4" min="10" max="30" value="18"></div>
+   <div class="col-md-6 text-center"><div class="dn" id="dn"><div><div class="small text-secondary">قسط ماهانه</div><b class="fs-3 gt" id="mm">۰</b><div class="small text-secondary">میلیون تومان</div></div></div>
+   <div class="mt-3 text-start"><div class="kv"><span class="text-secondary">مبلغ وام</span><b id="ml"></b></div><div class="kv"><span class="text-secondary">کل سود پرداختی</span><b id="mi"></b></div><div class="kv"><span class="text-secondary">مجموع بازپرداخت</span><b id="mt"></b></div><div class="small text-secondary mt-2">🟩 اصل وام &nbsp; 🟦 سود</div></div></div></div></div>
+  <div class="tp d-none" id="tp1"><div class="row g-4"><div class="col-md-6"><div class="row g-2">
+   <div class="col-6"><label class="fl">شهر</label><select id="e_city" class="form-select"></select></div><div class="col-6"><label class="fl">محله</label><select id="e_hood" class="form-select"></select></div>
+   <div class="col-6"><label class="fl">نوع ملک</label><select id="e_type" class="form-select"></select></div><div class="col-6"><label class="fl">طبقه</label><input type="number" id="e_floor" class="form-control" value="3" min="0" max="30"></div>
+   <div class="col-12"><label class="fl">متراژ <span id="e_av"></span></label><input type="range" class="form-range" id="e_area" min="30" max="600" step="5" value="100"></div>
+   <div class="col-12"><label class="fl">سن بنا <span id="e_ag"></span></label><input type="range" class="form-range" id="e_age" min="0" max="40" value="5"></div>
+   <div class="col-12 d-flex flex-wrap gap-2" id="e_feats"></div></div></div>
+   <div class="col-md-6"><div class="res"><div class="small opacity-75">برآورد ارزش ملک</div><div class="big" id="e_val">۰</div><div class="small opacity-75" id="e_rng"></div></div>
+    <div class="mt-3"><div class="kv"><span class="text-secondary">قیمت هر متر</span><b id="e_pm"></b></div><div class="kv"><span class="text-secondary">رهن کامل تقریبی</span><b id="e_dep"></b></div><div class="kv"><span class="text-secondary">اجاره‌ی ماهانه‌ی تقریبی</span><b id="e_rent"></b></div></div>
+    <button class="btn btn-x w-100 mt-3 py-2" data-act="wizard">آگهی با همین مشخصات بدهم</button></div></div></div>
+  <div class="tp d-none" id="tp2"><div class="row g-4"><div class="col-md-6">
+   <label class="fl">قیمت ملک <span id="b1v"></span></label><input type="range" class="form-range" id="b_p" min="1" max="40" step="0.5" value="8">
+   <label class="fl">اجاره‌ی ماهانه‌ی ملک مشابه <span id="b2v"></span></label><input type="range" class="form-range" id="b_r" min="5" max="120" value="30">
+   <label class="fl">رشد سالانه‌ی قیمت ملک <span id="b3v"></span></label><input type="range" class="form-range" id="b_g" min="0" max="40" value="20">
+   <label class="fl">بازدهی سالانه‌ی سرمایه‌گذاری <span id="b4v"></span></label><input type="range" class="form-range" id="b_i" min="0" max="40" value="23">
+   <label class="fl">افزایش سالانه‌ی اجاره <span id="b5v"></span></label><input type="range" class="form-range" id="b_ir" min="0" max="40" value="20">
+   <label class="fl">بازه‌ی زمانی <span id="b6v"></span></label><input type="range" class="form-range" id="b_y" min="1" max="15" value="5"></div>
+   <div class="col-md-6"><div class="row g-2"><div class="col-6"><div class="res" style="background:linear-gradient(135deg,#10b981,#06b6d4)"><div class="small opacity-75">ثروت در حالت خرید</div><div class="fs-4 fw-bold" id="b_buy"></div></div></div><div class="col-6"><div class="res" style="background:linear-gradient(135deg,#2563eb,#7c3aed)"><div class="small opacity-75">ثروت در حالت اجاره</div><div class="fs-4 fw-bold" id="b_rent"></div></div></div></div>
+   <div class="bt mt-3" id="b_verdict" style="height:auto"></div></div></div></div>
+  <div class="tp d-none" id="tp3"><div class="row g-4 align-items-center"><div class="col-md-6">
+   <label class="fl">ودیعه‌ی فعلی (میلیون) <span id="v1v"></span></label><input type="range" class="form-range" id="v_d" min="100" max="5000" step="50" value="1000">
+   <label class="fl">اجاره‌ی ماهانه‌ی فعلی (میلیون) <span id="v2v"></span></label><input type="range" class="form-range" id="v_r" min="0" max="100" step="1" value="10">
+   <label class="fl">ودیعه‌ی مورد نظر (میلیون) <span id="v3v"></span></label><input type="range" class="form-range" id="v_n" min="100" max="5000" step="50" value="500">
+   <label class="fl">نرخ تبدیل ماهانه <span id="v4v"></span></label><input type="range" class="form-range" id="v_k" min="1" max="5" step="0.1" value="3"></div>
+   <div class="col-md-6"><div class="res"><div class="small opacity-75">اجاره‌ی ماهانه‌ی جدید</div><div class="big" id="v_out">۰</div><div class="small opacity-75">میلیون تومان در ماه</div></div><p class="small text-secondary mt-3 mb-0" id="v_note"></p></div></div></div>
+ </div>
+ <div class="row g-3 mt-1"><div class="col-12 rv"><div class="bt">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3"><div><b class="fs-5">روند قیمت هر متر مربع</b><div class="small text-secondary">میلیون تومان · داده‌ی نمونه‌ی تحلیلی</div></div>
+   <div class="d-flex gap-2 flex-wrap"><select id="tr_city" class="form-select form-select-sm" style="width:auto" aria-label="شهر"></select><div class="seg" id="tr_per"><button data-p="6">۶ ماه</button><button class="on" data-p="12">۱۲ ماه</button><button data-p="24">۲ سال</button></div></div></div>
+  <div class="d-flex gap-4 mt-3 flex-wrap"><div><div class="small text-secondary">میانگین فعلی</div><div class="big gt" style="font-size:2rem" id="tr_now"></div></div><div><div class="small text-secondary">تغییر در بازه</div><div class="big" style="font-size:2rem" id="tr_pct"></div></div></div>
+  <div class="cht mt-2" id="tr_chart"></div></div></div></div>
+</div></section>
+
+<section id="why"><div class="container"><div class="text-center mb-5 rv"><h2 class="st">چرا <span class="gt">ملکینو</span>؟</h2></div>
+ <div class="row g-3" id="bento"></div></div></section>
+
+<section id="how"><div class="container"><div class="row g-5 align-items-center"><div class="col-lg-5 rv"><h2 class="st">از جستجو تا <span class="gt">کلید</span>، در ۳ قدم</h2><p class="text-secondary">بدون پیچیدگی و بدون دردسر؛ همه‌چیز آنلاین.</p><button class="btn btn-x px-4" data-act="goList">شروع جستجو</button></div>
+ <div class="col-lg-7 rv"><div class="stp" data-n="۱"><h5 class="fw-bold">پیدا کن</h5><span class="text-secondary">فیلتر هوشمند، نقشه و هشدار آگهی‌های تازه.</span></div><div class="stp" data-n="۲"><h5 class="fw-bold">مذاکره کن</h5><span class="text-secondary">گفتگوی مستقیم و رزرو بازدید حضوری یا ویدیویی.</span></div><div class="stp" data-n="۳"><h5 class="fw-bold">امضا کن</h5><span class="text-secondary">قرارداد دیجیتال امن با امضای الکترونیک.</span></div></div></div></div></section>
+
+<section id="agents"><div class="container"><div class="text-center mb-5 rv"><h2 class="st">مشاوران <span class="gt">برتر</span></h2><p class="text-secondary">همه‌ی مشاوران احراز هویت و ارزیابی شده‌اند.</p></div><div class="row g-3" id="agg"></div></div></section>
+
+<section id="reviews"><div class="container"><div class="d-flex justify-content-between align-items-end mb-4 rv"><h2 class="st">مشتریان <span class="gt">چه می‌گویند</span></h2><div class="d-flex gap-2"><button class="ib" id="rp" aria-label="قبلی">›</button><button class="ib" id="rn" aria-label="بعدی">‹</button></div></div>
+<div class="rs rv" id="rvs">
+<div><div class="bt"><div class="q gt">“</div><p class="mt-2">فرایند خرید خانه برای اولین بار این‌قدر ساده و شفاف بود. مشاور پاسخگو و قرارداد کاملاً آنلاین.</p><div class="d-flex align-items-center gap-2"><span class="av m-0" style="width:44px;height:44px;font-size:1rem">م</span><div><b>مریم ح.</b><div class="small text-secondary">خریدار آپارتمان · ★★★★★</div></div></div></div></div>
+<div><div class="bt"><div class="q gt">“</div><p class="mt-2">ملک را در کمتر از دو هفته اجاره دادم؛ مشاهده‌ی آمار بازدید آگهی خیلی کمک کرد.</p><div class="d-flex align-items-center gap-2"><span class="av m-0" style="width:44px;height:44px;font-size:1rem">ر</span><div><b>رضا ک.</b><div class="small text-secondary">مالک · ★★★★★</div></div></div></div></div>
+<div><div class="bt"><div class="q gt">“</div><p class="mt-2">قیمت‌یاب و نقشه کار انتخاب محله را برایم راحت کرد و مطمئن‌تر تصمیم گرفتم.</p><div class="d-flex align-items-center gap-2"><span class="av m-0" style="width:44px;height:44px;font-size:1rem">س</span><div><b>سارا ن.</b><div class="small text-secondary">مستأجر · ★★★★★</div></div></div></div></div>
+<div><div class="bt"><div class="q gt">“</div><p class="mt-2">مقایسه‌ی چند ملک کنار هم و محاسبه‌گر وام، تصمیم خانوادگی ما را خیلی سریع کرد.</p><div class="d-flex align-items-center gap-2"><span class="av m-0" style="width:44px;height:44px;font-size:1rem">ا</span><div><b>امیر ز.</b><div class="small text-secondary">خریدار ویلا · ★★★★☆</div></div></div></div></div>
+</div></div></section>
+
+<section id="blog"><div class="container"><div class="mb-4 rv"><h2 class="st">مجله‌ی <span class="gt">ملکینو</span></h2><p class="text-secondary mb-0">راهنمای کوتاه برای تصمیم‌های بزرگ</p></div><div class="row g-3" id="bg"></div></div></section>
+
+<section id="faq"><div class="container" style="max-width:820px"><div class="text-center mb-4 rv"><h2 class="st">سوالات <span class="gt">متداول</span></h2></div><div class="accordion rv" id="ac">
+<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button" data-bs-toggle="collapse" data-bs-target="#f1">ثبت آگهی چقدر هزینه دارد؟</button></h2><div id="f1" class="accordion-collapse collapse show" data-bs-parent="#ac"><div class="accordion-body">ثبت آگهی عادی رایگان است و امکانات ویژه مثل نشان «ویژه» و نردبان اختیاری هستند.</div></div></div>
+<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#f2">از صحت آگهی‌ها چطور مطمئن شوم؟</button></h2><div id="f2" class="accordion-collapse collapse" data-bs-parent="#ac"><div class="accordion-body">آگهی‌دهندگان احراز هویت می‌شوند و آگهی‌های تأییدشده نشان ویژه دارند.</div></div></div>
+<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#f3">می‌توانم چند ملک را مقایسه کنم؟</button></h2><div id="f3" class="accordion-collapse collapse" data-bs-parent="#ac"><div class="accordion-body">بله؛ روی کارت‌ها «مقایسه» را بزنید و تا ۳ ملک را کنار هم ببینید.</div></div></div>
+<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#f4">چطور از ملک بازدید کنم؟</button></h2><div id="f4" class="accordion-collapse collapse" data-bs-parent="#ac"><div class="accordion-body">در صفحه‌ی هر آگهی دکمه‌ی «رزرو بازدید» را بزنید، روز و ساعت را انتخاب کنید تا مشاور هماهنگ کند.</div></div></div>
+<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#f5">هشدار آگهی جدید چطور کار می‌کند؟</button></h2><div id="f5" class="accordion-collapse collapse" data-bs-parent="#ac"><div class="accordion-body">فیلترهای دلخواه را بچینید و «ذخیره‌ی جستجو» را بزنید. جستجوهای ذخیره‌شده در منوی علاقه‌مندی‌ها در دسترس‌اند.</div></div></div>
+<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#f6">اطلاعات من کجا ذخیره می‌شود؟</button></h2><div id="f6" class="accordion-collapse collapse" data-bs-parent="#ac"><div class="accordion-body">علاقه‌مندی‌ها، جستجوها و آگهی‌های ثبت‌شده‌ی شما در همین مرورگر ذخیره می‌شوند.</div></div></div>
+</div></div></section>
+
+<section id="cta"><div class="container"><div class="cta rv"><h2 class="fw-bold mb-3" style="font-size:clamp(1.8rem,4vw,2.8rem)">ملکت را امروز آگهی کن</h2><p class="mb-4 opacity-75">در ۳ مرحله‌ی کوتاه آماده، رایگان و دیده‌شده.</p><button class="btn" data-act="wizard">ثبت آگهی رایگان ✨</button><button class="btn" data-act="chat" style="background:rgba(255,255,255,.18);color:#fff">گفتگو با دستیار</button></div></div></section>
+
+<footer><div class="container"><div class="row g-4 fk"><div class="col-lg-4"><b class="gt fs-4">ملکینو</b><p class="small mt-2">پلتفرم هوشمند خرید، فروش و اجاره‌ی املاک با تجربه‌ای امن و مدرن.</p></div><div class="col-6 col-lg-2"><b>خدمات</b><div class="mt-2"><a href="#listings">خرید ملک</a><a href="#listings">اجاره</a><a href="#tools">قیمت‌یابی</a></div></div><div class="col-6 col-lg-2"><b>شرکت</b><div class="mt-2"><a href="#how">نحوه کار</a><a href="#agents">مشاوران</a><a href="#blog">مجله</a></div></div><div class="col-lg-4"><b>خبرنامه‌ی هفتگی بازار ملک</b><div class="d-flex gap-2 mt-2"><input class="form-control" id="nl" aria-label="ایمیل" placeholder="ایمیل شما" type="email" dir="ltr"><button class="btn btn-x px-3" id="nlb">عضویت</button></div><div class="invalid-m" id="nle"></div></div></div><hr style="border-color:var(--ln)"><div class="small text-center">© <span id="yr"></span> ملکینو؛ تمام حقوق محفوظ است.</div></div></footer>
+
+<button id="ai" aria-label="دستیار هوشمند">✨</button>
+<div id="cp" role="dialog" aria-label="دستیار ملکینو"><div class="d-flex justify-content-between align-items-center p-3 text-white" style="background:var(--g)"><b>✨ دستیار ملکینو</b><button class="btn-close btn-close-white" id="cx" aria-label="بستن"></button></div><div id="cm" class="p-3" style="height:230px;overflow:auto"></div><div class="px-3 pb-2 d-flex flex-wrap gap-2" id="qr"><button class="qc" data-q="آپارتمان ۲ خواب در تهران تا ۱۵ میلیارد">آپارتمان ۲ خواب تهران</button><button class="qc" data-q="ویلا تا ۳۰ میلیارد">ویلا تا ۳۰ میلیارد</button><button class="qc" data-q="اجاره آپارتمان در اصفهان">اجاره اصفهان</button></div><form class="p-3 pt-1 d-flex gap-2" id="cf"><input class="form-control form-control-sm" id="cin" placeholder="مثلاً: ویلا در کیش تا ۳۰ میلیارد" aria-label="پیام"><button class="btn btn-x btn-sm px-3" aria-label="ارسال">➤</button></form></div>
+<div id="cb"><span id="cn"></span><span id="cch" class="d-flex gap-1"></span><button class="btn btn-x btn-sm px-3" data-act="cmpgo">مقایسه</button><button class="ib" style="width:34px;height:34px" data-act="cmpclr" aria-label="پاک کردن">✕</button></div>
+<div id="ts" role="status" aria-live="polite"></div><button id="up" aria-label="بازگشت به بالا">↑</button>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="dr" style="width:min(420px,92vw)"><div class="offcanvas-header"><h5 class="fw-bold mb-0">♥ مجموعه‌ی من</h5><button class="btn-close" data-bs-dismiss="offcanvas" aria-label="بستن"></button></div><div class="offcanvas-body" id="drb"></div></div>
+<div class="modal fade" id="md" tabindex="-1"><div class="modal-dialog modal-dialog-centered modal-lg" id="mdd"><div class="modal-content" id="mb"></div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(()=>{'use strict';
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],byId=id=>document.getElementById(id);
+const fa=(n,d=0)=>Number(n).toLocaleString('fa-IR',{maximumFractionDigits:d});
+const en=s=>String(s).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g,'.');
+const norm=s=>String(s).replace(/[\u200c\s]/g,'').replace(/ي/g,'ی').replace(/ك/g,'ک');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=m=>m>=1000?fa(m/1000,1)+' میلیارد':fa(Math.round(m))+' میلیون';
+const store={get(k,d){try{const v=localStorage.getItem('mk_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('mk_'+k,JSON.stringify(v))}catch(e){}}};
+const R=document.documentElement;
+const LB={park:'🚗 پارکینگ',elev:'🛗 آسانسور',stor:'📦 انباری',pool:'🏊 استخر',bal:'🌿 بالکن',sec:'🛡️ نگهبان'};
+const TYPES=['آپارتمان','ویلا','تجاری','زمین'];
+const CITIES={'تهران':{base:120,hoods:{'سعادت‌آباد':1.3,'الهیه':2,'ولنجک':1.7,'نیاوران':1.8,'پونک':.9,'ونک':1.5}},
+'اصفهان':{base:45,hoods:{'چهارباغ':1.2,'مرکز شهر':1.1,'جلفا':1}},'شیراز':{base:40,hoods:{'قصردشت':1.3,'معالی‌آباد':1.2,'مرکز شهر':1}},
+'مشهد':{base:38,hoods:{'وکیل‌آباد':1.2,'احمدآباد':1.5,'مرکز شهر':1}},'تبریز':{base:32,hoods:{'ولیعصر':1.3,'مرکز شهر':1.1}},
+'کیش':{base:70,hoods:{'ساحل':1.4,'مرکز شهر':1}},'نوشهر':{base:55,hoods:{'ساحلی':1.4,'جنگلی':1.1}}};
+const CNAMES=Object.keys(CITIES);
+const AG=[{n:'سیما رضایی',r:4.9,s:'آپارتمان و پنت‌هاوس · تهران',d:214,p:'۰۹۱۲ ۱۲۳ ۴۵۶۷'},{n:'امیر کاظمی',r:4.8,s:'ویلا و باغ · شمال',d:168,p:'۰۹۱۱ ۲۳۴ ۵۶۷۸'},{n:'نگار موسوی',r:4.9,s:'اجاره و رهن · اصفهان و شیراز',d:197,p:'۰۹۱۳ ۳۴۵ ۶۷۸۹'},{n:'پویا احمدی',r:4.7,s:'تجاری و اداری · مشهد و تبریز',d:142,p:'۰۹۱۵ ۴۵۶ ۷۸۹۰'}];
+const BASE=[
+{id:1,t:'آپارتمان لوکس سعادت‌آباد',city:'تهران',hood:'سعادت‌آباد',type:'آپارتمان',mode:'sale',price:12500,area:110,rooms:2,baths:2,floor:7,year:1402,f:['park','elev','stor','bal'],feat:1,days:2,views:842,ag:0,c:['#2563eb','#06b6d4'],d:'واحدی نوساز و سنددار در بهترین نقطه‌ی سعادت‌آباد با نورگیر عالی، کابینت و کمد دیواری، لابی مجلل و دسترسی سریع به بزرگراه.'},
+{id:2,t:'ویلای باغ با استخر',city:'نوشهر',hood:'جنگلی',type:'ویلا',mode:'sale',price:32000,area:420,rooms:4,baths:3,floor:1,year:1399,f:['park','pool','bal','sec'],feat:1,days:5,views:1210,ag:1,c:['#10b981','#2563eb'],d:'۴۰۰ متر محوطه‌ی سرسبز، استخر روباز، آلاچیق و ویوی جنگل؛ مناسب سکونت دائم یا سرمایه‌گذاری گردشگری.'},
+{id:3,t:'پنت‌هاوس دوبلکس الهیه',city:'تهران',hood:'الهیه',type:'آپارتمان',mode:'sale',price:48000,area:260,rooms:3,baths:4,floor:12,year:1403,f:['park','elev','stor','bal','pool','sec'],feat:1,days:1,views:960,ag:0,c:['#34d399','#06b6d4'],d:'تراس وسیع، آسانسور اختصاصی، استخر و سالن ورزشی مشاع و ویوی ۳۶۰ درجه‌ی شهر.'},
+{id:4,t:'آپارتمان فول امکانات چهارباغ',city:'اصفهان',hood:'چهارباغ',type:'آپارتمان',mode:'rent',price:800,rent:25,area:85,rooms:2,baths:1,floor:3,year:1398,f:['park','elev','stor'],feat:0,days:9,views:310,ag:2,c:['#1e40af','#10b981'],d:'ودیعه ۸۰۰ میلیون و ۲۵ میلیون اجاره‌ی ماهانه؛ نزدیک به مراکز خرید و حمل‌ونقل.'},
+{id:5,t:'واحد تجاری خیابان اصلی',city:'مشهد',hood:'مرکز شهر',type:'تجاری',mode:'rent',price:2000,rent:60,area:60,rooms:0,baths:1,floor:0,year:1396,f:['sec'],feat:0,days:12,views:402,ag:3,c:['#059669','#2563eb'],d:'ودیعه ۲ میلیارد، بر خیابان و پررفت‌وآمد؛ مناسب پوشاک، کافه و خدمات.'},
+{id:6,t:'خانه ویلایی حیاط‌دار قصردشت',city:'شیراز',hood:'قصردشت',type:'ویلا',mode:'sale',price:9800,area:180,rooms:3,baths:2,floor:1,year:1395,f:['park','bal'],feat:0,days:14,views:275,ag:2,c:['#2563eb','#10b981'],d:'حیاط ۹۰ متری، بازسازی کامل و کوچه‌ی آرام در قلب قصردشت.'},
+{id:7,t:'آپارتمان نوساز ولنجک',city:'تهران',hood:'ولنجک',type:'آپارتمان',mode:'sale',price:21000,area:140,rooms:3,baths:2,floor:5,year:1403,f:['park','elev','stor','bal','sec'],feat:1,days:3,views:688,ag:0,c:['#4f46e5','#06b6d4'],d:'طراحی مدرن، ویوی کوهستان و مجتمع امن با فضای سبز.'},
+{id:8,t:'ویلای ساحلی لاکچری',city:'کیش',hood:'ساحل',type:'ویلا',mode:'sale',price:26000,area:300,rooms:4,baths:4,floor:2,year:1400,f:['park','pool','bal','sec'],feat:0,days:6,views:530,ag:1,c:['#06b6d4','#2563eb'],d:'ساحل اختصاصی، استخر و فضای مهمانی؛ ایده‌آل برای اقامت و سرمایه‌گذاری.'},
+{id:9,t:'دفتر کار مدرن ولیعصر',city:'تبریز',hood:'ولیعصر',type:'تجاری',mode:'rent',price:1500,rent:45,area:90,rooms:0,baths:1,floor:4,year:1401,f:['park','elev','sec'],feat:0,days:8,views:198,ag:3,c:['#059669','#06b6d4'],d:'ودیعه ۱٫۵ میلیارد، لابی مجلل و پارکینگ اختصاصی.'},
+{id:10,t:'زمین مسکونی با سند',city:'نوشهر',hood:'ساحلی',type:'زمین',mode:'sale',price:14000,area:500,rooms:0,baths:0,floor:0,year:1404,f:[],feat:0,days:4,views:240,ag:1,c:['#65a30d','#06b6d4'],d:'زمین مسکونی ۵۰۰ متری با سند تک‌برگ، دسترسی آسفالت و امکان ساخت ویلا.'},
+{id:11,t:'آپارتمان دوخواب پونک',city:'تهران',hood:'پونک',type:'آپارتمان',mode:'rent',price:1200,rent:30,area:78,rooms:2,baths:1,floor:4,year:1399,f:['park','elev'],feat:0,days:2,views:455,ag:0,c:['#2563eb','#10b981'],d:'ودیعه ۱٫۲ میلیارد و ۳۰ میلیون اجاره؛ نزدیک به مترو و پارک.'},
+{id:12,t:'سوئیت مدرن مرکز کیش',city:'کیش',hood:'مرکز شهر',type:'آپارتمان',mode:'rent',price:300,rent:18,area:45,rooms:1,baths:1,floor:2,year:1402,f:['park','bal'],feat:0,days:1,views:366,ag:1,c:['#06b6d4','#10b981'],d:'سوئیت مبله و آماده، مناسب اقامت بلندمدت و فصلی.'},
+{id:13,t:'آپارتمان سه‌خواب معالی‌آباد',city:'شیراز',hood:'معالی‌آباد',type:'آپارتمان',mode:'sale',price:6800,area:125,rooms:3,baths:2,floor:6,year:1401,f:['park','elev','stor'],feat:0,days:7,views:322,ag:2,c:['#10b981','#4f46e5'],d:'نورگیر عالی، کابینت MDF و موقعیت مناسب نسبت به بیمارستان و مراکز خرید.'},
+{id:14,t:'مغازه‌ی بر خیابان ولیعصر',city:'تهران',hood:'ونک',type:'تجاری',mode:'sale',price:18000,area:45,rooms:0,baths:1,floor:0,year:1398,f:['sec'],feat:1,days:10,views:512,ag:3,c:['#f59e0b','#2563eb'],d:'مغازه‌ی دوطبقه با سند و پروانه‌ی کسب فعال در پررفت‌وآمدترین بخش ونک.'},
+{id:15,t:'آپارتمان نوساز احمدآباد',city:'مشهد',hood:'احمدآباد',type:'آپارتمان',mode:'sale',price:5200,area:105,rooms:2,baths:2,floor:3,year:1402,f:['park','elev','bal'],feat:0,days:3,views:268,ag:3,c:['#0ea5e9','#10b981'],d:'نوساز با نمای رومی، پارکینگ و انباری اختصاصی و محیط آرام.'},
+{id:16,t:'ویلای حیاط‌دار جلفا',city:'اصفهان',hood:'جلفا',type:'ویلا',mode:'sale',price:15500,area:350,rooms:4,baths:3,floor:2,year:1397,f:['park','pool','bal'],feat:0,days:11,views:290,ag:2,c:['#7c3aed','#06b6d4'],d:'ویلای اصیل با معماری سنتی-مدرن، حیاط بزرگ و استخر.'}];
+let D=BASE.concat(store.get('mine',[]));
+let favs=store.get('fav',[]),recent=store.get('recent',[]),saved=store.get('saved',[]),user=store.get('user',null);
+const cmp=[];
+let S={mode:'all',q:'',city:'',type:'',max:60,area:0,rooms:0,feats:[],only:'',sort:'new',view:'grid',shown:6};
+const byD=id=>D.find(x=>x.id===+id);
+let tm=0;
+function toast(m){const e=document.createElement('div');e.className='tst';e.textContent=m;byId('ts').appendChild(e);while(byId('ts').children.length>3)byId('ts').firstChild.remove();setTimeout(()=>{e.style.transition='.5s';e.style.opacity=0;setTimeout(()=>e.remove(),500)},3200)}
+const copy=t=>{try{navigator.clipboard.writeText(t).then(()=>toast('📋 کپی شد')).catch(()=>toast(t))}catch(e){toast(t)}};
+
+/* ---------- theme / progress ---------- */
+function theme(t){R.setAttribute('data-bs-theme',t);byId('tb').textContent=t==='dark'?'☀️':'🌙';store.set('th',t)}
+theme(store.get('th',matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+byId('tb').onclick=()=>theme(R.getAttribute('data-bs-theme')==='dark'?'light':'dark');
+addEventListener('scroll',()=>{byId('pg').style.width=(scrollY/Math.max(1,R.scrollHeight-innerHeight)*100)+'%';byId('up').classList.toggle('on',scrollY>700);byId('nav').classList.toggle('sc',scrollY>10)},{passive:true});
+byId('up').onclick=()=>scrollTo({top:0,behavior:'smooth'});
+byId('yr').textContent=new Date().toLocaleDateString('fa-IR',{year:'numeric'});
+const h=byId('h1');{let i=0;h.innerHTML=h.innerHTML.replace(/(<span[^>]*>)(.*?)(<\/span>)|([^<>\s]+)/g,(m,a,b,c,d)=>{i++;return a?a+b.split(' ').map(x=>'<span class="w" style="animation-delay:'+(i*90)+'ms">'+x+'</span>').join(' ')+c:'<span class="w" style="animation-delay:'+(i*90)+'ms">'+d+'</span>'})}
+
+/* ---------- SVG art ---------- */
+let uid=0;
+const wrap=s=>'<svg viewBox="0 0 400 210" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+s+'</svg>';
+function bg(c1,c2){const id='g'+(++uid);return '<defs><linearGradient id="'+id+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+c1+'"/><stop offset="1" stop-color="'+c2+'"/></linearGradient></defs><rect width="400" height="210" fill="url(#'+id+')"/>'}
+function ext(d){const k=d.id;let s=bg(d.c[0],d.c[1])+'<circle cx="'+(320-(k*23)%140)+'" cy="52" r="26" fill="#fff" fill-opacity=".85"/>';
+ if(d.type==='ویلا'){s+='<rect y="172" width="400" height="38" fill="#000" fill-opacity=".25"/><path d="M110 172V108L200 62L290 108V172Z" fill="#fff" fill-opacity=".88"/><path d="M92 112L200 52L308 112" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/><rect x="138" y="124" width="36" height="48" rx="3" fill="'+d.c[1]+'" fill-opacity=".6"/><rect x="226" y="124" width="36" height="30" rx="3" fill="'+d.c[0]+'" fill-opacity=".6"/>'+(d.f.includes('pool')?'<rect x="30" y="182" width="120" height="20" rx="8" fill="#7dd3fc" fill-opacity=".95"/>':'')+'<circle cx="356" cy="150" r="30" fill="#065f46" fill-opacity=".7"/><rect x="352" y="170" width="8" height="30" fill="#78350f" fill-opacity=".8"/><circle cx="46" cy="156" r="22" fill="#065f46" fill-opacity=".6"/>'}
+ else if(d.type==='تجاری'){s+='<rect y="178" width="400" height="32" fill="#000" fill-opacity=".25"/>';for(let i=0;i<4;i++){const x=24+i*92;s+='<rect x="'+x+'" y="92" width="84" height="86" fill="#fff" fill-opacity="'+(.6+i%2*.15)+'"/><path d="M'+(x-4)+' 92h92l-8 24h-76z" fill="'+(i%2?d.c[0]:'#f59e0b')+'" fill-opacity=".9"/><rect x="'+(x+12)+'" y="126" width="60" height="52" rx="4" fill="'+d.c[1]+'" fill-opacity=".45"/><rect x="'+(x+30)+'" y="146" width="24" height="32" fill="#fff" fill-opacity=".85"/>'}}
+ else if(d.type==='زمین'){s+='<path d="M0 150C80 110 160 150 240 120S360 110 400 130V210H0Z" fill="#16a34a" fill-opacity=".55"/><path d="M0 175C100 145 200 185 300 160S380 160 400 170V210H0Z" fill="#15803d" fill-opacity=".7"/>';for(let i=0;i<9;i++)s+='<rect x="'+(20+i*42)+'" y="168" width="5" height="26" fill="#fff" fill-opacity=".8"/>';s+='<rect x="168" y="112" width="64" height="40" rx="6" fill="#fff" fill-opacity=".92"/><rect x="198" y="152" width="4" height="30" fill="#fff"/><text x="200" y="138" font-size="15" font-weight="800" text-anchor="middle" fill="'+d.c[1]+'">فروش</text>'}
+ else{let x=14;const hs=[96,134,76,116,150,88];for(let i=0;i<6;i++){const w=46+(i*7)%20,hh=hs[(i+k)%6];s+='<rect x="'+x+'" y="'+(210-hh)+'" width="'+w+'" height="'+hh+'" fill="#fff" fill-opacity="'+(.16+i%3*.09)+'"/>';for(let j=0;j<Math.floor(hh/28);j++)s+='<rect x="'+(x+8)+'" y="'+(222-hh+j*24)+'" width="9" height="11" fill="#fff" fill-opacity=".75"/><rect x="'+(x+w-18)+'" y="'+(222-hh+j*24)+'" width="9" height="11" fill="#fff" fill-opacity=".55"/>';x+=w+8}}
+ return wrap(s)}
+function inter(d,v){let s=bg(d.c[1],d.c[0])+'<rect y="150" width="400" height="60" fill="#000" fill-opacity=".22"/>';
+ if(v===1){s+='<rect x="40" y="36" width="120" height="86" rx="6" fill="#bae6fd" fill-opacity=".9"/><path d="M100 36V122M40 79H160" stroke="#fff" stroke-width="4"/><rect x="190" y="112" width="170" height="52" rx="18" fill="#fff" fill-opacity=".9"/><rect x="190" y="92" width="170" height="34" rx="14" fill="#fff" fill-opacity=".75"/><rect x="206" y="170" width="140" height="6" rx="3" fill="#000" fill-opacity=".25"/><rect x="372" y="60" width="4" height="100" fill="#fff"/><path d="M360 60h28l-8 -22h-12z" fill="#fde68a"/>'}
+ else if(v===2){s+='<rect x="230" y="40" width="110" height="80" rx="6" fill="#bae6fd" fill-opacity=".85"/><path d="M285 40V120" stroke="#fff" stroke-width="4"/><rect x="40" y="108" width="190" height="54" rx="10" fill="#fff" fill-opacity=".92"/><rect x="40" y="88" width="30" height="74" rx="8" fill="#fff" fill-opacity=".7"/><rect x="82" y="94" width="52" height="22" rx="10" fill="'+d.c[0]+'" fill-opacity=".6"/><rect x="146" y="94" width="52" height="22" rx="10" fill="'+d.c[0]+'" fill-opacity=".6"/><rect x="256" y="150" width="50" height="26" rx="5" fill="#fff" fill-opacity=".85"/>'}
+ else{s='<rect width="400" height="210" fill="#f8fafc"/><g fill="none" stroke="#334155" stroke-width="3"><rect x="30" y="24" width="340" height="162"/><path d="M200 24V120H30M200 120V186M290 120H370M110 120V186"/></g><g font-size="13" font-weight="700" fill="#334155" text-anchor="middle"><text x="115" y="78">پذیرایی</text><text x="285" y="78">آشپزخانه</text><text x="70" y="158">اتاق ۱</text><text x="155" y="158">حمام</text><text x="245" y="158">اتاق ۲</text><text x="330" y="158">بالکن</text></g><text x="200" y="204" font-size="11" fill="#64748b" text-anchor="middle">'+fa(d.area)+' متر · نقشه‌ی شماتیک</text>'}
+ return wrap(s)}
+const slide=(d,v)=>v===0?ext(d):inter(d,v);
+
+/* ---------- boot ui ---------- */
+const selOpts=(arr,first)=>(first?'<option value="">'+first+'</option>':'')+arr.map(x=>'<option>'+x+'</option>').join('');
+['hcity','fcity'].forEach(i=>byId(i).innerHTML=selOpts(CNAMES,'همه شهرها'));['htype','ftype'].forEach(i=>byId(i).innerHTML=selOpts(TYPES,'همه انواع ملک'));
+byId('ffeats').innerHTML=Object.keys(LB).map(k=>'<label class="ck"><input type="checkbox" data-f="'+k+'">'+LB[k]+'</label>').join('');
+byId('hchips').innerHTML+=['تهران','شیراز','نوشهر','سعادت‌آباد','کیش','مشهد'].map(x=>'<button class="chp" type="button">'+x+'</button>').join('');
+byId('mq').innerHTML=CNAMES.concat(CNAMES).concat(CNAMES).map(c=>'<span>'+c+'</span>').join('');
+byId('bento').innerHTML=[['🧠','قیمت‌یاب هوشمند','ارزش ملک را بر اساس شهر، محله و امکانات برآورد کنید.',7],['✍️','قرارداد دیجیتال','امضای الکترونیک امن و قابل‌پیگیری، بدون رفت‌وآمد.',5],['🛡️','آگهی‌های تأییدشده','احراز هویت آگهی‌دهنده و نشان اعتماد.',5],['🗺️','نقشه‌ی زنده','هر آگهی روی نقشه با فیلتر لحظه‌ای.',4],['🔔','هشدار آگهی جدید','جستجو را ذخیره کنید تا از تازه‌ها عقب نمانید.',4],['🎥','بازدید ویدیویی','ملک را قبل از رفتن، آنلاین ببینید.',4]].map((x,i)=>'<div class="col-md-6 col-lg-'+x[3]+' rv"><div class="bt hv"><div class="ic">'+x[0]+'</div><h5 class="fw-bold">'+x[1]+'</h5><p class="text-secondary mb-0">'+x[2]+'</p></div></div>').join('');
+const ARTS=[['راهنمای خرید اولین خانه','۵ دقیقه مطالعه','🏠',['برای اولین خرید، ابتدا بودجه‌ی کل را مشخص کنید: پیش‌پرداخت، هزینه‌های جانبی مثل کمیسیون و انتقال سند، و قسط ماهانه‌ای که راحت می‌توانید بپردازید.','سپس چند محله‌ی کاندید انتخاب کنید و در ساعت‌های مختلف روز از آن‌ها بازدید کنید. دسترسی به حمل‌ونقل، مدرسه و مراکز خرید را فراموش نکنید.','پیش از امضا، وضعیت سند، بدهی‌ها و پایان‌کار ملک را استعلام بگیرید و ترجیحاً از مشاور تأییدشده کمک بگیرید.']],
+['رهن یا اجاره؟ تبدیل هوشمند','۴ دقیقه مطالعه','🔄',['هر مبلغ ودیعه‌ای که کم یا زیاد می‌شود با نرخ تبدیل ماهانه به اجاره تبدیل می‌شود؛ نرخ رایج معمولاً بین ۲ تا ۴ درصد در ماه است.','با ابزار «تبدیل رهن و اجاره» در همین سایت می‌توانید سناریوهای مختلف را بسنجید و پیش از مذاکره عدد دقیق را بدانید.','نکته‌ی مهم: ودیعه‌ی بیشتر یعنی اجاره‌ی کمتر، اما نقدینگی شما برای مدت قرارداد بلوکه می‌شود.']],
+['۷ نکته برای بازدید حرفه‌ای','۶ دقیقه مطالعه','🔍',['از فشار آب و آبگرم، رطوبت دیوارها و سقف، کیفیت کف‌پوش و عملکرد پنجره‌ها و در ورودی غافل نشوید.','حتماً وضعیت صدا، نور طبیعی و دید ملک را در زمان‌های مختلف بسنجید و از همسایه‌ها درباره‌ی ساختمان بپرسید.','از ملک عکس و ویدیو بگیرید و پس از بازدید، چند گزینه را کنار هم با ابزار مقایسه ارزیابی کنید.']]];
+byId('bg').innerHTML=ARTS.map((a,i)=>'<div class="col-md-4 rv"><button class="cc h-100" data-act="art" data-i="'+i+'"><div class="ic">'+a[2]+'</div><b class="fs-5">'+a[0]+'</b><div class="small text-secondary mt-2">'+a[1]+' · ادامه ›</div></button></div>').join('');
+byId('agg').innerHTML=AG.map((a,i)=>'<div class="col-6 col-lg-3 rv"><div class="bt hv ag"><div class="av">'+a.n[0]+'</div><b>'+a.n+'</b><div class="small text-secondary">'+a.s+'</div><div class="my-2"><span class="text-warning">★</span> <b>'+fa(a.r,1)+'</b> · '+fa(a.d)+' معامله</div><div class="d-flex gap-2 justify-content-center"><button class="btn btn-x btn-sm px-3" data-act="call" data-i="'+i+'">📞 تماس</button><button class="btn btn-soft btn-sm px-3" data-act="msg" data-i="'+i+'">✉️ پیام</button></div></div></div>').join('');
+
+/* ---------- filtering ---------- */
+function L(){let r=D.filter(d=>(S.mode==='all'||d.mode===S.mode)&&(!S.city||d.city===S.city)&&(!S.type||d.type===S.type)&&(S.max>=60||d.price/1000<=S.max)&&d.area>=S.area&&(!S.rooms||(S.rooms===4?d.rooms>=4:d.rooms===S.rooms))&&S.feats.every(f=>d.f.includes(f))&&(!S.only||(S.only==='fav'?favs.includes(d.id):d.feat))&&(!S.q||norm(d.t+d.city+d.hood+d.type).includes(norm(S.q))));
+ const so={new:(a,b)=>a.days-b.days,cheap:(a,b)=>a.price-b.price,exp:(a,b)=>b.price-a.price,area:(a,b)=>b.area-a.area,pop:(a,b)=>b.views-a.views};return r.sort(so[S.sort])}
+const priceHtml=d=>d.mode==='rent'?'<span class="pc">'+money(d.price)+'</span> <small class="text-secondary">ودیعه · '+money(d.rent)+' اجاره</small>':'<span class="pc">'+money(d.price)+'</span>';
+function card(d,n){const f=favs.includes(d.id),lv=S.view==='list';return '<div class="'+(lv?'col-12':'col-12 col-md-6 col-xl-4')+'"><article class="pr'+(lv?' lv':'')+'" data-id="'+d.id+'" tabindex="0" style="animation-delay:'+(n%6*60)+'ms"><div class="cv">'+ext(d)+'<span class="tg">'+(d.feat?'⭐ ویژه':d.mode==='rent'?'رهن و اجاره':'فروش')+'</span>'+(d.days<=3?'<span class="tg nw">جدید</span>':'')+'<button class="fv'+(f?' on':'')+'" data-act="fav" data-id="'+d.id+'" aria-label="ذخیره">'+(f?'♥':'♡')+'</button><span class="vw">👁 '+fa(d.views)+'</span></div><div class="pb p-3"><h6 class="fw-bold mb-1">'+esc(d.t)+'</h6><div class="small text-secondary mb-2">📍 '+d.city+' · '+d.hood+' · '+d.type+'</div><div class="sp mb-3"><span>📐 '+fa(d.area)+' متر</span>'+(d.rooms?'<span>🛏️ '+fa(d.rooms)+' خواب</span>':'')+(d.f.includes('park')?'<span>🚗</span>':'')+(d.f.includes('pool')?'<span>🏊</span>':'')+'</div><div class="d-flex justify-content-between align-items-center gap-2"><div>'+priceHtml(d)+(d.mode==='sale'?'<div class="small text-secondary">'+fa(d.price/d.area,1)+' میلیون/متر</div>':'')+'</div><label class="small text-secondary cmp" style="cursor:pointer"><input type="checkbox" class="form-check-input ms-1" data-act="cmp" data-id="'+d.id+'"'+(cmp.includes(d.id)?' checked':'')+'> مقایسه</label></div></div></article></div>'}
+let chipFns=[];
+function render(){const r=L();byId('fcnt').textContent=fa(r.length)+' ملک پیدا شد';
+ byId('grid').innerHTML=r.slice(0,S.shown).map(card).join('');byId('empty').classList.toggle('d-none',r.length>0);byId('more').classList.toggle('d-none',r.length<=S.shown);byId('more').textContent='نمایش '+fa(Math.min(6,r.length-S.shown))+' ملک دیگر ↓';
+ byId('fpv').textContent=S.max>=60?'بدون سقف':'تا '+fa(S.max,1)+' میلیارد';byId('fav').textContent=S.area?'از '+fa(S.area)+' متر':'همه';
+ chipFns=[];const ch=[];const add=(l,fn)=>{ch.push('<button class="fch" data-rm="'+chipFns.length+'">'+l+' <b>✕</b></button>');chipFns.push(fn)};
+ if(S.mode!=='all')add(S.mode==='sale'?'خرید':'اجاره',()=>S.mode='all');if(S.q)add('«'+esc(S.q)+'»',()=>S.q='');if(S.city)add(S.city,()=>S.city='');if(S.type)add(S.type,()=>S.type='');if(S.max<60)add('تا '+fa(S.max,1)+' میلیارد',()=>S.max=60);if(S.area)add('+'+fa(S.area)+' متر',()=>S.area=0);if(S.rooms)add(fa(S.rooms)+(S.rooms===4?'+':'')+' خواب',()=>S.rooms=0);S.feats.forEach(f=>add(LB[f],()=>S.feats=S.feats.filter(x=>x!==f)));if(S.only)add(S.only==='fav'?'ذخیره‌شده':'ویژه',()=>S.only='');
+ byId('fchips').innerHTML=ch.join('');byId('fc').textContent=fa(favs.length);renderMap(r);renderCities()}
+function syncUI(){const set=(id,v)=>byId(id).value=v;if(document.activeElement!==byId('fq'))set('fq',S.q);set('hq',S.q);set('fcity',S.city);set('hcity',S.city);set('ftype',S.type);set('htype',S.type);set('fprice',S.max);set('farea',S.area);set('fsort',S.sort);
+ const hp=byId('hprice');hp.value=[...hp.options].some(o=>+o.value===S.max)?S.max:60;
+ [['fmode','k',S.mode],['hmode','k',S.mode],['frooms','r',String(S.rooms)],['fonly','o',S.only],['fview','v',S.view]].forEach(([id,k,v])=>[...byId(id).children].forEach(b=>b.classList.toggle('on',b.dataset[k]===v)));
+ $$('#ffeats input').forEach(i=>i.checked=S.feats.includes(i.dataset.f))}
+function upd(reset=true){if(reset)S.shown=6;syncUI();render()}
+function grp(id,key,fn){byId(id).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;fn(b.dataset[key]);upd()})}
+grp('fmode','k',v=>S.mode=v);grp('hmode','k',v=>{S.mode=v});grp('frooms','r',v=>S.rooms=+v);grp('fonly','o',v=>S.only=v);grp('fview','v',v=>S.view=v);
+byId('fq').addEventListener('input',e=>{S.q=e.target.value.trim();upd()});
+[['fcity','city'],['ftype','type'],['fsort','sort']].forEach(([i,k])=>byId(i).addEventListener('change',e=>{S[k]=e.target.value;upd()}));
+byId('fprice').addEventListener('input',e=>{S.max=+e.target.value;upd()});byId('farea').addEventListener('input',e=>{S.area=+e.target.value;upd()});
+byId('ffeats').addEventListener('change',e=>{S.feats=$$('#ffeats input:checked').map(i=>i.dataset.f);upd()});
+byId('fchips').addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(b){chipFns[+b.dataset.rm]();upd()}});
+const reset=()=>{S={mode:'all',q:'',city:'',type:'',max:60,area:0,rooms:0,feats:[],only:'',sort:'new',view:S.view,shown:6};upd()};
+byId('freset').onclick=reset;byId('freset2').onclick=reset;
+byId('more').onclick=()=>{S.shown+=6;render()};
+function goList(){byId('listings').scrollIntoView({behavior:'smooth'})}
+function heroGo(){S.q=byId('hq').value.trim();S.city=byId('hcity').value;S.type=byId('htype').value;S.max=+byId('hprice').value;byId('sug').classList.add('d-none');upd();goList()}
+byId('hgo').onclick=heroGo;byId('hq').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();heroGo()}});
+byId('hchips').addEventListener('click',e=>{const b=e.target.closest('.chp');if(!b)return;const v=b.textContent;if(CITIES[v]){S.city=v;S.q=''}else{S.q=v;S.city=''}upd();toast('🔎 جستجو برای «'+v+'»');goList()});
+/* autocomplete */
+byId('hq').addEventListener('input',e=>{const v=norm(e.target.value),box=byId('sug');if(!v){box.classList.add('d-none');return}
+ const hoods=[];CNAMES.forEach(c=>Object.keys(CITIES[c].hoods).forEach(hn=>hoods.push([hn,c])));
+ const r=[...CNAMES.filter(c=>norm(c).includes(v)).map(c=>['📍',c,'شهر']),...hoods.filter(x=>norm(x[0]).includes(v)).slice(0,3).map(x=>['🏘️',x[0],x[1]]),...D.filter(d=>norm(d.t).includes(v)).slice(0,3).map(d=>['🏠',d.t,d.city])].slice(0,7);
+ box.innerHTML=r.map(x=>'<button type="button" data-v="'+esc(x[1])+'">'+x[0]+' '+esc(x[1])+'<small>'+x[2]+'</small></button>').join('')||'<div class="p-3 small text-secondary">موردی یافت نشد</div>';box.classList.remove('d-none')});
+byId('sug').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;byId('hq').value=b.dataset.v;heroGo()});
+document.addEventListener('click',e=>{if(!e.target.closest('#sug,#hq'))byId('sug').classList.add('d-none')});
+
+/* ---------- cities & categories ---------- */
+function renderCities(){const ti={'آپارتمان':'🏢','ویلا':'🏡','تجاری':'🏬','زمین':'🌳'};
+ byId('tg').innerHTML=TYPES.map(t=>{const n=D.filter(d=>d.type===t).length;return '<div class="col-6 col-lg-3"><button class="cc" data-act="ftype" data-v="'+t+'"><div class="ic">'+ti[t]+'</div><b>'+t+'</b><div class="small text-secondary">'+fa(n)+' آگهی</div></button></div>'}).join('');
+ byId('cg').innerHTML=CNAMES.map(c=>{const a=D.filter(d=>d.city===c);return '<div class="col-6 col-md-4 col-lg-3"><button class="cc'+(S.city===c?' border-primary':'')+'" data-act="fcity" data-v="'+c+'"><b>'+c+'</b><div class="small text-secondary">'+fa(a.length)+' آگهی · میانگین '+fa(CITIES[c].base)+' م/متر</div></button></div>'}).join('')}
+
+/* ---------- map ---------- */
+const pos=d=>{const h=Math.imul(d.id+7,2654435761)>>>0;return[8+(h%8400)/100,12+((h>>>9)%7000)/100]};
+let zoom=1;
+function renderMap(r){byId('mapPins').innerHTML=r.map(d=>{const p=pos(d);return '<button class="mp '+d.mode+'" style="right:'+p[0]+'%;top:'+p[1]+'%;--iz:'+(1/zoom)+'" data-act="open" data-id="'+d.id+'" data-pin="'+d.id+'" aria-label="'+esc(d.t)+'"><i></i><span>'+esc(d.t)+' · '+money(d.price)+'</span></button>'}).join('');
+ byId('mcnt').textContent=fa(r.length)+' ملک';byId('mpl').innerHTML=r.slice(0,10).map(d=>'<button class="mi" data-act="open" data-id="'+d.id+'" data-hl="'+d.id+'"><div class="sw">'+ext(d)+'</div><div><b class="small">'+esc(d.t)+'</b><div class="small text-secondary">'+d.city+' · '+fa(d.area)+' متر</div><div class="pc small">'+money(d.price)+'</div></div></button>').join('')||'<div class="text-secondary p-3 text-center">آگهی‌ای برای نمایش نیست</div>'}
+byId('mpl').addEventListener('pointerover',e=>{const b=e.target.closest('[data-hl]');$$('.mp.hl').forEach(x=>x.classList.remove('hl'));if(b){const p=document.querySelector('[data-pin="'+b.dataset.hl+'"]');if(p)p.classList.add('hl')}});
+const setZoom=z=>{zoom=Math.max(1,Math.min(2,z));byId('mapin').style.transform='scale('+zoom+')';$$('.mp').forEach(p=>p.style.setProperty('--iz',1/zoom))};
+byId('zin').onclick=()=>setZoom(zoom+.25);byId('zout').onclick=()=>setZoom(zoom-.25);
+
+/* ---------- modal system ---------- */
+const MD=new bootstrap.Modal(byId('md'));
+function modal(html,size){byId('mdd').className='modal-dialog modal-dialog-centered '+(size||'modal-lg');byId('mb').innerHTML=html;MD.show()}
+const xb='<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="بستن"></button>';
+let G={d:null,i:0};
+function openListing(id,push=true){const d=byD(id);if(!d)return;if(push){recent=[d.id,...recent.filter(x=>x!==d.id)].slice(0,8);store.set('recent',recent);d.views++}
+ G={d,i:0};const f=favs.includes(d.id),ag=AG[d.ag]||AG[0];const sim=D.filter(x=>x.id!==d.id&&x.city===d.city||x.id!==d.id&&x.type===d.type).slice(0,3);
+ modal('<div class="gal"><div id="gm">'+slide(d,0)+'</div><button class="nv" style="right:12px" data-act="gprev" aria-label="قبلی">›</button><button class="nv" style="left:12px" data-act="gnext" aria-label="بعدی">‹</button><div class="xb">'+xb.replace('class="btn-close"','class="btn-close bg-white p-2 rounded-circle"')+'</div><span class="tg" style="top:14px;right:14px">'+(d.feat?'⭐ ویژه':d.mode==='rent'?'رهن و اجاره':'فروش')+'</span></div>'+
+ '<div class="th" id="gth">'+[0,1,2,3].map(i=>'<button class="'+(i===0?'on':'')+'" data-act="gset" data-i="'+i+'" aria-label="تصویر '+(i+1)+'">'+slide(d,i)+'</button>').join('')+'</div>'+
+ '<div class="p-4 pt-2"><div class="d-flex justify-content-between align-items-start flex-wrap gap-2"><div><h4 class="fw-bold mb-1">'+esc(d.t)+'</h4><div class="text-secondary">📍 '+d.city+' · '+d.hood+' · '+d.type+' · ثبت‌شده '+(d.days?fa(d.days)+' روز پیش':'امروز')+'</div></div><div class="text-start">'+priceHtml(d).replace('class="pc"','class="pc fs-3"')+(d.mode==='sale'?'<div class="small text-secondary">'+fa(d.price/d.area,1)+' میلیون به ازای هر متر</div>':'')+'</div></div>'+
+ '<div class="spec my-3"><div>📐<b>'+fa(d.area)+'</b>متر</div>'+(d.rooms?'<div>🛏️<b>'+fa(d.rooms)+'</b>خواب</div>':'')+(d.baths?'<div>🚿<b>'+fa(d.baths)+'</b>سرویس</div>':'')+'<div>🏢<b>'+fa(d.floor)+'</b>طبقه</div><div>📅<b>'+fa(d.year)+'</b>سال ساخت</div><div>👁<b>'+fa(d.views)+'</b>بازدید</div></div>'+
+ '<div class="tabs mb-3" id="mtab"><button class="on" data-act="mtab" data-t="0">توضیحات</button><button data-act="mtab" data-t="1">امکانات</button><button data-act="mtab" data-t="2">موقعیت</button>'+(d.mode==='sale'?'<button data-act="mtab" data-t="3">اقساط</button>':'')+'</div><div id="mtc"></div>'+
+ '<div class="bt mt-3 d-flex align-items-center gap-3 flex-wrap" style="height:auto"><span class="av m-0" style="width:50px;height:50px;font-size:1.1rem">'+(d.owner?'ش':ag.n[0])+'</span><div class="me-auto"><b>'+(d.owner?'آگهی‌دهنده (شما)':ag.n)+'</b><div class="small text-secondary">'+(d.owner?esc(d.phone||''):'⭐ '+fa(ag.r,1)+' · '+ag.s)+'</div></div><button class="btn btn-x px-3" data-act="call" data-i="'+d.ag+'" data-ow="'+(d.owner?d.id:'')+'">📞 تماس</button><button class="btn btn-soft px-3" data-act="book" data-id="'+d.id+'">📅 رزرو بازدید</button></div>'+
+ '<div class="d-flex gap-2 flex-wrap mt-3"><button class="btn btn-soft px-3" data-act="fav2" data-id="'+d.id+'" id="mfav">'+(f?'♥ ذخیره شد':'♡ ذخیره')+'</button><button class="btn btn-soft px-3" data-act="share" data-id="'+d.id+'">🔗 اشتراک‌گذاری</button><button class="btn btn-soft px-3" data-act="cmp2" data-id="'+d.id+'">⚖️ مقایسه</button></div>'+
+ (sim.length?'<hr style="border-color:var(--ln)"><b>آگهی‌های مشابه</b><div class="row g-2 mt-1">'+sim.map(x=>'<div class="col-md-4"><button class="mi border" data-act="open" data-id="'+x.id+'"><div class="sw">'+ext(x)+'</div><div><b class="small">'+esc(x.t)+'</b><div class="pc small">'+money(x.price)+'</div></div></button></div>').join('')+'</div>':'')+'</div>','modal-lg');
+ mtab(0);history.replaceState(null,'','#l='+d.id);if(push)renderCities()}
+byId('md').addEventListener('hidden.bs.modal',()=>{if(location.hash.startsWith('#l='))history.replaceState(null,'',location.pathname+location.search)});
+function mtab(t){const d=G.d;if(!d)return;$$('#mtab button').forEach(b=>b.classList.toggle('on',+b.dataset.t===t));let h='';
+ if(t===0)h='<p class="mb-0" style="line-height:2">'+esc(d.d)+'</p>';
+ else if(t===1)h=d.f.length?'<div class="d-flex flex-wrap gap-2">'+d.f.map(k=>'<span class="chp">'+LB[k]+'</span>').join('')+'<span class="chp">✓ تأییدشده</span></div>':'<span class="text-secondary">امکانات خاصی ثبت نشده است.</span>';
+ else if(t===2){const p=pos(d);h='<div class="mapw" style="height:220px"><div class="mapg"><span class="mp '+d.mode+'" style="right:'+p[0]+'%;top:'+p[1]+'%"><i></i></span></div></div><div class="small text-secondary mt-2">📍 '+d.city+'، '+d.hood+' (موقعیت تقریبی)</div>'}
+ else{h='<div class="row g-3 align-items-center"><div class="col-md-6"><label class="fl">پیش‌پرداخت <span id="q2v">۳۰٪</span></label><input type="range" class="form-range" id="q2" min="10" max="80" step="5" value="30"><label class="fl">مدت <span id="q3v">۱۵ سال</span></label><input type="range" class="form-range" id="q3" min="3" max="25" value="15"></div><div class="col-md-6"><div class="res"><div class="small opacity-75">قسط ماهانه‌ی تقریبی</div><div class="fs-3 fw-bold" id="q4"></div></div></div></div>'}
+ byId('mtc').innerHTML=h;if(t===3){const u=()=>{const dp=+byId('q2').value,y=+byId('q3').value,i=.18/12,n=y*12,l=d.price*(1-dp/100);byId('q2v').textContent=fa(dp)+'٪';byId('q3v').textContent=fa(y)+' سال';byId('q4').textContent=money(l*i/(1-Math.pow(1+i,-n)))+' / ماه'};byId('q2').oninput=u;byId('q3').oninput=u;u()}}
+function gset(i){G.i=(i+4)%4;byId('gm').innerHTML=slide(G.d,G.i);$$('#gth button').forEach((b,k)=>b.classList.toggle('on',k===G.i))}
+function setFav(id,on){id=+id;favs=favs.filter(x=>x!==id);if(on)favs.push(id);store.set('fav',favs);byId('fc').textContent=fa(favs.length)}
+function toggleFav(id){const on=!favs.includes(+id);setFav(id,on);toast(on?'❤️ به علاقه‌مندی‌ها اضافه شد':'از علاقه‌مندی‌ها حذف شد');return on}
+/* booking */
+function bookView(id){const d=byD(id),days=[...Array(7)].map((_,i)=>{const t=new Date();t.setDate(t.getDate()+i+1);return t});
+ const slots=['۱۰:۰۰','۱۲:۰۰','۱۵:۰۰','۱۷:۰۰','۱۹:۰۰'];
+ modal('<div class="p-4"><div class="d-flex justify-content-between mb-3"><h5 class="fw-bold mb-0">📅 رزرو بازدید · '+esc(d.t)+'</h5>'+xb+'</div><div class="fl">روز بازدید</div><div class="chs mb-3" id="bd">'+days.map((t,i)=>'<button data-act="pick" data-g="bd" data-v="'+t.toISOString()+'" class="'+(i===0?'on':'')+'">'+t.toLocaleDateString('fa-IR',{weekday:'short',day:'numeric',month:'short'})+'</button>').join('')+'</div><div class="fl">ساعت</div><div class="chs mb-3" id="bt">'+slots.map((s,i)=>'<button data-act="pick" data-g="bt" data-v="'+s+'" class="'+(i===1?'on':'')+'">'+s+'</button>').join('')+'</div><div class="fl">نوع بازدید</div><div class="chs mb-3" id="bk"><button class="on" data-act="pick" data-g="bk" data-v="حضوری">🚶 حضوری</button><button data-act="pick" data-g="bk" data-v="ویدیویی">🎥 ویدیویی</button></div><div class="row g-2"><div class="col-md-6"><input id="bn" class="form-control" placeholder="نام و نام‌خانوادگی" value="'+esc(user?user.name:'')+'"><div class="invalid-m" id="bne"></div></div><div class="col-md-6"><input id="bm" class="form-control" dir="ltr" inputmode="numeric" placeholder="09123456789" value="'+esc(user?user.mobile:'')+'"><div class="invalid-m" id="bme"></div></div></div><button class="btn btn-x w-100 py-2 mt-2" data-act="bookok" data-id="'+id+'">تأیید رزرو</button></div>','modal-md')}
+const okMobile=v=>/^09\d{9}$/.test(en(v).replace(/\s/g,''));
+function setErr(id,m){byId(id).textContent=m||'';return !m}
+/* contact modals */
+function callView(i,ow){const a=AG[i]||AG[0];let ph=a.p,nm=a.n;if(ow){const d=byD(ow);if(d&&d.phone){ph=d.phone;nm='آگهی‌دهنده'}}
+ modal('<div class="p-4 text-center">'+xb.replace('class="btn-close"','class="btn-close float-start"')+'<div class="av">'+nm[0]+'</div><h5 class="fw-bold">'+esc(nm)+'</h5><div class="text-secondary mb-3">پاسخ‌گویی معمولاً زیر ۵ دقیقه</div><div class="big gt" dir="ltr" style="font-size:2rem">'+esc(ph)+'</div><div class="d-flex gap-2 justify-content-center mt-3"><button class="btn btn-x px-4" data-act="copyph" data-v="'+esc(en(ph).replace(/\s/g,''))+'">📋 کپی شماره</button><a class="btn btn-soft px-4" href="tel:'+esc(en(ph).replace(/\s/g,''))+'">📞 تماس</a></div></div>','modal-sm')}
+function msgView(i){const a=AG[i]||AG[0];modal('<div class="p-4"><div class="d-flex justify-content-between mb-3"><h5 class="fw-bold mb-0">✉️ پیام به '+a.n+'</h5>'+xb+'</div><input id="mn" class="form-control mb-1" placeholder="نام شما" value="'+esc(user?user.name:'')+'"><div class="invalid-m" id="mne"></div><input id="mm2" class="form-control mb-1" dir="ltr" placeholder="09123456789" value="'+esc(user?user.mobile:'')+'"><div class="invalid-m" id="mme"></div><textarea id="mt2" class="form-control mb-1" rows="3" placeholder="پیام شما…"></textarea><div class="invalid-m" id="mte"></div><button class="btn btn-x w-100 py-2" data-act="msgok">ارسال پیام</button></div>','modal-md')}
+/* auth */
+function authView(tab){if(user){modal('<div class="p-4 text-center">'+xb.replace('class="btn-close"','class="btn-close float-start"')+'<div class="av">'+esc(user.name[0])+'</div><h5 class="fw-bold">'+esc(user.name)+'</h5><div class="text-secondary mb-3" dir="ltr">'+esc(user.mobile)+'</div><div class="d-flex justify-content-center gap-2 flex-wrap"><button class="btn btn-soft px-3" data-act="drawer">♥ مجموعه‌ی من</button><button class="btn btn-soft px-3" data-act="logout">خروج از حساب</button></div></div>','modal-sm');return}
+ modal('<div class="p-4"><div class="d-flex justify-content-between mb-3"><div class="tabs" id="at"><button class="'+(tab?'':'on')+'" data-act="atab" data-t="0">ورود</button><button class="'+(tab?'on':'')+'" data-act="atab" data-t="1">ثبت‌نام</button></div>'+xb+'</div><div id="ab"></div></div>','modal-sm');atab(tab||0)}
+function atab(t){$$('#at button').forEach(b=>b.classList.toggle('on',+b.dataset.t===t));byId('ab').innerHTML=(t?'<input id="an" class="form-control mb-1" placeholder="نام و نام‌خانوادگی"><div class="invalid-m" id="ane"></div>':'')+'<input id="am" class="form-control mb-1" dir="ltr" inputmode="numeric" placeholder="شماره‌ی موبایل: 09123456789"><div class="invalid-m" id="ame"></div><input id="ap" type="password" class="form-control mb-1" dir="ltr" placeholder="رمز عبور (حداقل ۶ کاراکتر)"><div class="invalid-m" id="ape"></div><button class="btn btn-x w-100 py-2" data-act="authok" data-t="'+t+'">'+(t?'ساخت حساب':'ورود')+'</button><div class="small text-secondary mt-2 text-center">'+(t?'حساب شما فقط در این مرورگر ذخیره می‌شود.':'حساب ندارید؟ ثبت‌نام کنید.')+'</div>'}
+function paintAuth(){byId('authb').textContent=user?'👤 '+user.name.split(' ')[0]:'👤 ورود / ثبت‌نام'}
+/* wizard */
+let W={step:1,data:{mode:'sale',type:'آپارتمان',city:'تهران',hood:'',area:100,rooms:2,baths:1,price:'',rent:'',year:1402,f:[]}};
+const wsteps=['مشخصات کلی','جزئیات و قیمت','عنوان و تماس'];
+function wizView(){const x=W.data,s=W.step;let b='';
+ if(s===1)b='<div class="fl">نوع معامله</div><div class="chs mb-3">'+[['sale','فروش'],['rent','رهن و اجاره']].map(a=>'<button data-act="wset" data-k="mode" data-v="'+a[0]+'" class="'+(x.mode===a[0]?'on':'')+'">'+a[1]+'</button>').join('')+'</div><div class="fl">نوع ملک</div><div class="chs mb-3">'+TYPES.map(t=>'<button data-act="wset" data-k="type" data-v="'+t+'" class="'+(x.type===t?'on':'')+'">'+t+'</button>').join('')+'</div><div class="row g-2"><div class="col-6"><div class="fl">شهر</div><select id="w_city" class="form-select">'+CNAMES.map(c=>'<option'+(c===x.city?' selected':'')+'>'+c+'</option>').join('')+'</select></div><div class="col-6"><div class="fl">محله</div><input id="w_hood" class="form-control" value="'+esc(x.hood)+'" placeholder="مثلاً سعادت‌آباد"><div class="invalid-m" id="w_e"></div></div></div>';
+ else if(s===2)b='<div class="row g-2"><div class="col-6"><div class="fl">متراژ</div><input id="w_area" type="number" class="form-control" value="'+x.area+'" min="10"></div><div class="col-6"><div class="fl">سال ساخت</div><input id="w_year" type="number" class="form-control" value="'+x.year+'"></div>'+(x.type==='آپارتمان'||x.type==='ویلا'?'<div class="col-6"><div class="fl">تعداد خواب</div><input id="w_rooms" type="number" class="form-control" value="'+x.rooms+'" min="0" max="10"></div><div class="col-6"><div class="fl">سرویس</div><input id="w_baths" type="number" class="form-control" value="'+x.baths+'" min="0" max="10"></div>':'')+(x.mode==='sale'?'<div class="col-12"><div class="fl">قیمت کل (میلیون تومان)</div><input id="w_price" type="number" class="form-control" value="'+x.price+'" placeholder="مثلاً 12500"></div>':'<div class="col-6"><div class="fl">ودیعه (میلیون)</div><input id="w_price" type="number" class="form-control" value="'+x.price+'" placeholder="800"></div><div class="col-6"><div class="fl">اجاره‌ی ماهانه (میلیون)</div><input id="w_rent" type="number" class="form-control" value="'+x.rent+'" placeholder="25"></div>')+'</div><div class="invalid-m" id="w_e"></div><div class="fl mt-2">امکانات</div><div class="chs">'+Object.keys(LB).map(k=>'<button data-act="wf" data-k="'+k+'" class="'+(x.f.includes(k)?'on':'')+'">'+LB[k]+'</button>').join('')+'</div>';
+ else b='<input id="w_t" class="form-control mb-1" placeholder="عنوان آگهی، مثلاً «آپارتمان نوساز با ویو»" value="'+esc(x.t||'')+'"><div class="invalid-m" id="w_e1"></div><textarea id="w_d" class="form-control mb-1" rows="3" placeholder="توضیحات ملک…">'+esc(x.d||'')+'</textarea><div class="invalid-m" id="w_e2"></div><input id="w_p" class="form-control mb-1" dir="ltr" inputmode="numeric" placeholder="شماره‌ی تماس: 09123456789" value="'+esc(x.phone||(user?user.mobile:''))+'"><div class="invalid-m" id="w_e3"></div><div class="bt p-3 small" style="height:auto">با ثبت آگهی، قوانین انتشار آگهی را می‌پذیرید. آگهی بلافاصله در لیست نمایش داده می‌شود.</div>';
+ modal('<div class="p-4"><div class="d-flex justify-content-between align-items-center mb-1"><h5 class="fw-bold mb-0">＋ ثبت آگهی رایگان</h5>'+xb+'</div><div class="small text-secondary mb-2">مرحله‌ی '+fa(s)+' از ۳ · '+wsteps[s-1]+'</div><div class="wp mb-3"><i style="width:'+(s/3*100)+'%"></i></div>'+b+'<div class="d-flex justify-content-between mt-3"><button class="btn btn-soft px-4" data-act="wback"'+(s===1?' disabled':'')+'>قبلی</button><button class="btn btn-x px-4" data-act="wnext">'+(s===3?'🚀 انتشار آگهی':'بعدی')+'</button></div></div>','modal-md')}
+function wcollect(){const x=W.data,g=id=>byId(id);if(W.step===1){x.city=g('w_city').value;x.hood=g('w_hood').value.trim()}
+ else if(W.step===2){x.area=+g('w_area').value;x.year=+g('w_year').value;if(g('w_rooms'))x.rooms=+g('w_rooms').value;if(g('w_baths'))x.baths=+g('w_baths').value;x.price=g('w_price').value;if(g('w_rent'))x.rent=g('w_rent').value}
+ else{x.t=g('w_t').value.trim();x.d=g('w_d').value.trim();x.phone=g('w_p').value.trim()}}
+function wnext(){wcollect();const x=W.data;
+ if(W.step===1){if(!x.hood){wizView();setErr('w_e','نام محله را وارد کنید');return}W.step=2;wizView()}
+ else if(W.step===2){if(!(x.area>=10)||!(+x.price>0)||(x.mode==='rent'&&!(+x.rent>0))){wizView();setErr('w_e','متراژ و قیمت را به‌درستی وارد کنید');return}W.step=3;wizView()}
+ else{const a=setErr('w_e1',x.t.length<5?'عنوان حداقل ۵ حرف باشد':''),b=setErr('w_e2',x.d.length<10?'توضیحات را کامل‌تر بنویسید':''),c=setErr('w_e3',okMobile(x.phone)?'':'شماره‌ی موبایل معتبر نیست');if(!(a&&b&&c))return;
+  const id=Math.max(...D.map(d=>d.id))+1,pal={'آپارتمان':['#2563eb','#10b981'],'ویلا':['#10b981','#06b6d4'],'تجاری':['#f59e0b','#2563eb'],'زمین':['#65a30d','#06b6d4']}[x.type];
+  const d={id,t:x.t,city:x.city,hood:x.hood,type:x.type,mode:x.mode,price:+x.price,rent:x.mode==='rent'?+x.rent:undefined,area:x.area,rooms:x.rooms||0,baths:x.baths||0,floor:0,year:x.year,f:x.f.slice(),feat:0,days:0,views:0,ag:0,c:pal,d:x.d,owner:true,phone:en(x.phone)};
+  D.push(d);const mine=store.get('mine',[]);mine.push(d);store.set('mine',mine);W={step:1,data:{mode:'sale',type:'آپارتمان',city:'تهران',hood:'',area:100,rooms:2,baths:1,price:'',rent:'',year:1402,f:[]}};
+  MD.hide();S={...S,mode:'all',q:'',city:'',type:'',max:60,area:0,rooms:0,feats:[],only:'',sort:'new',shown:6};upd();toast('🎉 آگهی شما منتشر شد!');setTimeout(()=>{goList();setTimeout(()=>openListing(id),700)},400)}}
+/* compare */
+function paintCmp(){byId('cn').textContent=fa(cmp.length)+' ملک انتخاب شده';byId('cch').innerHTML=cmp.map(id=>'<span class="chp">'+esc(byD(id).t.split(' ').slice(0,2).join(' '))+'</span>').join('');byId('cb').classList.toggle('on',cmp.length>0)}
+function setCmp(id,on){id=+id;if(on){if(cmp.includes(id))return true;if(cmp.length>=3){toast('حداکثر ۳ ملک قابل مقایسه است');return false}cmp.push(id)}else{const i=cmp.indexOf(id);if(i>-1)cmp.splice(i,1)}paintCmp();return true}
+function cmpView(){if(cmp.length<2){toast('حداقل ۲ ملک انتخاب کنید');return}const ds=cmp.map(byD);
+ const rows=[['شهر / محله',d=>d.city+' · '+d.hood],['نوع',d=>d.type],['معامله',d=>d.mode==='sale'?'فروش':'رهن و اجاره'],['قیمت',d=>money(d.price)+(d.mode==='rent'?' ودیعه + '+money(d.rent)+' اجاره':'')],['متراژ',d=>fa(d.area)+' متر'],['قیمت هر متر',d=>d.mode==='sale'?fa(d.price/d.area,1)+' میلیون':'—'],['خواب',d=>fa(d.rooms)],['طبقه',d=>fa(d.floor)],['سال ساخت',d=>fa(d.year)],['امکانات',d=>d.f.map(k=>LB[k].split(' ')[0]).join(' ')||'—']];
+ const minP=Math.min(...ds.filter(d=>d.mode==='sale').map(d=>d.price/d.area));
+ modal('<div class="p-4"><div class="d-flex justify-content-between mb-3"><h5 class="fw-bold mb-0">⚖️ مقایسه‌ی ملک‌ها</h5>'+xb+'</div><div class="table-responsive"><table class="table tbl align-middle text-center mb-0"><thead><tr><th></th>'+ds.map(d=>'<th><button class="btn btn-link p-0 fw-bold" data-act="open" data-id="'+d.id+'">'+esc(d.t)+'</button></th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><th class="text-secondary small">'+r[0]+'</th>'+ds.map(d=>'<td'+(r[0]==='قیمت هر متر'&&d.mode==='sale'&&d.price/d.area===minP&&ds.filter(x=>x.mode==='sale').length>1?' class="text-success fw-bold"':'')+'>'+r[1](d)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div><div class="small text-secondary mt-2">مقدار سبز = ارزان‌ترین قیمت هر متر.</div></div>','modal-xl')}
+/* drawer */
+function drawer(){const row=d=>'<div class="d-flex align-items-center gap-2 mb-2"><button class="mi border" data-act="open" data-id="'+d.id+'"><div class="sw">'+ext(d)+'</div><div><b class="small">'+esc(d.t)+'</b><div class="pc small">'+money(d.price)+'</div></div></button><button class="btn btn-sm btn-soft" data-act="unfav" data-id="'+d.id+'" aria-label="حذف">✕</button></div>';
+ const fl=favs.map(byD).filter(Boolean),rc=recent.map(byD).filter(Boolean);
+ byId('drb').innerHTML='<b>♥ علاقه‌مندی‌ها ('+fa(fl.length)+')</b><div class="mt-2 mb-4">'+(fl.map(row).join('')||'<div class="text-secondary small">با زدن ♡ روی هر آگهی اینجا ذخیره می‌شود.</div>')+'</div><b>🔔 جستجوهای ذخیره‌شده</b><div class="mt-2 mb-4">'+(saved.map((s,i)=>'<div class="d-flex gap-2 mb-2"><button class="btn btn-soft flex-grow-1 text-start" data-act="runsave" data-i="'+i+'">'+esc(s.n)+'</button><button class="btn btn-sm btn-soft" data-act="delsave" data-i="'+i+'" aria-label="حذف">✕</button></div>').join('')||'<div class="text-secondary small">فیلترها را تنظیم کنید و «ذخیره‌ی جستجو» را بزنید.</div>')+'</div><b>🕘 اخیراً دیده‌شده</b><div class="mt-2">'+(rc.map(d=>'<button class="mi border mb-2" data-act="open" data-id="'+d.id+'"><div class="sw">'+ext(d)+'</div><div><b class="small">'+esc(d.t)+'</b><div class="pc small">'+money(d.price)+'</div></div></button>').join('')||'<div class="text-secondary small">هنوز آگهی‌ای ندیده‌اید.</div>')+'</div>'}
+const OC=new bootstrap.Offcanvas(byId('dr'));
+function openDrawer(){drawer();OC.show()}
+function saveSearch(){const parts=[];if(S.mode!=='all')parts.push(S.mode==='sale'?'خرید':'اجاره');if(S.type)parts.push(S.type);if(S.city)parts.push(S.city);if(S.q)parts.push('«'+S.q+'»');if(S.max<60)parts.push('تا '+fa(S.max,1)+' میلیارد');if(S.rooms)parts.push(fa(S.rooms)+' خواب');
+ if(!parts.length){toast('ابتدا فیلتری تنظیم کنید');return}saved.push({n:parts.join(' · '),s:{...S,shown:6}});store.set('saved',saved);toast('🔔 جستجو ذخیره شد؛ از منوی ♥ در دسترس است')}
+/* article */
+function artView(i){const a=ARTS[i];modal('<div class="p-4"><div class="d-flex justify-content-between mb-2"><span class="chp">'+a[1]+'</span>'+xb+'</div><div class="ic">'+a[2]+'</div><h4 class="fw-bold mb-3">'+a[0]+'</h4>'+a[3].map(p=>'<p style="line-height:2.1">'+p+'</p>').join('')+'<button class="btn btn-x px-4" data-act="goTools">ابزارهای محاسبه ›</button></div>','modal-md')}
+
+/* ---------- global click delegation ---------- */
+document.addEventListener('click',e=>{
+ const a=e.target.closest('[data-act]');
+ if(a){const k=a.dataset.act,id=a.dataset.id,t=e.target;if(a.tagName==='A')e.preventDefault();
+  if(k==='cmp'){if(!setCmp(id,t.checked))t.checked=false;return}
+  switch(k){
+  case'fav':e.stopPropagation();{const on=toggleFav(id);a.classList.toggle('on',on);a.textContent=on?'♥':'♡';byId('fc').textContent=fa(favs.length);if(S.only==='fav')render()}break;
+  case'fav2':{const on=toggleFav(id);a.textContent=on?'♥ ذخیره شد':'♡ ذخیره';render()}break;
+  case'unfav':setFav(id,false);drawer();render();break;
+  case'open':if(a.closest('#dr'))OC.hide();openListing(id);break;
+  case'gnext':gset(G.i+1);break;case'gprev':gset(G.i-1);break;case'gset':gset(+a.dataset.i);break;
+  case'mtab':mtab(+a.dataset.t);break;
+  case'share':copy(location.href.split('#')[0]+'#l='+id);break;
+  case'cmp2':if(setCmp(id,true)){toast('⚖️ به مقایسه اضافه شد');render()}break;
+  case'cmpgo':cmpView();break;case'cmpclr':cmp.length=0;paintCmp();render();break;
+  case'book':bookView(id);break;
+  case'pick':$$('#'+a.dataset.g+' button').forEach(b=>b.classList.remove('on'));a.classList.add('on');break;
+  case'bookok':{const n=byId('bn').value.trim(),m=byId('bm').value;const o1=setErr('bne',n.length<3?'نام را وارد کنید':''),o2=setErr('bme',okMobile(m)?'':'شماره‌ی موبایل معتبر نیست');if(!(o1&&o2))break;
+   const dt=new Date($('#bd .on').dataset.v).toLocaleDateString('fa-IR',{weekday:'long',day:'numeric',month:'long'});const tm=$('#bt .on').dataset.v,ty=$('#bk .on').dataset.v;MD.hide();toast('✅ بازدید '+ty+' ('+dt+'، ساعت '+tm+') ثبت شد؛ مشاور تماس می‌گیرد')}break;
+  case'call':callView(+a.dataset.i,a.dataset.ow);break;
+  case'copyph':copy(a.dataset.v);break;
+  case'msg':msgView(+a.dataset.i);break;
+  case'msgok':{const o1=setErr('mne',byId('mn').value.trim().length<3?'نام را وارد کنید':''),o2=setErr('mme',okMobile(byId('mm2').value)?'':'شماره‌ی موبایل معتبر نیست'),o3=setErr('mte',byId('mt2').value.trim().length<5?'پیام کوتاه است':'');if(o1&&o2&&o3){MD.hide();toast('✉️ پیام ارسال شد؛ به‌زودی پاسخ می‌گیرید')}}break;
+  case'auth':authView(0);break;case'atab':atab(+a.dataset.t);break;
+  case'authok':{const t=+a.dataset.t,m=byId('am').value,p=byId('ap').value;let ok=true;if(t){ok=setErr('ane',byId('an').value.trim().length<3?'نام را وارد کنید':'')&&ok}
+   ok=setErr('ame',okMobile(m)?'':'شماره‌ی موبایل معتبر نیست')&&ok;ok=setErr('ape',p.length<6?'رمز حداقل ۶ کاراکتر باشد':'')&&ok;if(!ok)break;
+   const mob=en(m).replace(/\s/g,''),users=store.get('users',{});
+   if(t){users[mob]={name:byId('an').value.trim(),p:btoa(unescape(encodeURIComponent(p)))};store.set('users',users);user={name:users[mob].name,mobile:mob}}
+   else{const u=users[mob];if(!u||u.p!==btoa(unescape(encodeURIComponent(p)))){setErr('ape','شماره یا رمز اشتباه است؛ ابتدا ثبت‌نام کنید');break}user={name:u.name,mobile:mob}}
+   store.set('user',user);paintAuth();MD.hide();toast('👋 خوش آمدید '+user.name)}break;
+  case'logout':user=null;store.set('user',null);paintAuth();MD.hide();toast('از حساب خارج شدید');break;
+  case'wizard':W.step=1;if(OC._isShown)OC.hide();wizView();break;
+  case'wset':wcollect();W.data[a.dataset.k]=a.dataset.v;wizView();break;
+  case'wf':{const f=W.data.f,k=a.dataset.k;wcollect();W.data.f=f.includes(k)?f.filter(x=>x!==k):f.concat(k);wizView()}break;
+  case'wnext':wnext();break;case'wback':wcollect();W.step=Math.max(1,W.step-1);wizView();break;
+  case'drawer':if(a.closest('#mb'))MD.hide();openDrawer();break;
+  case'savesearch':saveSearch();break;
+  case'runsave':S={...saved[+a.dataset.i].s};upd();OC.hide();goList();break;
+  case'delsave':saved.splice(+a.dataset.i,1);store.set('saved',saved);drawer();break;
+  case'ftype':S.type=a.dataset.v;upd();goList();break;
+  case'fcity':S.city=S.city===a.dataset.v?'':a.dataset.v;upd();goList();break;
+  case'art':artView(+a.dataset.i);break;
+  case'goList':goList();break;
+  case'goTools':MD.hide();setTimeout(()=>byId('tools').scrollIntoView({behavior:'smooth'}),300);break;
+  case'chat':openChat(true);break;}
+  return}
+ const card=e.target.closest('.pr');if(card&&!e.target.closest('.cmp,.fv'))openListing(card.dataset.id);
+ if(e.target.closest('#nv .nav-link')&&byId('nv').classList.contains('show'))bootstrap.Collapse.getOrCreateInstance(byId('nv'),{toggle:false}).hide()});
+byId('grid').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('pr'))openListing(e.target.dataset.id)});
+byId('grid').addEventListener('pointermove',e=>{const c=e.target.closest('.pr');if(!c||e.pointerType!=='mouse'||c.classList.contains('lv'))return;const r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;c.style.transform='perspective(900px) rotateY('+(x*8)+'deg) rotateX('+(-y*8)+'deg) translateY(-4px)'});
+byId('grid').addEventListener('pointerout',e=>{const c=e.target.closest('.pr');if(c)c.style.transform=''});
+
+/* ---------- hero extras ---------- */
+let hi=0;const feats=D.filter(d=>d.feat);
+function heroCard(){const d=feats[hi%feats.length];byId('hcard').innerHTML='<div style="height:170px">'+ext(d)+'</div><div class="p-3"><b>'+esc(d.t)+'</b><div class="small text-secondary">'+d.city+' · '+fa(d.area)+' متر</div><div class="pc fw-bold mt-1">'+money(d.price)+'</div></div>';byId('hcard').dataset.id=d.id}
+heroCard();byId('hcard').onclick=()=>openListing(byId('hcard').dataset.id);setInterval(()=>{hi++;heroCard()},4500);
+byId('stage').closest('.hero').addEventListener('pointermove',e=>{const x=e.clientX/innerWidth-.5,y=e.clientY/innerHeight-.5;$$('.fc').forEach(c=>{const d=+c.dataset.d;if(d)c.style.transform='translate('+(x*d)+'px,'+(y*d)+'px)'})});
+setInterval(()=>{byId('viewers').textContent=fa(5+Math.floor(Math.random()*14))},3500);
+
+/* ---------- reveal & counters ---------- */
+const io=new IntersectionObserver(es=>es.forEach(en=>{if(!en.isIntersecting)return;const el=en.target;el.classList.add('in');io.unobserve(el);el.querySelectorAll('[data-n]').forEach(counter)}),{threshold:.1});
+$$('.rv').forEach(el=>io.observe(el));
+function counter(el){const t=+el.dataset.n,sfx=el.dataset.s||'+';let s0=null;(function st(ts){s0=s0||ts;const p=Math.min((ts-s0)/1600,1);el.textContent=fa(Math.floor(t*(1-Math.pow(1-p,3))))+sfx;if(p<1)requestAnimationFrame(st)})(performance.now())}
+/* delayed reveal for dynamically-built sections */
+$$('.rv').forEach((el,i)=>{el.style.transitionDelay=(i%4)*80+'ms'});
+
+/* ---------- tools ---------- */
+byId('ttabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$$('#ttabs button').forEach(x=>x.classList.toggle('on',x===b));$$('.tp').forEach((p,i)=>p.classList.toggle('d-none',i!==+b.dataset.t))});
+function mortgage(){const P=+byId('c1').value*1000,dp=+byId('c2').value,y=+byId('c3').value,ra=+byId('c4').value,i=ra/1200,n=y*12,Ln=P*(1-dp/100),m=Ln*i/(1-Math.pow(1+i,-n)),tot=m*n;
+ byId('m1').textContent=fa(byId('c1').value)+' میلیارد';byId('m2').textContent=fa(dp)+'٪';byId('m3').textContent=fa(y)+' سال';byId('m4').textContent=fa(ra)+'٪';byId('mm').textContent=fa(m,1);byId('dn').style.setProperty('--p',(Ln/tot*100)+'%');byId('ml').textContent=money(Ln);byId('mi').textContent=money(tot-Ln);byId('mt').textContent=money(tot)}
+['c1','c2','c3','c4'].forEach(i=>byId(i).addEventListener('input',mortgage));mortgage();
+/* estimator */
+byId('e_city').innerHTML=selOpts(CNAMES);byId('e_type').innerHTML=selOpts(TYPES);
+byId('e_feats').innerHTML=Object.keys(LB).map(k=>'<label class="ck"><input type="checkbox" data-f="'+k+'">'+LB[k]+'</label>').join('');
+function hoods(){const h=CITIES[byId('e_city').value].hoods;byId('e_hood').innerHTML=Object.keys(h).map(x=>'<option>'+x+'</option>').join('')}
+function estimate(){const c=CITIES[byId('e_city').value],hf=c.hoods[byId('e_hood').value]||1,tf={'آپارتمان':1,'ویلا':1.25,'تجاری':1.6,'زمین':.55}[byId('e_type').value],area=+byId('e_area').value,age=+byId('e_age').value,fl=Math.min(10,+byId('e_floor').value||0);
+ const fm=$$('#e_feats input:checked').reduce((s,i)=>s+(i.dataset.f==='pool'?.06:.025),0);const v=area*c.base*hf*tf*(1-Math.min(age,30)*.008)*(1+fl*.004+fm);
+ byId('e_av').textContent=fa(area)+' متر';byId('e_ag').textContent=fa(age)+' سال';byId('e_val').textContent=money(v);byId('e_rng').textContent='بازه‌ی محتمل: '+money(v*.92)+' تا '+money(v*1.08);byId('e_pm').textContent=fa(v/area,1)+' میلیون';byId('e_dep').textContent=money(v*.4);byId('e_rent').textContent=money(v*.0025)}
+byId('e_city').addEventListener('change',()=>{hoods();estimate()});['e_hood','e_type','e_floor','e_area','e_age'].forEach(i=>byId(i).addEventListener('input',estimate));byId('e_feats').addEventListener('change',estimate);hoods();estimate();
+/* buy vs rent */
+function bvr(){const P=+byId('b_p').value*1000,r0=+byId('b_r').value,g=+byId('b_g').value/100,ir=+byId('b_i').value/100,rg=+byId('b_ir').value/100,y=+byId('b_y').value;
+ byId('b1v').textContent=fa(byId('b_p').value,1)+' میلیارد';byId('b2v').textContent=fa(r0)+' میلیون/ماه';byId('b3v').textContent=fa(g*100)+'٪';byId('b4v').textContent=fa(ir*100)+'٪';byId('b5v').textContent=fa(rg*100)+'٪';byId('b6v').textContent=fa(y)+' سال';
+ const buy=P*Math.pow(1+g,y);let bal=P,rent=r0;const mi=Math.pow(1+ir,1/12)-1;for(let m=1;m<=y*12;m++){bal=bal*(1+mi)-rent;if(m%12===0)rent*=1+rg}
+ byId('b_buy').textContent=money(buy);byId('b_rent').textContent=money(Math.max(bal,0));const diff=buy-bal,w=diff>=0;
+ byId('b_verdict').innerHTML='<b>'+(w?'🏠 خرید':'🔑 اجاره + سرمایه‌گذاری')+' در این سناریو '+money(Math.abs(diff))+' بهتر است.</b><div class="small text-secondary mt-1">محاسبه‌ی ساده؛ هزینه‌های نگهداری، مالیات و ریسک بازار را نیز در نظر بگیرید.</div>'}
+['b_p','b_r','b_g','b_i','b_ir','b_y'].forEach(i=>byId(i).addEventListener('input',bvr));bvr();
+/* rent conversion */
+function conv(){const d=+byId('v_d').value,r=+byId('v_r').value,n=+byId('v_n').value,k=+byId('v_k').value;byId('v1v').textContent=fa(d);byId('v2v').textContent=fa(r);byId('v3v').textContent=fa(n);byId('v4v').textContent=fa(k,1)+'٪';
+ const nr=Math.max(0,r+(d-n)*k/100);byId('v_out').textContent=fa(nr,1);byId('v_note').textContent=n<d?'با کاهش ودیعه به '+money(n)+'، اجاره ماهانه '+fa((nr-r),1)+' میلیون افزایش می‌یابد.':n>d?'با افزایش ودیعه به '+money(n)+'، اجاره ماهانه '+fa(Math.abs(nr-r),1)+' میلیون کمتر می‌شود.':'ودیعه تغییری نکرده است.'}
+['v_d','v_r','v_n','v_k'].forEach(i=>byId(i).addEventListener('input',conv));conv();
+/* trend chart */
+byId('tr_city').innerHTML=selOpts(CNAMES);let trP=12;
+function series(c){const b=CITIES[c].base,tr={'تهران':.14,'اصفهان':.1,'شیراز':.09,'مشهد':.11,'تبریز':.08,'کیش':.17,'نوشهر':.13}[c],sd=c.length*3.7;return Array.from({length:24},(_,i)=>b*(.78+.22*(i/23)*(1+tr*2)+.02*Math.sin(i*1.25+sd)))}
+function months(){const n=new Date();return Array.from({length:24},(_,i)=>new Date(n.getFullYear(),n.getMonth()-23+i,1).toLocaleDateString('fa-IR',{month:'short'}))}
+function chart(){const c=byId('tr_city').value,all=series(c),mo=months(),s=all.slice(24-trP),m=mo.slice(24-trP),W=640,H=270,pl=44,pr=14,pt=16,pb=30,mn=Math.min(...s)*.96,mx=Math.max(...s)*1.04;
+ const X=i=>pl+i*(W-pl-pr)/(s.length-1),Y=v=>pt+(1-(v-mn)/(mx-mn))*(H-pt-pb);
+ let p='M'+X(0)+' '+Y(s[0]);for(let i=1;i<s.length;i++){const cx=(X(i-1)+X(i))/2;p+=' C'+cx+' '+Y(s[i-1])+' '+cx+' '+Y(s[i])+' '+X(i)+' '+Y(s[i])}
+ let g='';for(let i=0;i<=4;i++){const v=mn+(mx-mn)*i/4,y=Y(v);g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y+'" y2="'+y+'" stroke="var(--ln)"/><text x="'+(pl-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="11" fill="var(--mt)">'+fa(Math.round(v))+'</text>'}
+ const step=Math.ceil(s.length/6);m.forEach((t,i)=>{if(i%step===0||i===s.length-1)g+='<text x="'+X(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" fill="var(--mt)">'+t+'</text>'});
+ byId('tr_chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" id="trs"><defs><linearGradient id="tlg" x1="0" x2="1"><stop offset="0" stop-color="#10b981"/><stop offset=".5" stop-color="#06b6d4"/><stop offset="1" stop-color="#2563eb"/></linearGradient><linearGradient id="tfg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#06b6d4" stop-opacity=".35"/><stop offset="1" stop-color="#06b6d4" stop-opacity="0"/></linearGradient></defs>'+g+'<path d="'+p+' L'+X(s.length-1)+' '+(H-pb)+' L'+X(0)+' '+(H-pb)+'Z" fill="url(#tfg)"/><path class="cl" pathLength="1" d="'+p+'"/><line id="tcl" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--mt)" stroke-dasharray="4" opacity="0"/><circle id="tcd" r="6" fill="#2563eb" stroke="#fff" stroke-width="3" opacity="0"/></svg><div class="ctip" id="tr_tip"></div>';
+ const ch=(s[s.length-1]/s[0]-1)*100;byId('tr_now').textContent=fa(s[s.length-1],1)+' م';byId('tr_pct').textContent=(ch>=0?'+':'')+fa(ch,1)+'٪';byId('tr_pct').style.color=ch>=0?'#10b981':'#ef4444';
+ const svg=byId('trs');svg.addEventListener('pointermove',e=>{const r=svg.getBoundingClientRect(),rx=(e.clientX-r.left)/r.width*W;let i=Math.round((rx-pl)/((W-pl-pr)/(s.length-1)));i=Math.max(0,Math.min(s.length-1,i));
+  const cl=byId('tcl'),cd=byId('tcd'),tp=byId('tr_tip');cl.setAttribute('x1',X(i));cl.setAttribute('x2',X(i));cl.setAttribute('opacity',.5);cd.setAttribute('cx',X(i));cd.setAttribute('cy',Y(s[i]));cd.setAttribute('opacity',1);
+  tp.style.opacity=1;tp.style.left=(X(i)/W*r.width)+'px';tp.style.top=(Y(s[i])/H*r.height)+'px';tp.textContent=m[i]+': '+fa(s[i],1)+' میلیون/متر'});
+ svg.addEventListener('pointerleave',()=>{byId('tcl').setAttribute('opacity',0);byId('tcd').setAttribute('opacity',0);byId('tr_tip').style.opacity=0})}
+byId('tr_city').addEventListener('change',chart);byId('tr_per').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;trP=+b.dataset.p;$$('#tr_per button').forEach(x=>x.classList.toggle('on',x===b));chart()});chart();
+
+/* ---------- reviews scroller ---------- */
+const rs=byId('rvs');byId('rn').onclick=()=>rs.scrollBy({left:-(rs.clientWidth*.7),behavior:'smooth'});byId('rp').onclick=()=>rs.scrollBy({left:rs.clientWidth*.7,behavior:'smooth'});
+/* ---------- newsletter ---------- */
+byId('nlb').onclick=()=>{const v=byId('nl').value.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)){setErr('nle','ایمیل معتبر وارد کنید');return}setErr('nle','');byId('nl').value='';toast('📬 عضویت شما در خبرنامه ثبت شد')};
+/* ---------- assistant ---------- */
+const cm=byId('cm');
+function say(m,u,html){const e=document.createElement('div');e.className='bb'+(u?' u':'');if(html)e.innerHTML=m;else e.textContent=m;cm.appendChild(e);cm.scrollTop=1e6;return e}
+say('سلام! 👋 بگویید دنبال چه ملکی هستید؛ مثلاً «ویلا در کیش تا ۳۰ میلیارد» یا «اجاره آپارتمان ۲ خواب در تهران».');
+function openChat(f){byId('cp').classList.toggle('on',f===true?true:undefined);if(byId('cp').classList.contains('on'))setTimeout(()=>byId('cin').focus(),300)}
+byId('ai').onclick=()=>openChat();byId('cx').onclick=()=>byId('cp').classList.remove('on');
+function parse(raw){const t=en(raw),n=norm(t),ch={};let hit=0;
+ CNAMES.forEach(c=>{if(n.includes(norm(c))){ch.city=c;hit++}});
+ if(!ch.city)CNAMES.forEach(c=>Object.keys(CITIES[c].hoods).forEach(h=>{if(n.includes(norm(h))){ch.city=c;ch.q=h;hit++}}));
+ if(/ویلا|باغ/.test(t))ch.type='ویلا';else if(/تجاری|مغازه|دفتر|اداری/.test(t))ch.type='تجاری';else if(/زمین/.test(t))ch.type='زمین';else if(/آپارتمان|اپارتمان|سوئیت|پنت/.test(t))ch.type='آپارتمان';if(ch.type)hit++;
+ if(/اجاره|رهن|ودیعه/.test(t)){ch.mode='rent';hit++}else if(/خرید|فروش|بخرم|بخریم/.test(t)){ch.mode='sale';hit++}
+ let m=t.match(/(\d+)\s*(?:خواب|اتاق)/);if(m){ch.rooms=Math.min(4,+m[1]);hit++}else{const w={'یک':1,'دو':2,'سه':3,'چهار':4};const m2=t.match(/(یک|دو|سه|چهار)\s*خواب/);if(m2){ch.rooms=w[m2[1]];hit++}}
+ m=t.match(/(\d+(?:\.\d+)?)\s*(میلیارد|میلیون)/);if(m){let v=+m[1];if(m[2]==='میلیون')v/=1000;ch.max=Math.max(.5,Math.min(60,Math.round(v*2)/2));hit++}
+ return hit?ch:null}
+function ask(txt){if(!txt.trim())return;say(txt,1);const ch=parse(txt);
+ setTimeout(()=>{if(!ch){say('متوجه نشدم 🤔 شهر، نوع ملک یا بودجه را بگویید؛ مثل «آپارتمان ۳ خواب در شیراز تا ۸ میلیارد».');return}
+  S={...S,mode:ch.mode||'all',q:ch.q||'',city:ch.city||'',type:ch.type||'',max:ch.max||60,rooms:ch.rooms||0,area:0,feats:[],only:'',shown:6};upd();const r=L();
+  if(!r.length){say('ملکی دقیقاً با این مشخصات پیدا نشد 😕 بودجه یا شهر را کمی تغییر دهید.');return}
+  say('پیدا کردم: '+fa(r.length)+' ملک 👇'+r.slice(0,3).map(d=>'<button data-act="open" data-id="'+d.id+'">'+esc(d.t)+' · '+money(d.price)+'</button>').join('')+'<button data-act="goList">دیدن همه در لیست ›</button>',0,true)},350)}
+byId('cf').addEventListener('submit',e=>{e.preventDefault();const v=byId('cin').value;byId('cin').value='';ask(v)});
+byId('qr').addEventListener('click',e=>{const b=e.target.closest('.qc');if(b)ask(b.dataset.q)});
+
+/* ---------- misc ---------- */
+document.addEventListener('keydown',e=>{if(e.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();scrollTo({top:0,behavior:'smooth'});byId('hq').focus()}if(e.key==='Escape')byId('cp').classList.remove('on');
+ if(byId('md').classList.contains('show')&&G.d&&byId('gm')){if(e.key==='ArrowLeft')gset(G.i+1);if(e.key==='ArrowRight')gset(G.i-1)}});
+setInterval(()=>{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const m=['یک آپارتمان در سعادت‌آباد همین الان رزرو شد','آگهی تازه: پنت‌هاوس الهیه ثبت شد','یک قرارداد دیجیتال امضا شد','۳ نفر در حال دیدن ویلای نوشهر هستند'];toast('🟢 '+m[Math.floor(Math.random()*m.length)])},25000);
+paintAuth();upd();paintCmp();
+if(location.hash.startsWith('#l=')){const id=+location.hash.slice(3);if(byD(id))setTimeout(()=>openListing(id,false),500)}
+})();
+</script>
+</body>
+</html>
