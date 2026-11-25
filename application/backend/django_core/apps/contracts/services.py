@@ -17,7 +17,7 @@ from common.exceptions import (
     PermissionDeniedDomainError,
     ValidationDomainError,
 )
-from common.permissions import can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
+from common.permissions import can_edit_customer, can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
 from .models import Contract, ContractAmendment, ContractParty, ContractStatusHistory, ContractTemplate
 
 EDITABLE_CONTRACT_STATUSES = {

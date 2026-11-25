@@ -11,7 +11,7 @@ from apps.notifications.models import NotificationMessage
 from apps.notifications.services import send_notification
 from apps.properties.models import Property
 from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
-from common.permissions import can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
+from common.permissions import can_edit_customer, can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
 from .models import Negotiation, NegotiationActivity, NegotiationOfferVersion
 
 VALID_STATUS_VALUES = {choice[0] for choice in Negotiation.Status.choices}
