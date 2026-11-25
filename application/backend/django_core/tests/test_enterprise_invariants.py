@@ -22,6 +22,7 @@ from apps.transactions.models import Deal
 from common.exceptions import PermissionDeniedDomainError
 from common.localization.calendar import CalendarAdapter
 from common.localization.currency import CurrencyConversionService
+from common.tenant.context import tenant_bypass
 
 
 @pytest.fixture
