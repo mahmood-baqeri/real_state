@@ -305,9 +305,9 @@ def test_p0_full_lifecycle_capture_opencv_stitch_review_links_publish_and_securi
     raw_anon = client.get(f"/api/v1/virtual-tours/files/capture/{uploaded_img_ids[0]}")
     assert raw_anon.status_code == 403
 
-    # Required horizontal step cannot be skipped; optional ceiling step can be skipped
+    # مراحل افقی و حلقهٔ فوقانی در الگوی فعلی اجباری هستند.
     assert client.post(f"/api/v1/capture-sessions/{sess_id}/steps/5/skip", headers=hdr_agent).status_code == 400
-    assert client.post(f"/api/v1/capture-sessions/{sess_id}/steps/13/skip", headers=hdr_agent).status_code == 200
+    assert client.post(f"/api/v1/capture-sessions/{sess_id}/steps/13/skip", headers=hdr_agent).status_code == 400
 
     comp = client.post(f"/api/v1/capture-sessions/{sess_id}/complete", headers=hdr_agent)
     assert comp.status_code == 200
@@ -363,16 +363,27 @@ def test_p0_full_lifecycle_capture_opencv_stitch_review_links_publish_and_securi
     assert app_res.status_code == 200
     assert app_res.json()["data"]["state"] == "approved"
 
-    # Restore v1 then re-approve v1 to prove version rollback preserves history
-    rest_res = client.post(f"/api/v1/scenes/{sc1_id}/panoramas/{p1['id']}/restore", headers=hdr_a)
-    assert rest_res.status_code == 200
-    assert rest_res.json()["data"]["is_current"] is True
-    app_v1 = client.post(
+    # نسخهٔ دوخته‌شدهٔ این سناریو پوشش ناقص دارد و قابل بازیابی نیست.
+    rejected_restore = client.post(f"/api/v1/scenes/{sc1_id}/panoramas/{p1['id']}/restore", headers=hdr_a)
+    assert rejected_restore.status_code == 400, rejected_restore.text
+
+    # جابه‌جایی از نسخهٔ تأییدشدهٔ سوم به دوم تاریخچه را حفظ می‌کند.
+    replacement = client.post(
+        f"/api/v1/scenes/{sc1_id}/panoramas/upload",
+        headers=hdr_a,
+        files={"file": ("replacement360.jpg", _make_equirectangular_jpeg(), "image/jpeg")},
+    )
+    assert replacement.status_code == 201, replacement.text
+    p3_id = replacement.json()["data"]["id"]
+    app_v3 = client.post(
         f"/api/v1/scenes/{sc1_id}/approve-panorama",
         headers=hdr_a,
-        json={"panorama_version_id": p1["id"]},
+        json={"panorama_version_id": p3_id},
     )
-    assert app_v1.status_code == 200
+    assert app_v3.status_code == 200, app_v3.text
+    rest_res = client.post(f"/api/v1/scenes/{sc1_id}/panoramas/{p2_id}/restore", headers=hdr_a)
+    assert rest_res.status_code == 200, rest_res.text
+    assert rest_res.json()["data"]["is_current"] is True
 
     # Scene 2 still has no panorama -> publish MUST fail quality gate
     qr_fail = client.get(f"/api/v1/virtual-tours/{tour_id}/quality-report", headers=hdr_a)
@@ -460,7 +471,8 @@ def test_p0_full_lifecycle_capture_opencv_stitch_review_links_publish_and_securi
     assert public_vt.status_code == 200, public_vt.text
     pub_payload = public_vt.json()["data"]
     assert len(pub_payload["scenes"]) == 2
-    assert client.get(f"/api/v1/virtual-tours/files/panorama/{p1['id']}").status_code == 200
+    assert client.get(f"/api/v1/virtual-tours/files/panorama/{p2_id}").status_code == 200
+    assert client.get(f"/api/v1/virtual-tours/files/panorama/{p1['id']}").status_code == 403
 
     # Analytics event recording + dashboard summary
     ev1 = client.post(
@@ -495,7 +507,12 @@ def test_p0_full_lifecycle_capture_opencv_stitch_review_links_publish_and_securi
     assert AuditLog.objects.filter(action__startswith="virtual_tour.", agency_id=prop["agency_id"]).count() >= 5
 
     # WebSocket job monitor smoke test
-    with client.websocket_connect(f"/api/v1/ws/virtual-tours/{tour_id}/jobs?token={mgr_a['access']}") as ws:
+    ticket = client.post("/api/v1/auth/ws-ticket", headers=hdr_a)
+    assert ticket.status_code == 200, ticket.text
+    with client.websocket_connect(
+        f"/api/v1/ws/virtual-tours/{tour_id}/jobs",
+        subprotocols=["bonyan.auth", "ticket." + ticket.json()["data"]["ticket"]],
+    ) as ws:
         msg = ws.receive_json()
         assert msg["event"] == "tour_jobs_snapshot"
         assert msg["data"]["tour_id"] == tour_id

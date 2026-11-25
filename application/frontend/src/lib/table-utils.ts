@@ -1,3 +1,4 @@
+// فیلتر، مرتب‌سازی و خروجی جدولی در داشبورد.
 export interface TableSortSpec<T> {
   key: string;
   direction: "asc" | "desc";
@@ -46,9 +47,11 @@ export function filterAndSortRows<T>(
   return list;
 }
 
+/** متن سلول را به‌گونه‌ای نقل‌قول می‌کند که Excel آن را فرمول اجرا نکند. */
 function escapeCsvCell(value: unknown): string {
   const raw = value === null || value === undefined ? "" : String(value);
-  const escaped = raw.replace(/"/g, '""');
+  const safe = typeof value === "string" && /^(?:\s*[=+@-]|[\t\r\n])/.test(raw) ? "'" + raw : raw;
+  const escaped = safe.replace(/"/g, '""');
   return `"${escaped}"`;
 }
 

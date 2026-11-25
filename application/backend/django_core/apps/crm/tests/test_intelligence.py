@@ -36,8 +36,9 @@ class LeadScoringRuleTests(TestCase):
         self.assertEqual(level, "MEDIUM")
         self.assertTrue(any(f["delta"] < 0 for f in factors))
 
-    def test_score_is_clamped(self):
+    def test_repeated_signals_are_capped(self):
+        """تکرار تعامل و مذاکره سقف امتیاز هر عامل را تغییر نمی‌دهد."""
         interactions = [SimpleNamespace(created_at=self.now) for _ in range(100)]
         negotiations = [SimpleNamespace(status="PRE_AGREEMENT") for _ in range(10)]
         score, _, _ = score_customer(self.customer, interactions, [], negotiations, self.now)
-        self.assertEqual(score, 100)
+        self.assertEqual(score, 80)

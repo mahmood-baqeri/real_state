@@ -1,5 +1,6 @@
 "use client";
 
+// جدول مشترک داشبورد با فیلتر، انتخاب ردیف و خروجی فایل.
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -78,6 +79,7 @@ function triggerDownload(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** جدول قابل استفاده در صفحه‌های فهرست و عملیات گروهی را رندر می‌کند. */
 export function DataTable<T>({
   rows,
   columns,
@@ -141,6 +143,7 @@ export function DataTable<T>({
   const [internalSelected, setInternalSelected] = useState<string[]>([]);
 
   const activeSelection = selectedKeys !== undefined ? selectedKeys : internalSelected;
+  const activeSelectionSet = useMemo(() => new Set(activeSelection), [activeSelection]);
   const setSelection = (next: string[]) => {
     if (onSelectionChange) onSelectionChange(next);
     else setInternalSelected(next);
@@ -205,18 +208,19 @@ export function DataTable<T>({
 
   const pagedKeys = pagedRows.map((r) => rowKey(r));
   const allPageSelected =
-    selectable && pagedKeys.length > 0 && pagedKeys.every((k) => activeSelection.includes(k));
+    selectable && pagedKeys.length > 0 && pagedKeys.every((k) => activeSelectionSet.has(k));
 
   const toggleSelectAllPage = () => {
     if (allPageSelected) {
-      setSelection(activeSelection.filter((k) => !pagedKeys.includes(k)));
+      const pagedKeySet = new Set(pagedKeys);
+      setSelection(activeSelection.filter((k) => !pagedKeySet.has(k)));
     } else {
       setSelection(Array.from(new Set([...activeSelection, ...pagedKeys])));
     }
   };
 
   const toggleRow = (key: string) => {
-    if (activeSelection.includes(key)) {
+    if (activeSelectionSet.has(key)) {
       setSelection(activeSelection.filter((k) => k !== key));
     } else {
       setSelection([...activeSelection, key]);
@@ -224,8 +228,8 @@ export function DataTable<T>({
   };
 
   const selectedRows = useMemo(
-    () => rows.filter((r) => activeSelection.includes(rowKey(r))),
-    [rows, activeSelection, rowKey]
+    () => rows.filter((r) => activeSelectionSet.has(rowKey(r))),
+    [rows, activeSelectionSet, rowKey]
   );
 
   const exportCols: ExportColumn<T>[] = useMemo(
@@ -445,7 +449,7 @@ export function DataTable<T>({
           <div className="divide-y divide-slate-200 dark:divide-slate-800 md:hidden">
             {pagedRows.map((row) => {
               const key = rowKey(row);
-              const isSelected = activeSelection.includes(key);
+              const isSelected = activeSelectionSet.has(key);
               return (
                 <div
                   key={key}
@@ -527,7 +531,7 @@ export function DataTable<T>({
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {pagedRows.map((row) => {
                   const key = rowKey(row);
-                  const isSelected = activeSelection.includes(key);
+                  const isSelected = activeSelectionSet.has(key);
                   return (
                     <tr
                       key={key}

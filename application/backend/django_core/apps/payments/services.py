@@ -1,3 +1,5 @@
+"""گردش آغاز و تأیید پرداخت اشتراک و تنظیم درگاه‌های آژانس."""
+
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
@@ -6,9 +8,11 @@ from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
 from apps.accounts.models import User
+from apps.agencies.models import Agency
 from apps.audit.services import record_audit_event
 from apps.settings.models import ProviderConfiguration
 from apps.settings.services import (
+    get_setting_value,
     list_provider_configs,
     parse_provider_credentials,
     resolve_active_provider_config,
@@ -80,6 +84,7 @@ def test_gateway_connection(*, user: User, agency_id: Optional[UUID], config_id:
 
 
 @transaction.atomic
+@transaction.atomic
 def initiate_gateway_payment(
     *,
     user: User,
@@ -90,20 +95,35 @@ def initiate_gateway_payment(
     callback_url: str = "/dashboard/subscriptions",
     idempotency_key: Optional[str] = None,
 ) -> dict:
+    """پس از کنترل مجوز، پرداخت را آغاز یا نتیجهٔ قبلی همان آژانس را بازیابی می‌کند."""
     if not (is_super_admin(user) or has_agency_permission(user, agency_id, "agency.manage_policy")):
         raise PermissionDeniedDomainError("عدم مجوز خرید یا تمدید اشتراک آژانس.")
 
+    idempotency_key = (idempotency_key or "").strip() or None
+    if idempotency_key and len(idempotency_key) > 128:
+        raise ValidationDomainError("کلید جلوگیری از تکرار پرداخت بیش از حد طولانی است.")
+    if len(callback_url) > 500:
+        raise ValidationDomainError("نشانی بازگشت پرداخت بیش از حد طولانی است.")
     if idempotency_key:
+        # قفل آژانس مانع تماس هم‌زمان با درگاه برای یک کلید تکراری می‌شود.
+        if not Agency.objects.select_for_update().filter(pk=agency_id).exists():
+            raise NotFoundDomainError("آژانس یافت نشد.")
         existing_tx = PaymentGatewayTransaction.objects.filter(
             idempotency_key=idempotency_key, agency_id=agency_id
-        ).first()
+        ).select_related("subscription__plan").first()
         if existing_tx:
+            subscription = existing_tx.subscription
+            if (
+                (subscription and (subscription.plan.code != plan_code or subscription.billing_cycle != billing_cycle))
+                or (provider_key and existing_tx.provider_key != provider_key)
+            ):
+                raise ConflictDomainError("این کلید قبلاً برای درخواست پرداخت دیگری استفاده شده است.")
             return {
                 "transaction_id": str(existing_tx.id),
                 "authority": existing_tx.authority,
                 "order_id": existing_tx.order_id,
                 "provider_key": existing_tx.provider_key,
-                "redirect_url": f"{existing_tx.callback_url or callback_url}?authority={existing_tx.authority}&status=OK",
+                "redirect_url": existing_tx.redirect_url or f"{existing_tx.callback_url or callback_url}?authority={existing_tx.authority}&status=OK",
                 "amount": str(existing_tx.amount),
                 "currency": existing_tx.currency_id,
                 "subscription_id": str(existing_tx.subscription_id) if existing_tx.subscription_id else None,
@@ -154,6 +174,11 @@ def initiate_gateway_payment(
     if amount <= Decimal("0"):
         raise ValidationDomainError("مبلغ پلن اشتراک نامعتبر است.")
 
+    from common.localization.currency import CurrencyConversionService
+
+    base_currency = str(get_setting_value("finance.base_currency", "IRT") or "IRT").upper()
+    fx_snapshot = CurrencyConversionService.get_snapshot_rate_to_base(plan.currency_id, base_currency)
+
     now = timezone.now()
     days = months * 30
     sub = AgencySubscription.objects.create(
@@ -180,12 +205,6 @@ def initiate_gateway_payment(
         is_sandbox=is_sandbox,
     )
 
-    from apps.settings.services import get_setting_value
-    from common.localization.currency import CurrencyConversionService
-
-    base_currency = str(get_setting_value("finance.base_currency", "IRT") or "IRT").upper()
-    fx_snapshot = CurrencyConversionService.get_snapshot_rate_to_base(plan.currency_id, base_currency)
-
     tx = PaymentGatewayTransaction.objects.create(
         agency_id=agency_id,
         subscription=sub,
@@ -194,6 +213,7 @@ def initiate_gateway_payment(
         order_id=order_id,
         idempotency_key=idempotency_key,
         callback_url=callback_url,
+        redirect_url=init_res.redirect_url,
         currency=plan.currency,
         base_currency_code=base_currency,
         exchange_rate_snapshot=fx_snapshot,

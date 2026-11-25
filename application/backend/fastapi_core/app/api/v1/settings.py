@@ -8,6 +8,7 @@ from app.dependencies.auth import RequestContext, get_current_context, get_optio
 from app.schemas.common import ok
 
 from app.core.uploads import read_upload_limited
+from common.sanitizer import sanitize_html
 
 router = APIRouter(prefix="/settings", tags=["Global Settings, Localization & Providers"])
 
@@ -478,7 +479,7 @@ async def list_content_blocks_endpoint(
                 "section_key": b.section_key,
                 "title_fa": b.title_fa,
                 "subtitle_fa": b.subtitle_fa,
-                "body_html": b.body_html,
+                "body_html": sanitize_html(b.body_html),
                 "cta_label": b.cta_label,
                 "cta_href": b.cta_href,
                 "items_json": b.items_json or [],
@@ -507,7 +508,7 @@ async def upsert_content_block_endpoint(
             "section_key": b.section_key,
             "title_fa": b.title_fa,
             "subtitle_fa": b.subtitle_fa,
-            "body_html": b.body_html,
+            "body_html": sanitize_html(b.body_html),
             "cta_label": b.cta_label,
             "cta_href": b.cta_href,
             "items_json": b.items_json or [],

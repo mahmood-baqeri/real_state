@@ -98,10 +98,15 @@ class CurrencyConversionService:
 
     @classmethod
     def get_rate(cls, from_currency: str, to_currency: str) -> Decimal:
+        """نرخ تبدیل را از نسبت ثابت ریال و تومان یا نرخ‌های ثبت‌شده می‌گیرد."""
         src = from_currency.upper()
         dst = to_currency.upper()
         if src == dst:
             return Decimal("1.000000")
+        if (src, dst) == ("IRT", "IRR"):
+            return Decimal("10.000000")
+        if (src, dst) == ("IRR", "IRT"):
+            return Decimal("0.100000")
 
         fx_map = _get_fx_map()
         direct = cls._direct_or_inverse_rate(fx_map, src, dst)
@@ -122,10 +127,13 @@ class CurrencyConversionService:
 
     @classmethod
     def get_snapshot_rate_to_base(cls, from_currency: str, base_currency: str = "IRT") -> Decimal:
+        """برای ثبت مالی نرخ مشخص می‌خواهد تا تبدیل بدون نرخ ثبت نشود."""
         try:
             return cls.get_rate(from_currency, base_currency)
-        except ValueError:
-            return Decimal("1.000000")
+        except ValueError as exc:
+            from common.exceptions import ValidationDomainError
+
+            raise ValidationDomainError("نرخ تبدیل ارز به ارز پایه برای ثبت مالی تنظیم نشده است.") from exc
 
     @classmethod
     def convert(cls, amount: Decimal, from_currency: str, to_currency: str) -> Decimal:

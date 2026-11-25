@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+import pymupdf
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 
@@ -148,11 +149,14 @@ def test_p1_floorplan_calibration_rooms_walls_openings_and_glb_pipeline():
     assert fp["width_px"] == 800
 
     # Upload PDF floorplan (also supported with generated preview raster)
+    with pymupdf.open() as pdf:
+        pdf.new_page()
+        pdf_content = pdf.tobytes()
     pdf_res = client.post(
         f"/api/v1/virtual-tours/{tour_id}/floorplans",
         headers=mgr_headers,
         data={"floor_id": floor_id},
-        files={"file": ("plan.pdf", b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n", "application/pdf")},
+        files={"file": ("plan.pdf", pdf_content, "application/pdf")},
     )
     assert pdf_res.status_code == 201, pdf_res.text
     pdf_fp = pdf_res.json()["data"]

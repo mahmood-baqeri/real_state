@@ -22,7 +22,7 @@ from apps.transactions.models import Deal
 from common.exceptions import PermissionDeniedDomainError
 from common.localization.calendar import CalendarAdapter
 from common.localization.currency import CurrencyConversionService
-from common.tenant.context import tenant_bypass
+from common.tenant.context import scoped_agency, tenant_bypass
 
 
 @pytest.fixture
@@ -68,6 +68,13 @@ def seed_base(db):
         "m_agent_a": m_agent_a,
         "m_agent_b": m_agent_b,
     }
+
+
+@pytest.fixture
+def scoped_seed(seed_base):
+    """سرویس‌های آژانس را با همان زمینه‌ای اجرا می‌کند که API برقرار می‌کند."""
+    with scoped_agency(seed_base["agency_a"].id):
+        yield seed_base
 
 
 def test_1_multi_tenant_isolation_agent_a_cannot_access_agency_b(seed_base):
@@ -127,7 +134,8 @@ def test_3_public_portal_only_exposes_published_public_properties(seed_base):
     assert priv.id not in public_ids
 
 
-def test_4_double_entry_balance_and_reversal(seed_base):
+def test_4_double_entry_balance_and_reversal(scoped_seed):
+    seed_base = scoped_seed
     now = timezone.now()
     fy = FiscalYear.objects.all_tenants().create(
         agency=seed_base["agency_a"], title="1405", start_date=now, end_date=now + timedelta(days=365)
@@ -171,7 +179,8 @@ def test_4_double_entry_balance_and_reversal(seed_base):
     assert rev.status == JournalEntry.Status.POSTED
 
 
-def test_5_commission_precision_and_agent_cannot_approve(seed_base):
+def test_5_commission_precision_and_agent_cannot_approve(scoped_seed):
+    seed_base = scoped_seed
     now = timezone.now()
     prop = Property.objects.all_tenants().create(
         agency=seed_base["agency_a"],
@@ -235,7 +244,8 @@ def test_5_commission_precision_and_agent_cannot_approve(seed_base):
         )
 
 
-def test_6_viewing_conflict_lead_conversion_and_otp_reset(seed_base):
+def test_6_viewing_conflict_lead_conversion_and_otp_reset(scoped_seed):
+    seed_base = scoped_seed
     now = timezone.now()
     prop = Property.objects.all_tenants().create(
         agency=seed_base["agency_a"],
@@ -293,7 +303,8 @@ def test_localization_currency_and_jalali_adapter():
     assert end_utc > start_utc
 
 
-def test_7_accounting_statements_general_ledger_and_period_close(seed_base):
+def test_7_accounting_statements_general_ledger_and_period_close(scoped_seed):
+    seed_base = scoped_seed
     from apps.accounting.services import (
         close_fiscal_period,
         get_financial_statements,
@@ -568,19 +579,18 @@ def test_10_cms_workflow_redirects_and_agency_cooperation_approval(seed_base):
     )
     from common.exceptions import PermissionDeniedDomainError
 
-    art = create_article(
-        user=seed_base["u_mgr_a"],
-        data={
+    article_data = {
             "title": "راهنمای سرمایه‌گذاری مسکن",
             "slug": "housing-investment-guide-test",
             "content_body": "محتوای تحلیلی جامع برای تست گردش کار تحریریه و انتشار در پورتال عمومی.",
-        },
-    )
+    }
+    with pytest.raises(PermissionDeniedDomainError):
+        create_article(user=seed_base["u_mgr_a"], data=article_data)
+    art = create_article(user=seed_base["u_super"], data=article_data)
     assert art.status == Article.Status.DRAFT
     assert art.versions.count() == 1
 
-    # Manager sends to REVIEW, cannot directly PUBLISH
-    transition_article_status(user=seed_base["u_mgr_a"], article_id=art.id, to_status=Article.Status.REVIEW)
+    transition_article_status(user=seed_base["u_super"], article_id=art.id, to_status=Article.Status.REVIEW)
     with pytest.raises(PermissionDeniedDomainError):
         transition_article_status(user=seed_base["u_mgr_a"], article_id=art.id, to_status=Article.Status.PUBLISHED)
 

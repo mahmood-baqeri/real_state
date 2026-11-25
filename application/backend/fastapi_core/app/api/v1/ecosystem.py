@@ -579,9 +579,12 @@ async def share_cooperation_property(
 async def list_cooperation_properties(
     cooperation_id: UUID, ctx: RequestContext = Depends(require_agency_context)
 ):
+    """فایل‌های دارای رضایت فعال و وضعیت انتشار مجاز را به عضو همکاری نشان می‌دهد."""
     def op():
+        """عضویت طرف درخواست را کنترل و فایل‌های مجاز طرف ارائه‌دهنده را می‌خواند."""
         from apps.agencies.models import AgencyCooperation
         from apps.ecosystem.models import CooperationPropertyShare
+        from common.tenant.context import scoped_agency
         coop = AgencyCooperation.objects.filter(id=cooperation_id, status="ACTIVE").first()
         if not coop or ctx.agency_id not in [coop.requester_agency_id, coop.provider_agency_id]:
             raise HTTPException(404, "همکاری فعال یافت نشد.")
@@ -589,8 +592,11 @@ async def list_cooperation_properties(
         shares = CooperationPropertyShare.objects.filter(
             cooperation=coop, is_active=True,
             property__agency_id=coop.provider_agency_id,
-            property__status="PUBLISHED", property__is_deleted=False
+            property__status="PUBLISHED", property__is_deleted=False,
+            property__visibility__in=["MLS_SHARED", "PUBLIC_PORTAL"],
         ).select_related("property", "property__location", "property__property_type", "property__deal_type")
+        with scoped_agency(coop.provider_agency_id):
+            permitted_shares = list(shares)
         return [{
             "share_id": str(s.id), "property_id": str(s.property_id),
             "title": s.property.title, "description": s.property.description[:500],
@@ -600,7 +606,7 @@ async def list_cooperation_properties(
             "area_sqm": str(s.property.built_area_sqm),
             "price": str(s.property.total_price), "currency": s.property.currency_id,
             "consented_at": s.consented_at.isoformat()
-        } for s in shares]
+        } for s in permitted_shares]
     return ok(await run_django(op, agency_id=ctx.agency_id, user_id=ctx.user.id))
 
 

@@ -1,7 +1,7 @@
 from datetime import timedelta
 import os
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -91,16 +91,17 @@ ASGI_APPLICATION = "config.asgi.application"
 
 
 def parse_database_url(url: str) -> dict:
+    """اطلاعات اتصال را از URL می‌خواند و اجزای غایب را از محیط می‌گیرد."""
     parsed = urlparse(url)
     if parsed.scheme in ("postgres", "postgresql"):
         query_params = {k: v[-1] for k, v in parse_qs(parsed.query).items() if v}
         db_config = {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("POSTGRES_NAME", ""),
-            "USER": os.environ.get("POSTGRES_USER", ""),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
-            "HOST": os.environ.get("POSTGRES_HOST", ""),
-            "PORT": os.environ.get("POSTGRES_PORT", ""),
+            "NAME": unquote(parsed.path.lstrip("/")) or os.environ.get("POSTGRES_NAME", ""),
+            "USER": unquote(parsed.username) if parsed.username is not None else os.environ.get("POSTGRES_USER", ""),
+            "PASSWORD": unquote(parsed.password) if parsed.password is not None else os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": parsed.hostname or os.environ.get("POSTGRES_HOST", ""),
+            "PORT": parsed.port or os.environ.get("POSTGRES_PORT", ""),
             "CONN_MAX_AGE": 60,
             "CONN_HEALTH_CHECKS": True,
         }
@@ -114,7 +115,8 @@ def parse_database_url(url: str) -> dict:
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://realestate_user:realestate_pass@127.0.0.1:5432/realestate_db",
+    "postgresql://" if any(key in os.environ for key in ("POSTGRES_NAME", "POSTGRES_HOST", "POSTGRES_USER"))
+    else "postgresql://realestate_user:realestate_pass@127.0.0.1:5432/realestate_db",
 )
 DATABASES = {"default": parse_database_url(DATABASE_URL)}
 

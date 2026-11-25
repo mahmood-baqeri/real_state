@@ -1196,7 +1196,7 @@ def get_public_bootstrap(agency_id: Optional[UUID] = None) -> dict:
             "section_key": blk.section_key,
             "title_fa": blk.title_fa,
             "subtitle_fa": blk.subtitle_fa,
-            "body_html": blk.body_html,
+            "body_html": sanitize_html(blk.body_html),
             "cta_label": blk.cta_label,
             "cta_href": blk.cta_href,
             "items_json": blk.items_json or [],

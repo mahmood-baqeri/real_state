@@ -99,22 +99,27 @@ def test_1_global_settings_registry_secrets_override_cache_and_rollback():
     # Agency override takes precedence over platform default for agency context
     manager = _login(client, "09121111111", "Manager@12345")
     mgr_headers = _agency_headers(manager)
+    override_body = {
+        "updates": [{"key": "property.default_featured_limit_agency", "value": 35}],
+        "change_reason": "تنظیم اختصاصی آژانس",
+    }
+    denied_override = client.put("/api/v1/settings/registry", headers=mgr_headers, json=override_body)
+    assert denied_override.status_code == 403
+    admin_agency_headers = {**admin_headers, "X-Agency-ID": mgr_headers["X-Agency-ID"]}
     ov = client.put(
         "/api/v1/settings/registry",
-        headers=mgr_headers,
-        json={
-            "updates": [{"key": "property.default_featured_limit_agency", "value": 35}],
-            "change_reason": "تنظیم اختصاصی آژانس",
-        },
+        headers=admin_agency_headers,
+        json=override_body,
     )
     assert ov.status_code == 200, ov.text
-    mgr_reg = client.get("/api/v1/settings/registry?category=PROPERTY", headers=mgr_headers)
+    mgr_reg = client.get("/api/v1/settings/registry?category=PROPERTY", headers=admin_agency_headers)
     assert mgr_reg.status_code == 200, mgr_reg.text
     vis = next(x for x in mgr_reg.json()["data"] if x["key"] == "property.default_featured_limit_agency")
     assert vis["value"] == 35
 
 
-def test_2_dynamic_countries_calendars_currencies_and_fx_snapshot():
+def test_2_dynamic_countries_calendars_currencies_and_fx_snapshot(settings):
+    settings.DEBUG = True  # این سناریو درگاه آزمایشی را در محیط تست فعال می‌کند.
     client = TestClient(app)
     super_admin = _login(client, "09120000001", "Admin@12345")
     admin_headers = {"Authorization": f"Bearer {super_admin['access']}"}
@@ -213,7 +218,9 @@ def test_2_dynamic_countries_calendars_currencies_and_fx_snapshot():
 
     from apps.transactions.models import Deal
 
-    deal_obj = Deal.objects.get(id=deal_res.json()["data"]["id"])
+    deal_obj = Deal.objects.all_tenants().get(
+        id=deal_res.json()["data"]["id"], agency_id=mgr_headers["X-Agency-ID"]
+    )
     assert deal_obj.exchange_rate_snapshot == Decimal("82500.50000000")
 
     # Payment transaction FX snapshot verification

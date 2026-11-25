@@ -1,5 +1,6 @@
 "use client";
 
+// فرم ایجاد حساب و ثبت پذیرش اسناد جاری سامانه.
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ const registerSchema = z.object({
 
 type RegisterValues = z.infer<typeof registerSchema>;
 
+/** داده‌های ثبت‌نام و پذیرش اختیاری یا الزامی قوانین را مدیریت می‌کند. */
 export default function RegisterPage() {
   const router = useRouter();
   const { login } = useAuth();
@@ -63,7 +65,7 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterValues>({
+  } = useForm<z.input<typeof registerSchema>, unknown, RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       preferred_currency: "IRT",

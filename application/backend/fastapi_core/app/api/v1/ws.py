@@ -1,3 +1,5 @@
+"""ارتباط زندهٔ اعلان‌ها و وضعیت پردازش تور با بلیت یک‌بارمصرف."""
+
 import asyncio
 from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -8,6 +10,12 @@ from app.core.django_bridge import run_django
 from app.core.security import decode_jwt_token
 
 router = APIRouter(tags=["Realtime WebSocket"])
+
+
+async def _wait_for_disconnect(websocket: WebSocket) -> None:
+    """قطع اتصال مشتری را حتی در نبود پیام خروجی تشخیص می‌دهد."""
+    while (await websocket.receive())["type"] != "websocket.disconnect":
+        pass
 
 
 async def _socket_session_is_active(*, user_id: UUID, session_jti: str, agency_id: UUID | None) -> bool:
@@ -87,6 +95,7 @@ async def _authenticate_socket(websocket: WebSocket):
 
 @router.websocket("/ws/notifications")
 async def notifications_ws(websocket: WebSocket):
+    """اعلان‌های کاربر را تا قطع اتصال یا انقضای نشست ارسال می‌کند."""
     payload = await _authenticate_socket(websocket)
     if not payload:
         return
@@ -98,6 +107,7 @@ async def notifications_ws(websocket: WebSocket):
     client = redis_async.Redis.from_url(settings.REDIS_URL, decode_responses=True)
     pubsub = client.pubsub()
     channel = f"bonyan:notifications:{user_id}"
+    disconnect = asyncio.create_task(_wait_for_disconnect(websocket))
     try:
         def _snapshot():
             from apps.notifications.models import NotificationMessage
@@ -117,7 +127,7 @@ async def notifications_ws(websocket: WebSocket):
         snap = await run_django(_snapshot, agency_id=agency_id, user_id=user_id)
         await websocket.send_json({"event": "notification_snapshot", "data": snap})
         last_session_check = asyncio.get_running_loop().time()
-        while True:
+        while not disconnect.done():
             if asyncio.get_running_loop().time() - last_session_check >= 60:
                 if not await _socket_session_is_active(user_id=user_id, session_jti=session_jti, agency_id=agency_id):
                     await websocket.close(code=4001, reason="Session revoked or expired")
@@ -130,6 +140,8 @@ async def notifications_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         return
     finally:
+        disconnect.cancel()
+        await asyncio.gather(disconnect, return_exceptions=True)
         try:
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
@@ -140,6 +152,7 @@ async def notifications_ws(websocket: WebSocket):
 
 @router.websocket("/ws/virtual-tours/{tour_id}/jobs")
 async def virtual_tour_jobs_ws(websocket: WebSocket, tour_id: str):
+    """وضعیت پردازش تور مجاز را تا قطع اتصال به‌روز می‌کند."""
     payload = await _authenticate_socket(websocket)
     if not payload:
         return
@@ -171,8 +184,9 @@ async def virtual_tour_jobs_ws(websocket: WebSocket, tour_id: str):
         await websocket.close(code=4003)
         return
     await websocket.accept(subprotocol="bonyan.auth")
+    disconnect = asyncio.create_task(_wait_for_disconnect(websocket))
     try:
-        while True:
+        while not disconnect.done():
             if not await _socket_session_is_active(user_id=user_id, session_jti=session_jti, agency_id=agency_id):
                 await websocket.close(code=4001, reason="Session revoked or expired")
                 return
@@ -198,6 +212,9 @@ async def virtual_tour_jobs_ws(websocket: WebSocket, tour_id: str):
                 await websocket.close(code=4004)
                 return
             await websocket.send_json({"event": "tour_jobs_snapshot", "data": snap})
-            await asyncio.sleep(2 if snap["has_active_jobs"] else 8)
+            await asyncio.wait({disconnect}, timeout=2 if snap["has_active_jobs"] else 8)
     except WebSocketDisconnect:
         return
+    finally:
+        disconnect.cancel()
+        await asyncio.gather(disconnect, return_exceptions=True)

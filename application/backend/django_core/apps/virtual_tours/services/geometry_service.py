@@ -68,7 +68,7 @@ def _render_pdf_blueprint_preview(pdf_bytes: bytes, filename: str) -> tuple[int,
     Rendering is deliberately bounded to avoid excessive memory use from hostile PDFs.
     """
     try:
-        import fitz  # PyMuPDF
+        import fitz  # type: ignore # PyMuPDF
     except ImportError as exc:
         raise ValidationDomainError(
             "برای پیش‌نمایش PDF، وابستگی PyMuPDF نصب نشده است."

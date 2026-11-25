@@ -7,6 +7,12 @@ import {
 } from "./theme-utils";
 import { buildExcelHtml, filterAndSortRows, serializeCsv } from "./table-utils";
 
+test("CSV keeps numeric values while forcing formula-like text to remain literal", () => {
+  const rows = [{ value: "=1+1" }, { value: -12 }];
+  const csv = serializeCsv(rows, [{ key: "value", header: "مقدار", getExportValue: (row) => row.value }]);
+  assert.equal(csv, '\uFEFF"مقدار"\r\n"\'=1+1"\r\n"-12"');
+});
+
 test("resolveTheme handles light, dark, and system preferences accurately", () => {
   assert.equal(resolveTheme("light", true), "light");
   assert.equal(resolveTheme("dark", false), "dark");

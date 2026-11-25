@@ -1,4 +1,8 @@
+"""مسیرهای تطبیق مشتری و ملک، کیفیت آگهی و تحلیل بازار."""
+
+from collections import defaultdict
 from decimal import Decimal
+from itertools import islice
 from typing import Optional
 from uuid import UUID
 
@@ -224,39 +228,45 @@ async def district_price_trends(
 
 @router.get("/property-quality")
 async def property_quality_dashboard(ctx: RequestContext = Depends(get_optional_context)):
-    """Agency-scoped listing completeness and quality scores (no cross-tenant reads)."""
+    """کیفیت و فایل‌های مشابه را در محدودهٔ املاک مجاز آژانس گزارش می‌کند."""
     def _op():
+        """داده‌های مرتبط را یک‌جا می‌خواند و حداکثر سه مشابه را برای هر ملک نگه می‌دارد."""
         if not ctx.user or not ctx.agency_id:
             from common.exceptions import PermissionDeniedDomainError
             raise PermissionDeniedDomainError("برای گزارش کیفیت فایل‌ها باید در آژانس وارد شوید.")
-        from apps.properties.models import Property, PropertyVerification
+        from apps.properties.models import Property
         from apps.properties.services import list_agency_properties
         qs = list_agency_properties(user=ctx.user, agency_id=ctx.agency_id).filter(
             status__in=[Property.Status.DRAFT, Property.Status.PENDING_APPROVAL, Property.Status.APPROVED, Property.Status.PUBLISHED]
         ).select_related("location", "verification").prefetch_related("media_items", "amenities")[:300]
         properties = list(qs)
-        from apps.properties.models import PropertyLocation
-        locations = {str(loc.property_id): loc for loc in PropertyLocation.objects.filter(property_id__in=[p.pk for p in properties])}
-        verifications = {str(v.property_id): v for v in PropertyVerification.objects.filter(property_id__in=[p.pk for p in properties])}
+        locations = {p.pk: getattr(p, "location", None) for p in properties}
+        by_postal_code = defaultdict(list)
+        for p in properties:
+            loc = locations[p.pk]
+            if loc and loc.postal_code:
+                by_postal_code[loc.postal_code].append(p)
         from apps.search.phase4 import property_quality_score
         rows = []
         for p in properties:
-            ver = verifications.get(str(p.pk))
+            ver = getattr(p, "verification", None)
             quality = property_quality_score(p)
             checks = quality["checks"]
-            loc = locations.get(str(p.pk))
+            loc = locations[p.pk]
             duplicates = []
             if loc and loc.postal_code:
-                duplicates = [other for other in properties if other.pk != p.pk and locations.get(str(other.pk)) and locations[str(other.pk)].postal_code == loc.postal_code]
+                duplicates = list(islice((other for other in by_postal_code[loc.postal_code] if other.pk != p.pk), 3))
             if not duplicates and loc and loc.latitude is not None and loc.longitude is not None:
                 for other in properties:
-                    ol = locations.get(str(other.pk))
+                    ol = locations[other.pk]
                     if other.pk == p.pk or not ol or ol.latitude is None or ol.longitude is None:
                         continue
                     close = abs(float(ol.latitude)-float(loc.latitude)) <= 0.00025 and abs(float(ol.longitude)-float(loc.longitude)) <= 0.00025
                     similar_area = p.built_area_sqm > 0 and abs(float(other.built_area_sqm)-float(p.built_area_sqm)) <= max(5, float(p.built_area_sqm)*0.05)
                     if close and similar_area:
                         duplicates.append(other)
+                        if len(duplicates) == 3:
+                            break
             checks.append({"label": "عدم تکرار احتمالی", "passed": not duplicates, "weight": 10})
             total_weight = sum(int(c.get("weight", 0)) for c in checks)
             passed_weight = sum(int(c.get("weight", 0)) for c in checks if c.get("passed"))
@@ -267,7 +277,7 @@ async def property_quality_dashboard(ctx: RequestContext = Depends(get_optional_
                 "status": p.status, "quality_score": score, "quality_level": level,
                 "missing_checks": missing, "quality_checks": checks,
                 "verification_status": getattr(ver, "verification_status", "UNVERIFIED"),
-                "possible_duplicate_ids": [str(d.pk) for d in duplicates[:3]],
+                "possible_duplicate_ids": [str(d.pk) for d in duplicates],
                 "price_valid_until": p.price_valid_until.isoformat() if p.price_valid_until else None,
             })
         rows.sort(key=lambda x: (x["quality_score"], x["property_code"]))

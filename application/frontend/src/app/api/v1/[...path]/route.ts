@@ -1,13 +1,18 @@
+// واسط هم‌مبدأ بین مرورگر و API اصلی سامانه.
 import { NextRequest, NextResponse } from "next/server";
 
 const FASTAPI_BASE = process.env.INTERNAL_FASTAPI_URL || "http://127.0.0.1:8020";
 
+/** درخواست نسخهٔ یک API را منتقل می‌کند و پاسخ را به‌صورت جریانی برمی‌گرداند. */
 async function proxyToFastAPI(
   request: NextRequest,
   context: { params: Promise<{ path?: string[] }> }
 ) {
   const { path = [] } = await context.params;
-  const joined = path.join("/");
+  if (path.some((segment) => segment === "." || segment === ".." || /[/\\]/.test(segment))) {
+    return NextResponse.json({ detail: "مسیر درخواست نامعتبر است." }, { status: 400 });
+  }
+  const joined = path.map((segment) => encodeURIComponent(segment)).join("/");
   const targetUrl = `${FASTAPI_BASE}/api/v1/${joined}${request.nextUrl.search}`;
 
   const forwardHeaders = new Headers();
@@ -21,18 +26,19 @@ async function proxyToFastAPI(
   if (idemp) forwardHeaders.set("idempotency-key", idemp);
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
-  const bodyBuffer = hasBody ? await request.arrayBuffer() : undefined;
-
   try {
+    const bodyBuffer = hasBody ? await request.arrayBuffer() : undefined;
     const upstream = await fetch(targetUrl, {
       method: request.method,
       headers: forwardHeaders,
       body: bodyBuffer && bodyBuffer.byteLength > 0 ? bodyBuffer : undefined,
       redirect: "manual",
+      cache: "no-store",
+      signal: request.signal,
     });
 
-    const respBuffer = await upstream.arrayBuffer();
     const respHeaders = new Headers();
+    respHeaders.set("x-content-type-options", "nosniff");
     respHeaders.set(
       "content-type",
       upstream.headers.get("content-type") || "application/json"
@@ -46,7 +52,7 @@ async function proxyToFastAPI(
       respHeaders.set("cache-control", cacheControl);
     }
 
-    return new NextResponse(respBuffer, {
+    return new NextResponse(upstream.body, {
       status: upstream.status,
       headers: respHeaders,
     });

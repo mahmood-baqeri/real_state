@@ -68,7 +68,7 @@ def tenant_bypass(*, reason: str) -> Iterator[None]:
 
 @contextmanager
 def scoped_agency(agency_id: Optional[UUID]) -> Iterator[None]:
-    """Bind a task/test to one agency in both Python and transaction-local PostgreSQL RLS context."""
+    """زمینهٔ آژانس را در پایتون و تراکنش PostgreSQL برای مدت عملیات تنظیم می‌کند."""
     from django.db import connection, transaction
     token = _current_agency_id.set(agency_id)
     try:
@@ -85,7 +85,7 @@ def scoped_agency(agency_id: Optional[UUID]) -> Iterator[None]:
             try:
                 yield
             finally:
-                if connection.vendor == "postgresql":
+                if connection.vendor == "postgresql" and not connection.needs_rollback:
                     with connection.cursor() as cursor:
                         cursor.execute("SELECT set_config('app.current_agency_id', %s, true)", [previous])
     finally:

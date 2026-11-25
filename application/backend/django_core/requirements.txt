@@ -19,4 +19,4 @@ pytest>=8.3,<8.4
 pytest-django>=4.9,<4.11
 factory-boy>=3.3,<3.4
 httpx>=0.28,<0.29
-PyMuPDF>=1.25,<2.0\n
+PyMuPDF>=1.25,<2.0

@@ -1,5 +1,6 @@
 "use client";
 
+// فرم چندمرحله‌ای برای ثبت و ویرایش مشخصات ملک.
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -60,6 +61,7 @@ const INPUT_CLS =
   "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-teal-600 focus:outline-none disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-800";
 const LABEL_CLS = "mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-300";
 
+/** دادهٔ فرم را اعتبارسنجی و برای API املاک آماده می‌کند. */
 export function PropertyForm({
   propertyId,
   initialData,
@@ -117,7 +119,7 @@ export function PropertyForm({
     reset,
     trigger,
     formState: { errors, isSubmitting },
-  } = useForm<PropertyFormValues>({
+  } = useForm<z.input<typeof propertySchema>, unknown, PropertyFormValues>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
       property_code: `PN-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -201,7 +203,7 @@ export function PropertyForm({
     }
   }, [initialData, reset]);
 
-  const selectedAmenities = watch("amenity_codes");
+  const selectedAmenities = watch("amenity_codes") ?? [];
   const dealType = watch("deal_type_id");
 
   const toggleAmenity = (code: string) => {

@@ -1,3 +1,5 @@
+"""گردش مذاکره، پیشنهادها و تبدیل مذاکره به قرارداد."""
+
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
@@ -11,7 +13,14 @@ from apps.notifications.models import NotificationMessage
 from apps.notifications.services import send_notification
 from apps.properties.models import Property
 from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
-from common.permissions import can_edit_customer, can_edit_property, get_active_membership, get_agency_policy, has_agency_permission, is_super_admin
+from common.permissions import (
+    can_edit_customer,
+    can_edit_property,
+    get_active_membership,
+    get_agency_policy,
+    has_agency_permission,
+    is_super_admin,
+)
 from .models import Negotiation, NegotiationActivity, NegotiationOfferVersion
 
 VALID_STATUS_VALUES = {choice[0] for choice in Negotiation.Status.choices}
@@ -148,6 +157,7 @@ def update_negotiation(*, user: User, agency_id: Optional[UUID], negotiation_id:
 
 @transaction.atomic
 def create_negotiation(*, user: User, agency_id: Optional[UUID], data: dict) -> Negotiation:
+    """مذاکره را پس از کنترل آژانس، ملک، مشتری و مشاور ایجاد می‌کند."""
     if not agency_id:
         raise ValidationDomainError("ابتدا آژانس فعال را انتخاب کنید.")
     membership = get_active_membership(user, agency_id)

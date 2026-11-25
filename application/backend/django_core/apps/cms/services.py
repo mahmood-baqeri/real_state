@@ -1,4 +1,7 @@
+"""سرویس‌های گردش انتشار، نسخه‌بندی و مدیریت محتوای سامانه."""
+
 import secrets
+from html import escape
 from typing import Optional
 from uuid import UUID
 from django.db import models, transaction
@@ -49,8 +52,9 @@ LEGAL_TRANSITIONS = {
 }
 
 
-def _normalize_legal_sections(raw_sections: Optional[list]) -> list[dict]:
-    if not raw_sections:
+def normalize_legal_sections(raw_sections: Optional[list]) -> list[dict]:
+    """بخش‌های معتبر اسناد جدید و قدیمی را پاک‌سازی و مرتب می‌کند."""
+    if not isinstance(raw_sections, list):
         return []
     cleaned: list[dict] = []
     for idx, item in enumerate(raw_sections, start=1):
@@ -60,12 +64,16 @@ def _normalize_legal_sections(raw_sections: Optional[list]) -> list[dict]:
         body_html = sanitize_html(str(item.get("body_html") or ""))
         if not title and not body_html:
             continue
+        try:
+            sort_order = int(item.get("sort_order") or idx)
+        except (ValueError, TypeError, OverflowError):
+            sort_order = idx
         cleaned.append(
             {
                 "id": str(item.get("id") or f"sec-{idx}"),
                 "title": title or f"بخش {idx}",
                 "body_html": body_html,
-                "sort_order": int(item.get("sort_order") or idx),
+                "sort_order": sort_order,
             }
         )
     cleaned.sort(key=lambda s: s["sort_order"])
@@ -73,11 +81,12 @@ def _normalize_legal_sections(raw_sections: Optional[list]) -> list[dict]:
 
 
 def _render_sections_html(sections: list[dict]) -> str:
+    """عنوان متنی و بدنهٔ پاک‌سازی‌شدهٔ بخش‌ها را ترکیب می‌کند."""
     if not sections:
         return ""
     parts = []
     for s in sections:
-        parts.append(f"<h3>{s['title']}</h3>{s['body_html']}")
+        parts.append(f"<h3>{escape(s['title'])}</h3>{s['body_html']}")
     return "".join(parts)
 
 
@@ -143,7 +152,7 @@ def upsert_legal_document(*, user: User, slug: Optional[str], data: dict) -> Leg
     if not clean_slug:
         raise ValidationDomainError("شناسه یکتا (slug) سند الزامی است.")
 
-    sections = _normalize_legal_sections(data.get("sections_json")) if "sections_json" in data else None
+    sections = normalize_legal_sections(data.get("sections_json")) if "sections_json" in data else None
     raw_body = str(data.get("body_html") or "")
     sanitized_body = sanitize_html(raw_body)
     if sections is not None and (sections or not sanitized_body):

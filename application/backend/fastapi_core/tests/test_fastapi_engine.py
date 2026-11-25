@@ -132,7 +132,8 @@ def test_tenant_isolation_and_rbac_enforcement():
     assert pol_res.status_code == 403
 
 
-def test_subscriptions_and_payroll_endpoints():
+def test_subscriptions_and_payroll_endpoints(settings):
+    settings.DEBUG = True  # پرداخت sandbox فقط در سناریوی آزمایشی فعال می‌شود.
     client = TestClient(app)
     manager = _login(client, "09121111111", "Manager@12345")
     headers = {
@@ -513,7 +514,12 @@ def test_global_search_views_calendar_ops_bi_excel_mfa_and_ws():
     assert client.post("/api/v1/auth/mfa/disable", headers=ag_headers, json={"code": totp.now()}).status_code == 200
 
     # WebSocket notification stream
-    with client.websocket_connect(f"/api/v1/ws/notifications?token={manager['access']}") as ws:
+    ticket = client.post("/api/v1/auth/ws-ticket", headers=headers)
+    assert ticket.status_code == 200, ticket.text
+    with client.websocket_connect(
+        "/api/v1/ws/notifications",
+        subprotocols=["bonyan.auth", "ticket." + ticket.json()["data"]["ticket"]],
+    ) as ws:
         msg = ws.receive_json()
         assert msg["event"] == "notification_snapshot"
         assert "unread_count" in msg["data"]

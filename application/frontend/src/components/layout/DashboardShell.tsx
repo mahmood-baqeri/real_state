@@ -168,9 +168,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     if (!isLoading && pathname === "/dashboard/roles" && user?.platform_role !== "SUPER_ADMIN") {
       router.replace("/dashboard");
     }
-    if (!isLoading && pathname === "/dashboard/ai-assistant" && user?.platform_role === "AGENCY_MANAGER") {
-      router.replace("/dashboard");
-    }
   }, [isLoading, user, router, pathname]);
 
   useEffect(() => {

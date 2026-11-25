@@ -1,5 +1,8 @@
+"""اعتبارسنجی فایل و دسترسی به مخازن عمومی و خصوصی."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
 from typing import Optional
@@ -108,33 +111,44 @@ class StorageProviderBase(ABC):
 
 
 class LocalSecureStorageAdapter(StorageProviderBase):
+    """فایل‌ها را در ریشه‌های مجزای عمومی و خصوصی نگه می‌دارد."""
     provider_key = "local"
 
     def _root(self, *, private: bool = False) -> Path:
+        """ریشهٔ مطلق را برای عملیات فایل و مسیرهای بلند ویندوز آماده می‌کند."""
         configured = getattr(settings, "PRIVATE_MEDIA_ROOT", None) if private else settings.MEDIA_ROOT
         root = Path(configured or (Path(settings.MEDIA_ROOT).parent / "private_media")).resolve()
+        if os.name == "nt":
+            path = str(root)
+            if not path.startswith("\\\\?\\"):
+                root = Path("\\\\?\\UNC\\" + path[2:] if path.startswith("\\\\") else "\\\\?\\" + path)
         root.mkdir(parents=True, exist_ok=True)
         return root
 
     @staticmethod
     def _safe_relative_key(file_key: str) -> tuple[bool, str]:
+        """کلید منطقی را اعتبارسنجی و بخش خصوصی را از مسیر نسبی جدا می‌کند."""
         if not isinstance(file_key, str) or not file_key or "\\" in file_key:
             raise ValidationDomainError("کلید فایل نامعتبر است.")
         private = file_key.startswith("private/")
         relative = file_key[len("private/"):] if private else file_key
         candidate = Path(relative)
-        if candidate.is_absolute() or any(part in ("", ".", "..") for part in candidate.parts):
+        if not candidate.parts or candidate.anchor or any(
+            part in ("", ".", "..") or ":" in part or "\x00" in part for part in candidate.parts
+        ) or candidate.is_reserved():
             raise ValidationDomainError("مسیر فایل نامعتبر است.")
         return private, candidate.as_posix()
 
     @staticmethod
     def _contained_path(root: Path, relative_key: str) -> Path:
+        """پس از حل مسیر واقعی، قرارگیری فایل داخل ریشهٔ مجاز را بررسی می‌کند."""
         target = (root / relative_key).resolve()
         if not target.is_relative_to(root):
             raise ValidationDomainError("مسیر فایل خارج از مخزن مجاز است.")
         return target
 
     def put_bytes(self, *, key_prefix: str, safe_filename: str, content: bytes, mime_type: str) -> StoredObjectResult:
+        """داده را در مسیر کنترل‌شده ذخیره می‌کند و کلید مخزن را برمی‌گرداند."""
         if not safe_filename or Path(safe_filename).name != safe_filename or safe_filename in (".", ".."):
             raise ValidationDomainError("نام فایل نامعتبر است.")
         prefix = key_prefix.strip("/")
@@ -145,10 +159,11 @@ class LocalSecureStorageAdapter(StorageProviderBase):
         relative_prefix = "/".join(parts[1:] if private else parts)
         relative_key = f"{relative_prefix}/{safe_filename}" if relative_prefix else safe_filename
         root = self._root(private=private)
-        target = self._contained_path(root, relative_key)
+        file_key = f"private/{relative_key}" if private else relative_key
+        _, checked_key = self._safe_relative_key(file_key)
+        target = self._contained_path(root, checked_key)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
-        file_key = f"private/{relative_key}" if private else relative_key
         return StoredObjectResult(
             file_key=file_key,
             # Private objects are intentionally never exposed as public media URLs.

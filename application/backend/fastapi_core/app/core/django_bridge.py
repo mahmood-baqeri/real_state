@@ -1,3 +1,5 @@
+"""اتصال درخواست‌های FastAPI به سرویس‌های همگام Django."""
+
 import os
 import sys
 from pathlib import Path
@@ -12,6 +14,7 @@ _DJANGO_INITIALIZED = False
 
 
 def init_django() -> None:
+    """تنظیمات Django را برای استفاده از مدل‌ها و سرویس‌ها بارگذاری می‌کند."""
     global _DJANGO_INITIALIZED
     if _DJANGO_INITIALIZED:
         return
@@ -36,14 +39,12 @@ async def run_django(
     user_id: Optional[UUID] = None,
     **kwargs: Any,
 ) -> Any:
-    """
-    Executes synchronous Django ORM / domain service functions in FastAPI's worker
-    threadpool while guaranteeing clean connection lifecycle and tenant context reset.
-    """
+    """سرویس همگام را در ترد جدا و با زمینهٔ تراکنشی آژانس اجرا می‌کند."""
     init_django()
     from common.tenant.context import set_current_agency_id
 
     def _wrapped():
+        """زمینهٔ درخواست را روی اتصال پایگاه داده برقرار و سپس پاک می‌کند."""
         close_old_connections()
         set_current_agency_id(agency_id)
         from django.db import connection, transaction
@@ -52,12 +53,9 @@ async def run_django(
                 if connection.vendor == "postgresql":
                     with connection.cursor() as cursor:
                         cursor.execute(
-                            "SELECT set_config('app.current_agency_id', %s, true)",
-                            [str(agency_id) if agency_id else ""],
-                        )
-                        cursor.execute(
-                            "SELECT set_config('app.current_user_id', %s, true)",
-                            [str(user_id) if user_id else ""],
+                            "SELECT set_config('app.current_agency_id', %s, true), "
+                            "set_config('app.current_user_id', %s, true)",
+                            [str(agency_id) if agency_id else "", str(user_id) if user_id else ""],
                         )
                 return fn(*args, **kwargs)
         finally:

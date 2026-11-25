@@ -68,7 +68,15 @@ from apps.crm.models import (
     FollowUpTask,
     PipelineStage,
 )
-from apps.customers.models import Customer, CustomerRequirement, CustomerShare
+from apps.customers.models import Customer, CustomerRequirement, CustomerShare, CustomerTransfer
+from apps.ecosystem.models import (
+    AfterDealCase,
+    AfterDealUpdate,
+    CooperationPropertyShare,
+    CooperationSettlement,
+    OwnerReportSnapshot,
+    TrustScoreSnapshot,
+)
 from apps.documents.models import Document, DocumentDownloadLog, DocumentVersion
 from apps.employees.models import CompensationPlan, EmployeeProfile
 from apps.leads.models import Lead, LeadActivity
@@ -235,6 +243,7 @@ def seed_all_platform_data(
     log_fn: Optional[Callable[[str], None]] = None,
     verify_all: bool = True,
 ) -> dict[str, Any]:
+    """دادهٔ نمایشی را به‌صورت تکرارپذیر می‌سازد و پوشش مدل‌ها را بررسی می‌کند."""
     assert_non_production_environment()
     now = timezone.now()
 
@@ -1829,13 +1838,77 @@ def seed_all_platform_data(
             status=PaymentGatewayTransaction.Status.PAID,
         )
 
-    AgencyCooperation.objects.get_or_create(
+    cooperation, _ = AgencyCooperation.objects.get_or_create(
         requester_agency=agency_a,
         provider_agency=agency_b,
         defaults={
             "default_split_percent": Decimal("50.00"),
             "status": AgencyCooperation.Status.ACTIVE,
         },
+    )
+
+    CustomerTransfer.objects.get_or_create(
+        customer=owner_cust,
+        to_membership=mem_agent_a1,
+        reason="واگذاری پروندهٔ نمونه به مشاور",
+        defaults={"created_by": mgr_a},
+    )
+    after_deal_case, _ = AfterDealCase.objects.get_or_create(
+        agency=agency_a,
+        customer=buyer_cust,
+        contract_id=contract.id,
+        title="پیگیری تحویل ملک نمونه",
+        defaults={"assigned_membership": mem_agent_a1, "created_by": mgr_a},
+    )
+    AfterDealUpdate.objects.get_or_create(
+        case=after_deal_case,
+        body="هماهنگی اولیهٔ تحویل ثبت شد.",
+        defaults={"status_to": AfterDealCase.Status.OPEN, "created_by": mgr_a},
+    )
+    shared_property, _ = Property.objects.all_tenants().get_or_create(
+        agency=agency_b,
+        property_code="ARYA-DEMO-MLS-01",
+        defaults={
+            "branch": branch_b,
+            "title": "آپارتمان نمونه برای همکاری بین‌آژانسی",
+            "property_type": apt_type,
+            "deal_type": sale_deal,
+            "built_area_sqm": Decimal("90.00"),
+            "total_price": Decimal("8500000000"),
+            "status": Property.Status.PUBLISHED,
+            "visibility": Property.Visibility.MLS_SHARED,
+            "created_by": mgr_b,
+        },
+    )
+    CooperationPropertyShare.objects.get_or_create(
+        cooperation=cooperation,
+        property=shared_property,
+        defaults={"shared_by": agency_b.owner_user, "consented_at": now},
+    )
+    CooperationSettlement.objects.get_or_create(
+        cooperation=cooperation,
+        external_reference="DEMO-COOP-01",
+        defaults={
+            "contract": contract,
+            "payer_agency": agency_a,
+            "payee_agency": agency_b,
+            "amount": Decimal("2500000"),
+            "currency_code": "IRT",
+            "split_percent": cooperation.default_split_percent,
+        },
+    )
+    TrustScoreSnapshot.objects.get_or_create(
+        agency=agency_a,
+        methodology_version="demo-1.0",
+        defaults={"evidence": {"demo": True}},
+    )
+    report_date = contract.created_at.date()
+    OwnerReportSnapshot.objects.get_or_create(
+        agency=agency_a,
+        owner_customer=owner_cust,
+        period_start=report_date,
+        period_end=report_date,
+        defaults={"generated_at": now, "generated_by": mgr_a},
     )
 
     if not NotificationMessage.objects.filter(recipient=mgr_a).exists():
@@ -3348,7 +3421,7 @@ def seed_all_platform_data(
 
 @transaction.atomic
 def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) -> dict[str, int]:
-    """Safely removes seeded demo records only, leaving real user/agency data intact."""
+    """داده‌های آژانس‌ها و کاربران شناخته‌شدهٔ محیط نمایشی را پاک می‌کند."""
     assert_non_production_environment()
 
     def _log(msg: str) -> None:
@@ -3361,7 +3434,19 @@ def clear_demo_platform_data(*, log_fn: Optional[Callable[[str], None]] = None) 
     demo_users = list(User.objects.filter(phone_number__in=DEMO_PHONES))
 
     if demo_agency_ids:
+        demo_settlements = CooperationSettlement.objects.filter(
+            payer_agency_id__in=demo_agency_ids,
+            payee_agency_id__in=demo_agency_ids,
+            external_reference="DEMO-COOP-01",
+        )
+        settlement_count, _ = demo_settlements.delete()
+        if settlement_count:
+            removed["CooperationSettlement"] = settlement_count
+
         for model in (
+            AfterDealCase,
+            OwnerReportSnapshot,
+            TrustScoreSnapshot,
             ImportJob,
             DashboardLayout,
             OnboardingProgress,

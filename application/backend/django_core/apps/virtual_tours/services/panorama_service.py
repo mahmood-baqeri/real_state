@@ -1,3 +1,5 @@
+"""پردازش، بارگذاری و نسخه‌بندی پانورامای صحنه‌های تور."""
+
 from typing import Any, Optional
 from uuid import UUID
 from django.db import transaction
@@ -129,6 +131,8 @@ def execute_panorama_stitch_job(*, job_id: UUID) -> PanoramaVersion:
             # Preserve history: never delete prior versions; mark previous current as superseded only once a newer one is set current
             prior_current = scene.panorama_versions.filter(is_current=True).first()
             has_published_approved = prior_current and prior_current.state == PanoramaVersion.State.APPROVED
+            if not has_published_approved:
+                scene.panorama_versions.filter(is_current=True).update(is_current=False)
 
             pano = PanoramaVersion.objects.create(
                 scene=scene,
@@ -271,10 +275,7 @@ def upload_direct_equirectangular_panorama(
     content_type: str,
     content: bytes,
 ) -> PanoramaVersion:
-    """
-    Allows uploading a pre-stitched 360° equirectangular panorama directly (e.g. from Ricoh Theta / Insta360),
-    still enforcing review/approval workflow before publication.
-    """
+    """پانورامای آمادهٔ ۳۶۰ درجه را پس از اعتبارسنجی برای بازبینی ثبت می‌کند."""
     scene = get_scene_for_user(user=user, agency_id=agency_id, scene_id=scene_id, require_edit=True)
     policy = get_capture_policy(tour=scene.tour)
     safe_name, mime, width, height, normalized_bytes = validate_capture_image_upload(
@@ -319,6 +320,8 @@ def upload_direct_equirectangular_panorama(
 
     prior_current = scene.panorama_versions.filter(is_current=True).first()
     has_approved = prior_current and prior_current.state == PanoramaVersion.State.APPROVED
+    if not has_approved:
+        scene.panorama_versions.filter(is_current=True).update(is_current=False)
 
     aspect = round(width / max(1, height), 3)
     pano = PanoramaVersion.objects.create(

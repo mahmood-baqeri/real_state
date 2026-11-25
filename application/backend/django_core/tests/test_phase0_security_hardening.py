@@ -11,6 +11,16 @@ from integrations.storage import LocalSecureStorageAdapter
 from apps.properties.models import Property
 
 
+def test_legal_section_normalization_preserves_text_and_sanitizes_html():
+    """عنوان متنی و محتوای نسخه‌های قدیمی برای نمایش ایمن آماده می‌شوند."""
+    from apps.cms.services import _render_sections_html, normalize_legal_sections
+
+    sections = normalize_legal_sections([
+        {"title": "شرایط <جدید>", "body_html": '<p onclick="example">متن</p>', "sort_order": "legacy"},
+    ])
+    assert _render_sections_html(sections) == "<h3>شرایط &lt;جدید&gt;</h3><p>متن</p>"
+
+
 def test_rls_policy_is_fail_closed_and_checks_write_path():
     sql = generate_rls_policy_sql("example_tenant_table")
     assert "ENABLE ROW LEVEL SECURITY" in sql
@@ -59,9 +69,9 @@ def test_storage_separates_public_and_private_roots_and_rejects_traversal(tmp_pa
         assert private.url == ""
         assert (public_root / "public/listings/cover.jpg").read_bytes() == b"public"
         assert (private_root / "agencies/a/documents/deed.pdf").read_bytes() == b"private"
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ValidationDomainError):
             storage.get_bytes(file_key="../private/secret.txt")
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(ValidationDomainError):
             storage.get_bytes(file_key="..\\\\private\\\\secret.txt")
 
 

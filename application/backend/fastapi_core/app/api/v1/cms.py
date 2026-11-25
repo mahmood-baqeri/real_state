@@ -489,6 +489,10 @@ class LegalStatusBody(BaseModel):
 
 
 def _ser_legal_doc(doc, include_versions: bool = False, accepted_by_user: Optional[bool] = None) -> dict:
+    """سند و نسخه‌های قدیمی را برای نمایش ایمن در مرورگر آماده می‌کند."""
+    from apps.cms.services import normalize_legal_sections
+    from common.sanitizer import sanitize_html
+
     payload = {
         "id": str(doc.id),
         "slug": doc.slug,
@@ -496,8 +500,8 @@ def _ser_legal_doc(doc, include_versions: bool = False, accepted_by_user: Option
         "title_fa": doc.title_fa,
         "title_en": doc.title_en,
         "summary": doc.summary,
-        "body_html": doc.body_html,
-        "sections_json": doc.sections_json or [],
+        "body_html": sanitize_html(doc.body_html),
+        "sections_json": normalize_legal_sections(doc.sections_json),
         "status": doc.status,
         "version_number": doc.version_number,
         "requires_acceptance": doc.requires_acceptance,
@@ -518,7 +522,7 @@ def _ser_legal_doc(doc, include_versions: bool = False, accepted_by_user: Option
                 "version_number": v.version_number,
                 "title_fa": v.title_fa,
                 "summary": v.summary,
-                "sections_json": v.sections_json or [],
+                "sections_json": normalize_legal_sections(v.sections_json),
                 "change_note": v.change_note,
                 "edited_by_name": v.edited_by.full_name if v.edited_by else "سیستم",
                 "created_at": v.created_at.isoformat(),

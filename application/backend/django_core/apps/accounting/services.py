@@ -1,3 +1,5 @@
+"""عملیات ثبت، برگشت و گزارش اسناد حسابداری آژانس."""
+
 from decimal import Decimal
 from typing import Iterable, Optional
 from uuid import UUID
@@ -49,14 +51,14 @@ def create_and_post_journal_entry(
     source_type: str = "MANUAL",
     source_id: str = "",
     actor=None,
+    reversed_entry: Optional[JournalEntry] = None,
 ) -> JournalEntry:
-    """
-    Atomically validates double-entry balance (SUM(debit) == SUM(credit)),
-    verifies open fiscal period, and posts an immutable JournalEntry.
-    """
+    """سند متوازن را در دورهٔ باز ثبت می‌کند و پیوند برگشت را هنگام ایجاد می‌نویسد."""
     locked_period = FiscalPeriod.objects.all_tenants().select_for_update().get(pk=fiscal_period.pk)
     if locked_period.agency_id != agency.id:
         raise ValidationError("Fiscal period must belong to the same agency as the journal entry.")
+    if reversed_entry and reversed_entry.agency_id != agency.id:
+        raise ValidationError("The original entry must belong to the same agency.")
     if locked_period.is_closed or locked_period.fiscal_year.is_closed:
         raise ValidationError("Cannot post journal entries into a closed fiscal period.")
 
@@ -97,6 +99,7 @@ def create_and_post_journal_entry(
         source_type=source_type,
         source_id=str(source_id),
         created_by=actor,
+        reversed_entry=reversed_entry,
     )
 
     for line in normalized_lines:
@@ -125,6 +128,7 @@ def create_and_post_journal_entry(
 def reverse_journal_entry(
     *, original_entry: JournalEntry, reversal_number: str, actor=None, reversal_period: Optional[FiscalPeriod] = None
 ) -> JournalEntry:
+    """زیر قفل سند اصلی، سند معکوس را ثبت و وضعیت سند اصلی را به‌روزرسانی می‌کند."""
     locked = JournalEntry.objects.all_tenants().select_for_update().get(pk=original_entry.pk)
     if locked.status != JournalEntry.Status.POSTED:
         raise ValidationError("Only POSTED journal entries can be reversed.")
@@ -137,7 +141,7 @@ def reverse_journal_entry(
             "debit": line.credit,
             "credit": line.debit,
         }
-        for line in locked.lines.all()
+        for line in locked.lines.select_related("account", "cost_center")
     ]
 
     target_period = reversal_period or locked.fiscal_period
@@ -176,9 +180,8 @@ def reverse_journal_entry(
         source_type="REVERSAL",
         source_id=str(locked.id),
         actor=actor,
+        reversed_entry=locked,
     )
-    reversal.reversed_entry = locked
-    reversal.save(update_fields=["reversed_entry", "updated_at"])
     JournalEntry.objects.all_tenants().filter(pk=locked.pk).update(
         status=JournalEntry.Status.REVERSED
     )

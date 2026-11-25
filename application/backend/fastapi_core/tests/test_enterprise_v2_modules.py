@@ -452,7 +452,8 @@ def test_6_enterprise_negotiation_workflow_offers_activities_analytics_and_contr
         assert len(ai_sum.json()["data"]["reply"]) > 15
 
 
-def test_7_and_8_iranian_payment_gateways_and_localization():
+def test_7_and_8_iranian_payment_gateways_and_localization(settings):
+    settings.DEBUG = True  # درگاه mock این سناریو به حالت آزمایشی نیاز دارد.
     client = TestClient(app)
 
     # Localization endpoint works cleanly with tile_url & phone_prefix
@@ -536,6 +537,7 @@ def test_7_and_8_iranian_payment_gateways_and_localization():
         )
         assert init2.status_code == 201
         assert init2.json()["data"]["transaction_id"] == d1["transaction_id"]
+        assert init2.json()["data"]["redirect_url"] == d1["redirect_url"]
         assert init2.json()["data"].get("idempotent_replay") is True
 
         # Callback verifies and activates subscription once

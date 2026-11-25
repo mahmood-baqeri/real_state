@@ -244,6 +244,12 @@ def test_sec_09_sensitive_ops_recorded_in_audit_log():
     assert AuditLog.objects.filter(action="USER_LOGIN_SUCCEEDED", actor_id=mgr["user"]["id"]).exists()
 
     logs_res = client.get("/api/v1/audit/logs?action=USER_LOGIN_SUCCEEDED", headers=headers)
+    assert logs_res.status_code == 403
+    admin = _login(client, "09120000001", "Admin@12345")
+    logs_res = client.get(
+        "/api/v1/audit/logs?action=USER_LOGIN_SUCCEEDED",
+        headers={"Authorization": f"Bearer {admin['access']}"},
+    )
     assert logs_res.status_code == 200
     assert len(logs_res.json()["data"]) >= 1
 

@@ -134,10 +134,7 @@ const CONTENT_TYPE_OPTIONS = [
 ];
 
 export default function AiAssistantPage() {
-  const { accessToken, activeAgencyId, user } = useAuth();
-  React.useEffect(() => {
-    if (user?.platform_role === "AGENCY_MANAGER") window.location.replace("/dashboard");
-  }, [user?.platform_role]);
+  const { accessToken, activeAgencyId } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -484,8 +481,6 @@ export default function AiAssistantPage() {
   const models = rawModels.map((m) =>
     typeof m === "string" ? { id: m, label: m } : m
   );
-
-  if (user?.platform_role === "AGENCY_MANAGER") return null;
 
   return (
     <div className="space-y-6">

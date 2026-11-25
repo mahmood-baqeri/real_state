@@ -4,6 +4,7 @@ from common.models import BaseModel
 
 
 class PaymentGatewayTransaction(BaseModel):
+    """تراکنش درگاه و اطلاعات لازم برای بازیابی درخواست تکراری."""
     class Status(models.TextChoices):
         INITIATED = "INITIATED", "Initiated"
         PAID = "PAID", "Paid"
@@ -20,8 +21,9 @@ class PaymentGatewayTransaction(BaseModel):
     authority = models.CharField(max_length=128, unique=True)
     reference_id = models.CharField(max_length=128, blank=True, default="")
     order_id = models.CharField(max_length=80, blank=True, default="", db_index=True)
-    idempotency_key = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    idempotency_key = models.CharField(max_length=128, null=True, blank=True)
     callback_url = models.CharField(max_length=500, blank=True, default="")
+    redirect_url = models.TextField(blank=True, default="")
     error_message = models.CharField(max_length=255, blank=True, default="")
     currency = models.ForeignKey("settings.Currency", on_delete=models.PROTECT, default="IRT")
     base_currency_code = models.CharField(max_length=10, default="IRT")
@@ -42,6 +44,9 @@ class PaymentGatewayTransaction(BaseModel):
 
     class Meta:
         db_table = "payments_gateway_transaction"
+        constraints = [
+            models.UniqueConstraint(fields=["agency", "idempotency_key"], name="uq_payment_agency_idempotency"),
+        ]
         indexes = [
             models.Index(fields=["agency", "status", "-created_at"]),
             models.Index(fields=["provider_key", "status"]),
