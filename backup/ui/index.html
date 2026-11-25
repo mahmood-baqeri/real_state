@@ -4,7 +4,7 @@
 <head>
      <meta charset="UTF-8" />
      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-     <title>خانه‌یار | پلتفرم جامع املاک</title>
+     <title>متاملک | پلتفرم جامع املاک</title>
 
      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
      <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -507,6 +507,135 @@
                100% {
                     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
                }
+          }
+
+
+          /* Agents */
+          .agent-card {
+               background: var(--bg-elevated);
+               border-radius: 22px;
+               padding: 2rem 1.5rem;
+               text-align: center;
+               border: 1px solid var(--border-color);
+               transition: all .4s cubic-bezier(.22, 1, .36, 1);
+               position: relative;
+               overflow: hidden;
+          }
+
+          .agent-card::before {
+               content: '';
+               position: absolute;
+               top: 0;
+               left: 0;
+               right: 0;
+               height: 100px;
+               background: linear-gradient(135deg, rgba(99, 102, 241, .15), rgba(6, 182, 212, .15));
+               z-index: 0;
+          }
+
+          .agent-card:hover {
+               transform: translateY(-8px);
+               box-shadow: var(--shadow-lg);
+               border-color: rgba(99, 102, 241, .2);
+          }
+
+          .agent-avatar {
+               width: 100px;
+               height: 100px;
+               border-radius: 50%;
+               margin: -80px auto 1rem;
+               position: relative;
+               z-index: 1;
+               border: 4px solid var(--bg-elevated);
+               background: linear-gradient(135deg, var(--primary), var(--accent));
+               display: grid;
+               place-items: center;
+               color: #fff;
+               font-size: 2rem;
+               font-weight: 900;
+          }
+
+          .agent-name {
+               font-weight: 800;
+               font-size: 1.1rem;
+               margin-bottom: .3rem;
+          }
+
+          .agent-role {
+               color: var(--text-secondary);
+               font-size: .85rem;
+               margin-bottom: .8rem;
+          }
+
+          .agent-rating {
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               gap: .3rem;
+               color: var(--warning);
+               font-size: .9rem;
+               font-weight: 700;
+               margin-bottom: 1rem;
+          }
+
+          .agent-rating .count {
+               color: var(--text-secondary);
+               font-weight: 500;
+               font-size: .8rem;
+          }
+
+          .agent-stats {
+               display: flex;
+               justify-content: space-around;
+               padding: 1rem 0;
+               border-top: 1px solid var(--border-color);
+               border-bottom: 1px solid var(--border-color);
+               margin-bottom: 1rem;
+          }
+
+          .agent-stat-value {
+               font-weight: 800;
+               color: var(--primary);
+               font-size: 1.1rem;
+          }
+
+          .agent-stat-label {
+               font-size: .75rem;
+               color: var(--text-secondary);
+          }
+
+          .agent-actions {
+               display: flex;
+               gap: .5rem;
+          }
+
+          .agent-btn {
+               flex: 1;
+               padding: .6rem;
+               border-radius: 10px;
+               border: 1px solid var(--border-color);
+               background: transparent;
+               color: var(--text-secondary);
+               font-weight: 700;
+               font-size: .82rem;
+               cursor: pointer;
+               transition: all .3s;
+          }
+
+          .agent-btn:hover {
+               background: var(--primary);
+               color: #fff;
+               border-color: var(--primary);
+          }
+
+          .agent-btn.primary {
+               background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+               color: #fff;
+               border: none;
+          }
+
+          .agent-btn.primary:hover {
+               transform: translateY(-2px);
           }
 
           /* ============ SEARCH CARD ============ */
@@ -2026,7 +2155,7 @@
                <div class="loader-progress">
                     <div class="loader-progress-bar"></div>
                </div>
-               <div class="loader-text">در حال آماده‌سازی خانه‌یار...</div>
+               <div class="loader-text">در حال آماده‌سازی متاملک...</div>
           </div>
      </div>
 
@@ -2038,7 +2167,7 @@
           <div class="container">
                <a class="navbar-brand" href="#">
                     <span class="logo-badge"><i class="bi bi-house-heart-fill"></i></span>
-                    خانه‌یار
+                    متاملک
                </a>
                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse"
                     data-bs-target="#navMenu">
@@ -2419,13 +2548,14 @@
                     <div class="col-lg-5 reveal reveal-delay-1">
                          <h3 class="fw-bold mb-3" style="font-size:1.6rem;">جست‌وجوی هوشمند روی نقشه</h3>
                          <p class="text-secondary lh-lg mb-4">
-                              با ابزار نقشه‌ی خانه‌یار می‌تونی محدوده‌ی مورد نظرت رو انتخاب کنی، فیلترهای دلخواهت رو
+                              با ابزار نقشه‌ی متاملک می‌تونی محدوده‌ی مورد نظرت رو انتخاب کنی، فیلترهای دلخواهت رو
                               اعمال کنی و فقط املاک همون منطقه رو ببینی.
                          </p>
                          <div class="d-flex flex-column gap-3 mb-4">
                               <div class="d-flex align-items-start gap-3">
                                    <div class="feature-icon" style="width:48px;height:48px;font-size:1.2rem;margin:0;">
-                                        <i class="bi bi-check2-circle"></i></div>
+                                        <i class="bi bi-check2-circle"></i>
+                                   </div>
                                    <div>
                                         <h6 class="fw-bold mb-1">فیلتر پیشرفته</h6>
                                         <small class="text-secondary">بر اساس متراژ، قیمت و امکانات</small>
@@ -2433,7 +2563,8 @@
                               </div>
                               <div class="d-flex align-items-start gap-3">
                                    <div class="feature-icon" style="width:48px;height:48px;font-size:1.2rem;margin:0;">
-                                        <i class="bi bi-arrows-move"></i></div>
+                                        <i class="bi bi-arrows-move"></i>
+                                   </div>
                                    <div>
                                         <h6 class="fw-bold mb-1">انتخاب محدوده</h6>
                                         <small class="text-secondary">با کشیدن روی نقشه، محدوده رو مشخص کن</small>
@@ -2441,7 +2572,8 @@
                               </div>
                               <div class="d-flex align-items-start gap-3">
                                    <div class="feature-icon" style="width:48px;height:48px;font-size:1.2rem;margin:0;">
-                                        <i class="bi bi-heart"></i></div>
+                                        <i class="bi bi-heart"></i>
+                                   </div>
                                    <div>
                                         <h6 class="fw-bold mb-1">ذخیره‌ی ملک</h6>
                                         <small class="text-secondary">ملک‌های موردعلاقه رو برای بعد ذخیره کن</small>
@@ -2459,7 +2591,7 @@
      <section class="section alt" id="features">
           <div class="container">
                <div class="text-center mb-5 reveal">
-                    <span class="section-badge"><i class="bi bi-lightning-charge-fill"></i> چرا خانه‌یار؟</span>
+                    <span class="section-badge"><i class="bi bi-lightning-charge-fill"></i> چرا متاملک؟</span>
                     <h2 class="section-title">تجربه‌ای متفاوت در خرید و فروش ملک</h2>
                     <p class="section-subtitle">ما با فناوری و تخصص، مسیر پیدا کردن خانه‌ی مناسب رو برای شما ساده و
                          مطمئن می‌کنیم.</p>
@@ -2545,7 +2677,7 @@
                                    class="bi bi-star-half"></i>
                          </div>
                          <p class="testimonial-text">"امکانات تور مجازی عالیه! از شهرستان تونستم با خیال راحت چند تا ملک
-                              رو ببینم و نهایتاً انتخاب کنم. ممنون خانه‌یار!"</p>
+                              رو ببینم و نهایتاً انتخاب کنم. ممنون متاملک!"</p>
                          <p class="testimonial-author">سارا کریمی</p>
                          <small class="testimonial-role">اجاره‌کننده - اصفهان</small>
                     </div>
@@ -2564,6 +2696,121 @@
                </div>
           </div>
      </section>
+
+
+     <!-- AGENTS -->
+     <section class="section alt" id="agents">
+          <div class="container">
+               <div class="text-center mb-5 reveal">
+                    <span class="section-badge"><i class="bi bi-person-badge-fill"></i> تیم ما</span>
+                    <h2 class="section-title">مشاوران متخصص متاملک</h2>
+                    <p class="section-subtitle">با تجربه‌ترین مشاوران املاک، در کنار شما برای انتخابی مطمئن.</p>
+               </div>
+               <div class="row g-4">
+                    <div class="col-md-6 col-lg-3 reveal">
+                         <div class="agent-card">
+                              <div class="agent-avatar" style="margin-top: 1rem;">ع</div>
+                              <div class="agent-name">علی رضایی</div>
+                              <div class="agent-role">مشاور ارشد املاک لوکس</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۴.۹ <span class="count">(۱۲۴
+                                        نظر)</span></div>
+                              <div class="agent-stats">
+                                   <div>
+                                        <div class="agent-stat-value">۱۸۶</div>
+                                        <div class="agent-stat-label">معامله</div>
+                                   </div>
+                                   <div>
+                                        <div class="agent-stat-value">۹</div>
+                                        <div class="agent-stat-label">سال تجربه</div>
+                                   </div>
+                              </div>
+                              <div class="agent-actions">
+                                   <button class="agent-btn primary"
+                                        onclick="showToast('درخواست تماس با علی رضایی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
+                              </div>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-1">
+                         <div class="agent-card">
+                              <div class="agent-avatar" style="margin-top: 1rem;">س</div>
+                              <div class="agent-name">سارا محمدی</div>
+                              <div class="agent-role">متخصص اجاره و رهن</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۴.۸ <span class="count">(۹۸
+                                        نظر)</span></div>
+                              <div class="agent-stats">
+                                   <div>
+                                        <div class="agent-stat-value">۲۴۵</div>
+                                        <div class="agent-stat-label">معامله</div>
+                                   </div>
+                                   <div>
+                                        <div class="agent-stat-value">۷</div>
+                                        <div class="agent-stat-label">سال تجربه</div>
+                                   </div>
+                              </div>
+                              <div class="agent-actions">
+                                   <button class="agent-btn primary"
+                                        onclick="showToast('درخواست تماس با سارا محمدی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
+                              </div>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-2">
+                         <div class="agent-card">
+                              <div class="agent-avatar" style="margin-top: 1rem;">ر</div>
+                              <div class="agent-name">رضا کریمی</div>
+                              <div class="agent-role">مشاور سرمایه‌گذاری</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۵.۰ <span class="count">(۱۵۶
+                                        نظر)</span></div>
+                              <div class="agent-stats">
+                                   <div>
+                                        <div class="agent-stat-value">۳۱۲</div>
+                                        <div class="agent-stat-label">معامله</div>
+                                   </div>
+                                   <div>
+                                        <div class="agent-stat-value">۱۲</div>
+                                        <div class="agent-stat-label">سال تجربه</div>
+                                   </div>
+                              </div>
+                              <div class="agent-actions">
+                                   <button class="agent-btn primary"
+                                        onclick="showToast('درخواست تماس با رضا کریمی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
+                              </div>
+                         </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 reveal reveal-delay-3">
+                         <div class="agent-card">
+                              <div class="agent-avatar" style="margin-top: 1rem;">م</div>
+                              <div class="agent-name">مریم احمدی</div>
+                              <div class="agent-role">متخصص املاک تجاری</div>
+                              <div class="agent-rating"><i class="bi bi-star-fill"></i> ۴.۷ <span class="count">(۷۸
+                                        نظر)</span></div>
+                              <div class="agent-stats">
+                                   <div>
+                                        <div class="agent-stat-value">۱۴۷</div>
+                                        <div class="agent-stat-label">معامله</div>
+                                   </div>
+                                   <div>
+                                        <div class="agent-stat-value">۶</div>
+                                        <div class="agent-stat-label">سال تجربه</div>
+                                   </div>
+                              </div>
+                              <div class="agent-actions">
+                                   <button class="agent-btn primary"
+                                        onclick="showToast('درخواست تماس با مریم احمدی ثبت شد', 'success')">تماس</button>
+                                   <button class="agent-btn"
+                                        onclick="showToast('پروفایل مشاور به‌زودی', 'warning')">پروفایل</button>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+          </div>
+     </section>
+
 
      <!-- ================= APP ================= -->
      <section class="app-section">
@@ -2627,10 +2874,10 @@
                               <i class="bi bi-phone"></i> اپلیکیشن موبایل
                          </span>
                          <h2 class="fw-bold mb-3" style="font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.3;">
-                              خانه‌یار رو در جیب خودت داشته باش!
+                              متاملک رو در جیب خودت داشته باش!
                          </h2>
                          <p style="opacity:.9; line-height:1.9; margin-bottom:1.5rem;">
-                              با اپلیکیشن خانه‌یار، هر جا که هستی به هزاران ملک دسترسی داری، اعلان لحظه‌ای از ملک‌های
+                              با اپلیکیشن متاملک، هر جا که هستی به هزاران ملک دسترسی داری، اعلان لحظه‌ای از ملک‌های
                               جدید می‌گیری و حتی می‌تونی از داخل اپ با مشاورین چت کنی.
                          </p>
                          <div class="d-flex flex-column gap-2 mb-4">
@@ -2694,7 +2941,7 @@
                     <div class="col-lg-4">
                          <div class="footer-brand">
                               <span class="logo-badge"><i class="bi bi-house-heart-fill"></i></span>
-                              خانه‌یار
+                              متاملک
                          </div>
                          <p style="font-size:.93rem; line-height:1.9;">
                               پلتفرم جامع املاک ایران؛ جایی که خرید، فروش و اجاره‌ی ملک تبدیل به تجربه‌ای ساده، مطمئن و
@@ -2740,7 +2987,7 @@
                     </div>
                </div>
                <div class="footer-bottom">
-                    © ۱۴۰۳ خانه‌یار — تمامی حقوق محفوظ است. ساخته شده با <span style="color:#ef4444;">❤</span> در ایران
+                    © ۱۴۰۳ متاملک — تمامی حقوق محفوظ است. ساخته شده با <span style="color:#ef4444;">❤</span> در ایران
                </div>
           </div>
      </footer>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>خانه‌نو | پلتفرم هوشمند معاملات ملکی</title>
+  <meta name="description" content="جست‌وجو، خرید، فروش و اجاره ملک با تجربه‌ای مدرن و هوشمند.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    :root{--brand:#6d5dfc;--brand2:#9a6bff;--ink:#172033;--muted:#778198;--surface:#fff;--bg:#f6f7fb;--line:rgba(26,36,58,.09);--soft:#f0efff;--shadow:0 18px 55px rgba(33,38,76,.09)}
+    [data-bs-theme="dark"]{--ink:#edf0ff;--muted:#a5aec3;--surface:#171b2b;--bg:#101423;--line:rgba(255,255,255,.09);--soft:#272342;--shadow:0 18px 55px rgba(0,0,0,.25)}
+    *{box-sizing:border-box} body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--ink);transition:background .35s,color .35s;overflow-x:hidden}
+    a{text-decoration:none;color:inherit}.navbar{background:color-mix(in srgb,var(--surface) 86%,transparent);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+    .navbar-brand{font-weight:900;letter-spacing:-1px;font-size:1.5rem}.brand-mark{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:13px;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));box-shadow:0 8px 20px #7866ff55;margin-left:9px}
+    .nav-link{font-weight:600;color:var(--muted)!important;padding-inline:14px!important}.nav-link:hover,.nav-link.active{color:var(--brand)!important}
+    .btn-brand{background:linear-gradient(135deg,var(--brand),var(--brand2));border:0;color:#fff;border-radius:13px;padding:11px 20px;font-weight:700;box-shadow:0 9px 22px #7665fa45;transition:.25s}
+    .btn-brand:hover{color:#fff;transform:translateY(-3px);box-shadow:0 14px 28px #7665fa66}
+    .btn-ghost{border:1px solid var(--line);color:var(--ink);background:var(--surface);border-radius:13px;padding:10px 13px}
+    .hero{position:relative;padding:90px 0 65px;isolation:isolate}.hero:before{content:"";position:absolute;z-index:-1;width:540px;height:540px;top:-160px;right:-180px;background:radial-gradient(circle,#8b7aff2b,transparent 68%);filter:blur(8px)}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--soft);color:var(--brand);padding:8px 13px;border-radius:50px;font-size:.83rem;font-weight:700}
+    .hero h1{font-size:clamp(2.25rem,5vw,4.35rem);line-height:1.35;font-weight:900;letter-spacing:-2px;margin:20px 0}.gradient-text{background:linear-gradient(90deg,#6d5dfc,#b16cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero p{color:var(--muted);font-size:1.08rem;line-height:2;max-width:590px}
+    .hero-visual{position:relative;min-height:430px;display:grid;place-items:center}.hero-photo{width:min(100%,520px);height:390px;object-fit:cover;border-radius:32px;box-shadow:var(--shadow);transform:rotate(-2deg);border:8px solid var(--surface)}
+    .float-card{position:absolute;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 17px;box-shadow:var(--shadow);animation:float 5s ease-in-out infinite}
+    .float-card.one{right:-3%;top:14%}.float-card.two{left:-2%;bottom:9%;animation-delay:-2s}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+    .search-wrap{position:relative;margin-top:28px;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:12px;box-shadow:var(--shadow)}
+    .search-field{display:flex;align-items:center;gap:12px;padding:10px 15px;border-left:1px solid var(--line)}.search-field:last-of-type{border:0}.search-field i{color:var(--brand);font-size:1.2rem}.search-field label{font-size:.75rem;color:var(--muted);display:block}.search-field input,.search-field select{border:0;outline:0;background:transparent;color:var(--ink);font-weight:700;width:100%;font-family:inherit}
+    .section{padding:65px 0}.section-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:28px}.section-head h2{font-weight:900;letter-spacing:-.7px}.section-head p{color:var(--muted);margin:7px 0 0}
+    .property-card{height:100%;background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;transition:transform .3s,box-shadow .3s}.property-card:hover{transform:translateY(-8px);box-shadow:var(--shadow)}
+    .property-image{height:220px;position:relative;overflow:hidden}.property-image img{width:100%;height:100%;object-fit:cover;transition:transform .6s}.property-card:hover .property-image img{transform:scale(1.07)}
+    .tag{position:absolute;top:14px;right:14px;background:#fff;color:#5145d8;border-radius:9px;padding:6px 11px;font-size:.76rem;font-weight:800}.heart{position:absolute;top:13px;left:13px;width:37px;height:37px;border:0;border-radius:50%;background:#ffffffdf;color:#333;display:grid;place-items:center}
+    .property-body{padding:19px}.property-body h5{font-weight:800;font-size:1.03rem}.location{color:var(--muted);font-size:.85rem}.features{display:flex;gap:15px;color:var(--muted);font-size:.82rem;padding:15px 0;border-bottom:1px solid var(--line);margin-bottom:14px}.features i{color:var(--brand);margin-left:4px}.price{font-weight:900;color:var(--brand);font-size:1.05rem}
+    .category-card{padding:22px;background:var(--surface);border:1px solid var(--line);border-radius:20px;text-align:center;transition:.25s}.category-card:hover{transform:translateY(-5px);border-color:#8c7dff;box-shadow:var(--shadow)}.category-icon{width:55px;height:55px;margin:0 auto 12px;border-radius:17px;display:grid;place-items:center;background:var(--soft);color:var(--brand);font-size:1.5rem}.category-card strong{display:block}.category-card small{color:var(--muted)}
+    .banner{background:linear-gradient(115deg,#5c50e8,#9a62ed);border-radius:28px;padding:42px;color:#fff;position:relative;overflow:hidden}.banner:after{content:"";position:absolute;width:300px;height:300px;border:1px solid #ffffff30;border-radius:50%;left:8%;top:-130px;box-shadow:0 0 0 35px #ffffff0b,0 0 0 70px #ffffff08}.banner h2{font-weight:900}.banner p{color:#eee8ff;line-height:2}
+    .stat{padding:20px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}.stat strong{font-size:1.65rem;font-weight:900}.stat span{display:block;color:var(--muted);font-size:.86rem}
+    footer{border-top:1px solid var(--line);padding:35px 0;color:var(--muted)}.footer-brand{color:var(--ink);font-weight:900;font-size:1.3rem}
+    .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}.reveal.show{opacity:1;transform:none}
+    .toast-container{z-index:1080}
+    @media(max-width:767px){.hero{padding:55px 0 35px}.hero-visual{min-height:320px;margin-top:25px}.hero-photo{height:300px}.float-card.one{right:0}.float-card.two{left:0}.search-field{border:0;border-bottom:1px solid var(--line);padding:12px}.search-wrap{padding:10px}.section{padding:45px 0}.section-head{align-items:start;flex-direction:column}.banner{padding:30px 24px}}
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg sticky-top">
+  <div class="container py-2">
+    <a class="navbar-brand d-flex align-items-center" href="#"><span class="brand-mark"><i class="bi bi-buildings"></i></span>خانه‌نو</a>
+    <button class="navbar-toggler btn-ghost" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="باز کردن منو"><i class="bi bi-list"></i></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav mx-auto my-3 my-lg-0"><li class="nav-item"><a class="nav-link active" href="#home">خانه</a></li><li class="nav-item"><a class="nav-link" href="#properties">ملک‌ها</a></li><li class="nav-item"><a class="nav-link" href="#categories">دسته‌بندی</a></li><li class="nav-item"><a class="nav-link" href="#about">درباره ما</a></li></ul>
+      <div class="d-flex align-items-center gap-2"><button class="btn-ghost" id="themeToggle" aria-label="تغییر پوسته"><i class="bi bi-moon-stars"></i></button><a href="#contact" class="btn btn-brand">ثبت آگهی <i class="bi bi-plus-lg me-1"></i></a></div>
+    </div>
+  </div>
+</nav>
+
+<main>
+<section class="hero" id="home">
+ <div class="container">
+  <div class="row align-items-center g-4">
+   <div class="col-lg-6 reveal">
+    <span class="eyebrow"><i class="bi bi-stars"></i> تجربه‌ای نو در بازار املاک</span>
+    <h1>خانه‌ای که<br><span class="gradient-text">رویای شماست</span><br>اینجا منتظر شماست.</h1>
+    <p>هوشمندانه جست‌وجو کنید، با اطمینان انتخاب کنید و معامله‌ای ساده‌تر را تجربه کنید. دنیایی از فرصت‌های ملکی در یک نگاه.</p>
+    <div class="d-flex flex-wrap gap-3 mt-4"><a href="#properties" class="btn btn-brand">مشاهده ملک‌ها <i class="bi bi-arrow-left me-2"></i></a><a href="#about" class="btn btn-ghost">بیشتر بدانید <i class="bi bi-play-circle me-1"></i></a></div>
+   </div>
+   <div class="col-lg-6 reveal">
+    <div class="hero-visual">
+      <img class="hero-photo" src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1100&q=85" alt="خانه مدرن با طراحی مینیمال">
+      <div class="float-card one"><div class="d-flex align-items-center gap-2"><span class="category-icon mb-0" style="width:42px;height:42px"><i class="bi bi-house-heart"></i></span><div><strong>+۲,۴۰۰</strong><div class="small text-secondary">ملک آماده بازدید</div></div></div></div>
+      <div class="float-card two"><div class="d-flex align-items-center gap-2"><div class="text-warning fs-5">★★★★★</div><div><strong>۴.۹ از ۵</strong><div class="small text-secondary">رضایت کاربران</div></div></div></div>
+    </div>
+   </div>
+  </div>
+  <div class="search-wrap reveal">
+   <form id="searchForm" class="row g-2 align-items-center">
+    <div class="col-md-3"><div class="search-field"><i class="bi bi-geo-alt"></i><div class="flex-grow-1"><label for="city">موقعیت مکانی</label><input id="city" placeholder="مثلاً تهران، زعفرانیه"></div></div></div>
+    <div class="col-md-2"><div class="search-field"><i class="bi bi-house"></i><div class="flex-grow-1"><label for="deal">نوع معامله</label><select id="deal"><option value="">همه موارد</option><option>خرید</option><option>اجاره</option><option>رهن کامل</option></select></div></div></div>
+    <div class="col-md-2"><div class="search-field"><i class="bi bi-building"></i><div class="flex-grow-1"><label for="kind">نوع ملک</label><select id="kind"><option value="">همه ملک‌ها</option><option>آپارتمان</option><option>ویلا</option><option>تجاری</option></select></div></div></div>
+    <div class="col-md-3"><div class="search-field"><i class="bi bi-cash-stack"></i><div class="flex-grow-1"><label for="budget">حداکثر بودجه</label><select id="budget"><option value="">بدون محدودیت</option><option value="5">تا ۵ میلیارد</option><option value="10">تا ۱۰ میلیارد</option><option value="20">تا ۲۰ میلیارد</option></select></div></div></div>
+    <div class="col-md-2 d-grid"><button class="btn btn-brand py-3" type="submit"><i class="bi bi-search ms-1"></i> جست‌وجو</button></div>
+   </form>
+  </div>
+ </div>
+</section>
+
+<section class="section pt-4" id="categories"><div class="container">
+ <div class="section-head reveal"><div><h2>دنبال چه ملکی هستید؟</h2><p>از میان دسته‌بندی‌های محبوب، سریع‌تر به مقصد برسید.</p></div><a href="#properties" class="text-primary fw-bold">همه دسته‌ها <i class="bi bi-arrow-left"></i></a></div>
+ <div class="row g-3">
+  <div class="col-6 col-md-3 reveal"><a class="category-card d-block" href="#properties"><div class="category-icon"><i class="bi bi-buildings"></i></div><strong>آپارتمان</strong><small>۱,۲۸۰ فایل فعال</small></a></div>
+  <div class="col-6 col-md-3 reveal"><a class="category-card d-block" href="#properties"><div class="category-icon"><i class="bi bi-house-heart"></i></div><strong>ویلایی</strong><small>۴۵۰ فایل فعال</small></a></div>
+  <div class="col-6 col-md-3 reveal"><a class="category-card d-block" href="#properties"><div class="category-icon"><i class="bi bi-shop"></i></div><strong>تجاری و اداری</strong><small>۳۲۰ فایل فعال</small></a></div>
+  <div class="col-6 col-md-3 reveal"><a class="category-card d-block" href="#properties"><div class="category-icon"><i class="bi bi-tree"></i></div><strong>زمین و باغ</strong><small>۱۸۵ فایل فعال</small></a></div>
+ </div>
+</div></section>
+
+<section class="section" id="properties"><div class="container">
+ <div class="section-head reveal"><div><h2>ملک‌های منتخب</h2><p>فرصت‌هایی که ارزش دیدن دارند.</p></div><a href="#properties" class="btn btn-ghost">مشاهده همه <i class="bi bi-arrow-left me-1"></i></a></div>
+ <div class="row g-4" id="propertyGrid">
+  <div class="col-md-6 col-lg-4 property-item reveal" data-city="زعفرانیه تهران" data-kind="آپارتمان" data-price="18"><article class="property-card"><div class="property-image"><img src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=900&q=80" alt="آپارتمان لوکس"><span class="tag">ویژه</span><button class="heart" aria-label="افزودن به علاقه‌مندی"><i class="bi bi-heart"></i></button></div><div class="property-body"><h5>آپارتمان مدرن با تراس سبز</h5><div class="location"><i class="bi bi-geo-alt"></i> تهران، زعفرانیه</div><div class="features"><span><i class="bi bi-rulers"></i> ۱۸۵ متر</span><span><i class="bi bi-door-open"></i> ۳ خواب</span><span><i class="bi bi-car-front"></i> ۲ پارکینگ</span></div><div class="d-flex justify-content-between align-items-center"><span class="price">۱۸.۵ میلیارد تومان</span><span class="small text-secondary">خرید</span></div></div></article></div>
+  <div class="col-md-6 col-lg-4 property-item reveal" data-city="کردان البرز" data-kind="ویلا" data-price="9"><article class="property-card"><div class="property-image"><img src="https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=900&q=80" alt="ویلای مدرن"><span class="tag">تازه‌رسیده</span><button class="heart" aria-label="افزودن به علاقه‌مندی"><i class="bi bi-heart"></i></button></div><div class="property-body"><h5>ویلای دنج با استخر اختصاصی</h5><div class="location"><i class="bi bi-geo-alt"></i> البرز، کردان</div><div class="features"><span><i class="bi bi-rulers"></i> ۳۲۰ متر</span><span><i class="bi bi-door-open"></i> ۴ خواب</span><span><i class="bi bi-water"></i> استخر</span></div><div class="d-flex justify-content-between align-items-center"><span class="price">۹.۲ میلیارد تومان</span><span class="small text-secondary">خرید</span></div></div></article></div>
+  <div class="col-md-6 col-lg-4 property-item reveal" data-city="ونک تهران" data-kind="آپارتمان" data-price="5"><article class="property-card"><div class="property-image"><img src="https://images.unsplash.com/photo-1600607687644-c7171b42498f?auto=format&fit=crop&w=900&q=80" alt="آپارتمان روشن"><span class="tag">پیشنهاد ما</span><button class="heart" aria-label="افزودن به علاقه‌مندی"><i class="bi bi-heart"></i></button></div><div class="property-body"><h5>واحد خوش‌نقشه نزدیک پارک</h5><div class="location"><i class="bi bi-geo-alt"></i> تهران، ونک</div><div class="features"><span><i class="bi bi-rulers"></i> ۱۱۵ متر</span><span><i class="bi bi-door-open"></i> ۲ خواب</span><span><i class="bi bi-car-front"></i> پارکینگ</span></div><div class="d-flex justify-content-between align-items-center"><span class="price">۵.۸ میلیارد تومان</span><span class="small text-secondary">خرید</span></div></div></article></div>
+ </div>
+ <div class="text-center mt-4"><button id="resetSearch" class="btn btn-ghost d-none">پاک کردن فیلترها</button></div>
+</div></section>
+
+<section class="section pt-2" id="about"><div class="container">
+ <div class="banner reveal"><div class="row align-items-center"><div class="col-lg-8"><span class="badge rounded-pill bg-white text-primary mb-3 px-3 py-2">برای مشاوران و مالکان</span><h2 class="mb-3">ملک خود را به هزاران<br>متقاضی واقعی معرفی کنید.</h2><p class="mb-4">آگهی خود را در چند دقیقه ثبت کنید، درخواست‌ها را مدیریت کنید و سریع‌تر به معامله برسید.</p><a class="btn btn-light fw-bold rounded-3 px-4 py-3" href="#contact">شروع ثبت آگهی <i class="bi bi-arrow-left me-2"></i></a></div><div class="col-lg-4 text-center d-none d-lg-block"><i class="bi bi-house-check" style="font-size:9rem;opacity:.9"></i></div></div></div>
+ <div class="row g-3 mt-4"><div class="col-6 col-md-3 reveal"><div class="stat"><strong>۲۴K+</strong><span>آگهی ثبت‌شده</span></div></div><div class="col-6 col-md-3 reveal"><div class="stat"><strong>۱۲K+</strong><span>معامله موفق</span></div></div><div class="col-6 col-md-3 reveal"><div class="stat"><strong>۸۵۰+</strong><span>مشاور حرفه‌ای</span></div></div><div class="col-6 col-md-3 reveal"><div class="stat"><strong>۴.۹/۵</strong><span>رضایت کاربران</span></div></div></div>
+</div></section>
+</main>
+<footer id="contact"><div class="container"><div class="row align-items-center gy-3"><div class="col-md-5"><div class="footer-brand"><span class="brand-mark"><i class="bi bi-buildings"></i></span>خانه‌نو</div><p class="small mt-2 mb-0">مسیر هوشمند شما برای انتخاب خانه‌ای بهتر.</p></div><div class="col-md-4 small">پشتیبانی: ۰۲۱-۱۲۳۴۵۶۷۸<br>ایمیل: hello@khaneno.example</div><div class="col-md-3 text-md-end"><span class="small">ما را دنبال کنید</span><div class="fs-5 mt-1 d-flex gap-3 justify-content-md-end"><a href="#" aria-label="اینستاگرام"><i class="bi bi-instagram"></i></a><a href="#" aria-label="تلگرام"><i class="bi bi-telegram"></i></a><a href="#" aria-label="لینکدین"><i class="bi bi-linkedin"></i></a></div></div></div><hr class="my-4" style="border-color:var(--line)"><div class="small text-center">© ۱۴۰۵ خانه‌نو. تمامی حقوق محفوظ است.</div></div></footer>
+<div class="toast-container position-fixed bottom-0 start-0 p-3"><div id="siteToast" class="toast border-0" role="alert"><div class="d-flex"><div class="toast-body" id="toastMessage">انجام شد.</div><button type="button" class="btn-close ms-2 m-auto" data-bs-dismiss="toast" aria-label="بستن"></button></div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+ const root=document.documentElement,themeBtn=document.getElementById('themeToggle');
+ const savedTheme=localStorage.getItem('khaneno-theme'); if(savedTheme){root.setAttribute('data-bs-theme',savedTheme);updateThemeIcon()}
+ function updateThemeIcon(){themeBtn.innerHTML=root.getAttribute('data-bs-theme')==='dark'?'<i class="bi bi-sun"></i>':'<i class="bi bi-moon-stars"></i>'}
+ themeBtn.addEventListener('click',()=>{const next=root.getAttribute('data-bs-theme')==='dark'?'light':'dark';root.setAttribute('data-bs-theme',next);localStorage.setItem('khaneno-theme',next);updateThemeIcon()});
+ const observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');observer.unobserve(e.target)}}),{threshold:.12});document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+ document.querySelectorAll('.heart').forEach(btn=>btn.addEventListener('click',()=>{btn.classList.toggle('liked');btn.innerHTML=btn.classList.contains('liked')?'<i class="bi bi-heart-fill text-danger"></i>':'<i class="bi bi-heart"></i>'}));
+ function toast(msg){document.getElementById('toastMessage').textContent=msg;bootstrap.Toast.getOrCreateInstance(document.getElementById('siteToast')).show()}
+ document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault();const city=document.getElementById('city').value.trim().toLowerCase(),kind=document.getElementById('kind').value,budget=Number(document.getElementById('budget').value);let count=0;document.querySelectorAll('.property-item').forEach(card=>{const okCity=!city||card.dataset.city.toLowerCase().includes(city),okKind=!kind||card.dataset.kind.includes(kind),okBudget=!budget||Number(card.dataset.price)<=budget;card.classList.toggle('d-none',!(okCity&&okKind&&okBudget));if(okCity&&okKind&&okBudget)count++});document.getElementById('resetSearch').classList.remove('d-none');document.getElementById('properties').scrollIntoView({behavior:'smooth'});toast(count?`${count} ملک مطابق جست‌وجوی شما پیدا شد.`:'ملکی با این مشخصات پیدا نشد؛ فیلترها را تغییر دهید.')});
+ document.getElementById('resetSearch').addEventListener('click',()=>{document.getElementById('searchForm').reset();document.querySelectorAll('.property-item').forEach(c=>c.classList.remove('d-none'));document.getElementById('resetSearch').classList.add('d-none');toast('فیلترها پاک شدند.')});
+</script>
+</body>
+</html>
