@@ -67,9 +67,22 @@ def build_token_pair(*, user, session, membership=None) -> dict[str, Any]:
 
 
 def decode_jwt_token(token: str, *, expected_type: Optional[str] = None) -> dict[str, Any]:
-    payload = jwt.decode(token, settings.JWT_SIGNING_KEY, algorithms=[settings.JWT_ALGORITHM])
+    """امضا، انقضا و شناسه‌های لازم برای توکن مورد انتظار را بررسی می‌کند."""
+    required = ["exp"]
+    if expected_type in {"access", "refresh"}:
+        required.extend(("user_id", "jti"))
+    payload = jwt.decode(
+        token, settings.JWT_SIGNING_KEY, algorithms=[settings.JWT_ALGORITHM],
+        options={"require": required},
+    )
     if expected_type and payload.get("token_type") != expected_type:
         raise jwt.InvalidTokenError("Invalid token type.")
+    if expected_type in {"access", "refresh"}:
+        try:
+            uuid.UUID(str(payload["user_id"]))
+            uuid.UUID(str(payload["jti"]))
+        except ValueError as exc:
+            raise jwt.InvalidTokenError("Invalid session identifiers.") from exc
     return payload
 
 

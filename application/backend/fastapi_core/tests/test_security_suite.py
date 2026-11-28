@@ -148,6 +148,64 @@ def test_sec_05_revoked_session_fails():
     assert logout_res.status_code == 200
     ref_res = client.post("/api/v1/auth/refresh", json={"refresh": tokens["refresh"]})
     assert ref_res.status_code == 401
+    profile = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {tokens['access']}"})
+    assert profile.status_code == 401
+
+
+def test_refresh_rotation_requires_current_session_version():
+    """دو نسخهٔ خوانده‌شدهٔ نشست فقط یک بار اجازهٔ تغییر شناسه دارند."""
+    from apps.accounts.models import UserSession
+    from apps.accounts.services import rotate_user_session
+    from app.core.security import decode_jwt_token
+    from common.exceptions import AuthenticationDomainError
+
+    tokens = _login(TestClient(app), "09124444444", "Customer@12345")
+    claims = decode_jwt_token(tokens["refresh"], expected_type="refresh")
+    current = UserSession.objects.get(jti=claims["jti"])
+    previously_read = UserSession.objects.get(pk=current.pk)
+    replacement = uuid.uuid4()
+    rotate_user_session(old_session=current, new_jti=replacement)
+    with pytest.raises(AuthenticationDomainError):
+        rotate_user_session(old_session=previously_read, new_jti=uuid.uuid4())
+    current.refresh_from_db()
+    assert current.jti == replacement
+
+
+def test_document_scope_checks_each_linked_record():
+    """دامنهٔ قرارداد و ملک سند مستقل از هم در فهرست اسناد بررسی می‌شوند."""
+    from django.utils import timezone
+    from apps.accounts.models import AgencyMembership
+    from apps.contracts.models import Contract
+    from apps.documents.models import Document
+    from apps.properties.models import Property
+
+    client = TestClient(app)
+    tokens = _login(client, "09122222222", "Agent@12345")
+    membership = AgencyMembership.objects.get(user_id=tokens["user"]["id"], status="ACTIVE")
+    properties = Property.objects.all_tenants().filter(agency_id=membership.agency_id)
+    assigned = properties.filter(agent_assignments__membership=membership).first()
+    other = properties.exclude(agent_assignments__membership=membership).first()
+    assert assigned and other
+    contract = Contract.objects.all_tenants().create(
+        agency_id=membership.agency_id, property=other, deal_type_id=other.deal_type_id,
+        contract_number="DOC-SCOPE", internal_tracking_code="DOC-SCOPE", start_date=timezone.now(),
+    )
+    allowed = Document.objects.all_tenants().create(
+        agency_id=membership.agency_id, property=assigned, title="سند ملک تخصیص‌یافته",
+    )
+    restricted = Document.objects.all_tenants().create(
+        agency_id=membership.agency_id, property=assigned, contract=contract,
+        title="سند دارای قرارداد خارج از محدوده",
+    )
+    result = client.get(
+        "/api/v1/documents",
+        headers={"Authorization": f"Bearer {tokens['access']}", "X-Agency-ID": str(membership.agency_id)},
+        params={"property_id": str(assigned.id)},
+    )
+    assert result.status_code == 200
+    ids = {row["id"] for row in result.json()["data"]}
+    assert str(allowed.id) in ids
+    assert str(restricted.id) not in ids
 
 
 def test_sec_06_unauthorized_financial_ops_blocked():
@@ -218,6 +276,7 @@ def test_sec_07_malicious_and_spoofed_file_upload_rejected():
 def test_sec_08_bruteforce_lockout_returns_429():
     """Security Test 8: Repeated failed logins trigger Redis brute-force lockout (HTTP 429)."""
     from django.core.cache import cache
+    from apps.accounts.models import LoginAttemptLog
 
     client = TestClient(app)
     phone = f"0915{uuid.uuid4().int % 10000000:07d}"
@@ -228,6 +287,7 @@ def test_sec_08_bruteforce_lockout_returns_429():
         res = client.post("/api/v1/auth/login", json={"phone_number": phone, "password": "WrongPassword!1"})
         statuses.append(res.status_code)
     assert 429 in statuses, f"Expected 429 lockout, got {statuses}"
+    assert LoginAttemptLog.objects.filter(identifier=phone, succeeded=False).count() == statuses.count(401)
     cache.delete(f"auth:lockout:{phone}")
 
 

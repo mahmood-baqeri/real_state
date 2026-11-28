@@ -11,6 +11,39 @@ from integrations.storage import LocalSecureStorageAdapter
 from apps.properties.models import Property
 
 
+@pytest.mark.parametrize("public_policy", [False, True])
+def test_s3_verifier_distinguishes_missing_policy_from_public_policy(monkeypatch, public_policy):
+    """نبود سیاست سطل قابل قبول است و سیاست عمومی باعث رد بررسی می‌شود."""
+    from io import StringIO
+    from unittest.mock import Mock
+    import boto3
+    from botocore.exceptions import ClientError
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    client = Mock()
+    client.get_public_access_block.return_value = {"PublicAccessBlockConfiguration": {
+        "BlockPublicAcls": True, "IgnorePublicAcls": True,
+        "BlockPublicPolicy": True, "RestrictPublicBuckets": True,
+    }}
+    client.get_bucket_acl.return_value = {"Grants": []}
+    if public_policy:
+        client.get_bucket_policy_status.return_value = {"PolicyStatus": {"IsPublic": True}}
+    else:
+        client.get_bucket_policy_status.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchBucketPolicy"}}, "GetBucketPolicyStatus",
+        )
+    monkeypatch.setattr(boto3, "client", lambda *args, **kwargs: client)
+    with override_settings(
+        ACTIVE_STORAGE_PROVIDER="s3", S3_PRIVATE_BUCKET_NAME="private-test", S3_BUCKET_NAME="public-test",
+    ):
+        if public_policy:
+            with pytest.raises(CommandError, match="public bucket policy"):
+                call_command("verify_storage_security", stdout=StringIO())
+        else:
+            call_command("verify_storage_security", stdout=StringIO())
+
+
 def test_legal_section_normalization_preserves_text_and_sanitizes_html():
     """عنوان متنی و محتوای نسخه‌های قدیمی برای نمایش ایمن آماده می‌شوند."""
     from apps.cms.services import _render_sections_html, normalize_legal_sections

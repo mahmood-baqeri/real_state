@@ -1,3 +1,5 @@
+"""استخراج هویت و تعیین آژانس فعال درخواست‌های HTTP."""
+
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Optional
@@ -10,6 +12,7 @@ from app.core.security import decode_jwt_token
 
 @dataclass
 class RequestContext:
+    """هویت، نشست و عضویت تأییدشده برای یک درخواست."""
     user: Optional[Any] = None
     agency_id: Optional[UUID] = None
     membership: Optional[Any] = None
@@ -17,50 +20,40 @@ class RequestContext:
     is_authenticated: bool = False
 
 
-def _resolve_auth_sync(token: str, header_agency_id: Optional[str]) -> RequestContext:
+def _resolve_auth_sync(payload: dict[str, Any], header_agency_id: Optional[str]) -> RequestContext:
+    """کاربر، نشست فعال و دسترسی آژانس را برای توکن اعتبارسنجی‌شده بررسی می‌کند."""
     from django.utils import timezone
     from apps.accounts.models import AgencyMembership, User, UserSession
     from common.permissions import is_super_admin
 
-    try:
-        payload = decode_jwt_token(token, expected_type="access")
-    except jwt.PyJWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="توکن احراز هویت نامعتبر یا منقضی شده است.",
-        ) from exc
-
-    user_id = payload.get("user_id")
-    jti = payload.get("jti")
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="توکن نامعتبر است.")
+    user_id = payload["user_id"]
+    jti = payload["jti"]
 
     user = User.objects.filter(id=user_id).first()
     if not user or not user.can_authenticate():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="حساب کاربری غیرفعال است.")
 
-    if jti:
-        session = UserSession.objects.filter(user=user, jti=jti, revoked_at__isnull=True).first()
-        if not session:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست کاربری لغو شده است.")
-        now = timezone.now()
-        if session.expires_at and session.expires_at < now:
-            session.revoked_at = now
-            session.save(update_fields=["revoked_at"])
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست کاربری منقضی شده است.")
-        try:
-            from apps.settings.services import get_setting_value
+    session = UserSession.objects.filter(user=user, jti=jti, revoked_at__isnull=True).first()
+    if not session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست کاربری لغو شده است.")
+    now = timezone.now()
+    if session.expires_at and session.expires_at <= now:
+        session.revoked_at = now
+        session.save(update_fields=["revoked_at"])
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست کاربری منقضی شده است.")
+    try:
+        from apps.settings.services import get_setting_value
 
-            idle_mins = int(get_setting_value("security.session_idle_timeout_minutes", 480) or 0)
-        except Exception:
-            idle_mins = 480
-        if idle_mins > 0 and session.last_active_at < now - timedelta(minutes=idle_mins):
-            session.revoked_at = now
-            session.save(update_fields=["revoked_at"])
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست به دلیل عدم فعالیت منقضی شده است.")
-        if (now - session.last_active_at).total_seconds() >= 60:
-            session.last_active_at = now
-            session.save(update_fields=["last_active_at"])
+        idle_mins = int(get_setting_value("security.session_idle_timeout_minutes", 480) or 0)
+    except Exception:
+        idle_mins = 480
+    if idle_mins > 0 and session.last_active_at < now - timedelta(minutes=idle_mins):
+        session.revoked_at = now
+        session.save(update_fields=["revoked_at"])
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="نشست به دلیل عدم فعالیت منقضی شده است.")
+    if (now - session.last_active_at).total_seconds() >= 60:
+        session.last_active_at = now
+        session.save(update_fields=["last_active_at"])
 
     resolved_agency_id: Optional[UUID] = None
     if header_agency_id:
@@ -120,16 +113,19 @@ async def get_optional_context(
     authorization: Optional[str] = Header(default=None),
     x_agency_id: Optional[str] = Header(default=None, alias="X-Agency-ID"),
 ) -> RequestContext:
+    """درخواست عمومی را می‌پذیرد و توکن ارائه‌شده را یک بار اعتبارسنجی می‌کند."""
     if not authorization or not authorization.startswith("Bearer "):
         return RequestContext(is_authenticated=False)
     token = authorization.split(" ", 1)[1].strip()
     try:
-        token_payload = decode_jwt_token(token, expected_type="access")
-        token_user_id = token_payload.get("user_id")
-    except jwt.PyJWTError:
-        token_user_id = None
+        payload = decode_jwt_token(token, expected_type="access")
+    except jwt.PyJWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="توکن احراز هویت نامعتبر یا منقضی شده است.",
+        ) from exc
     return await run_django(
-        _resolve_auth_sync, token, x_agency_id, user_id=token_user_id
+        _resolve_auth_sync, payload, x_agency_id, user_id=payload["user_id"]
     )
 
 

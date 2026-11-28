@@ -2,6 +2,7 @@
 
 import os
 import sys
+from hmac import compare_digest
 from pathlib import Path
 from typing import Any, Callable, Optional
 from uuid import UUID
@@ -29,6 +30,12 @@ def init_django() -> None:
             else "config.settings.development"
         )
     django.setup()
+    from django.conf import settings as django_settings
+
+    if os.environ.get("DJANGO_SETTINGS_MODULE") == "config.settings.production" and not compare_digest(
+        settings.JWT_SIGNING_KEY.encode(), django_settings.JWT_SIGNING_KEY.encode()
+    ):
+        raise RuntimeError("FastAPI and Django must use the same validated JWT signing key.")
     _DJANGO_INITIALIZED = True
 
 

@@ -18,6 +18,7 @@ from common.exceptions import (
     ValidationDomainError,
 )
 from common.localization.currency import invalidate_currency_cache
+from common.tenant.context import tenant_bypass
 from common.permissions import has_agency_permission, is_super_admin
 from common.sanitizer import sanitize_html
 from integrations.registry import (
@@ -151,6 +152,7 @@ def get_setting_value(
     agency_id: Optional[UUID] = None,
     country_code: Optional[str] = None,
 ) -> Any:
+    """مقدار فعال آژانس را با پیش‌فرض سراسری همان کلید تطبیق می‌دهد."""
     ver = _get_settings_cache_version()
     cache_key = f"{SETTINGS_CACHE_PREFIX}v{ver}:val:{key}:{agency_id or 'g'}:{country_code or 'all'}"
     try:
@@ -161,11 +163,10 @@ def get_setting_value(
         pass
 
     try:
-        candidates = list(
-            SystemSetting.objects.filter(key=key, is_active=True).filter(
-                models.Q(agency_id=agency_id) | models.Q(agency__isnull=True)
-            )
-        )
+        settings_query = SystemSetting.objects.filter(key=key, is_active=True)
+        candidates = list(settings_query.filter(agency_id=agency_id)) if agency_id else []
+        with tenant_bypass(reason="system_configuration"):
+            candidates.extend(settings_query.filter(agency__isnull=True))
     except Exception:
         return default
 
@@ -1039,6 +1040,7 @@ def list_exchange_rate_history(*, user: User) -> list[ExchangeRateHistory]:
 def resolve_active_provider_config(
     *, category: str, agency_id: Optional[UUID] = None, provider_key: Optional[str] = None
 ) -> Optional[ProviderConfiguration]:
+    """ارائه‌دهندهٔ مجاز آژانس یا پیش‌فرض سراسری همان دسته را پیدا می‌کند."""
     qs = ProviderConfiguration.objects.filter(category=category)
     if provider_key:
         qs = qs.filter(provider_key=provider_key)
@@ -1049,7 +1051,8 @@ def resolve_active_provider_config(
         cfg = qs.filter(agency_id=agency_id).order_by("priority", "-updated_at").first()
         if cfg:
             return cfg
-    return qs.filter(agency__isnull=True).order_by("priority", "-updated_at").first()
+    with tenant_bypass(reason="system_configuration"):
+        return qs.filter(agency__isnull=True).order_by("priority", "-updated_at").first()
 
 
 def parse_provider_credentials(cfg: Optional[ProviderConfiguration]) -> dict:

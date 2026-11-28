@@ -1,3 +1,5 @@
+"""بررسی پوشش جداسازی آژانس‌ها و اختیارات نقش اتصال برنامه."""
+
 from django.apps import apps
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
@@ -5,9 +7,11 @@ from common.tenant.rls import discover_tenant_relation_paths
 
 
 class Command(BaseCommand):
+    """ساختار سیاست‌های PostgreSQL را برای نقش اجرایی بررسی می‌کند."""
     help = "Verify PostgreSQL tenant RLS, FORCE RLS, policy coverage and application DB role privileges."
 
     def handle(self, *args, **options):
+        """نقش اجرایی و سیاست‌های فعال جدول‌های مشمول را اعتبارسنجی می‌کند."""
         if connection.vendor != "postgresql":
             raise CommandError("Tenant RLS verification requires PostgreSQL; current backend is not PostgreSQL.")
 
@@ -64,15 +68,18 @@ class Command(BaseCommand):
             })
             cursor.execute("""
                 SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity,
-                       p.policyname, p.qual, p.with_check
+                       p.policyname, p.qual, p.with_check,
+                       pg_has_role(current_user, c.relowner, 'MEMBER')
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname
                 WHERE n.nspname = current_schema() AND c.relkind = 'r'
             """)
             actual = {}
-            for table, enabled, forced, policy, qual, with_check in cursor.fetchall():
-                entry = actual.setdefault(table, {"enabled": enabled, "forced": forced, "policies": {}})
+            for table, enabled, forced, policy, qual, with_check, owns_table in cursor.fetchall():
+                entry = actual.setdefault(table, {
+                    "enabled": enabled, "forced": forced, "policies": {}, "owns_table": owns_table,
+                })
                 if policy:
                     entry["policies"][policy] = (qual or "", with_check or "")
 
@@ -91,6 +98,8 @@ class Command(BaseCommand):
                 missing.append(f"{table}: table missing")
                 continue
             entry = actual[table]
+            if entry["owns_table"]:
+                missing.append(f"{table}: application role can assume table ownership")
             if not entry["enabled"]:
                 missing.append(f"{table}: RLS disabled")
             if not entry["forced"]:

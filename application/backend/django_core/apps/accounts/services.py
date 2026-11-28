@@ -4,6 +4,7 @@ import secrets
 from typing import Optional
 from uuid import UUID
 import pyotp
+from django.conf import settings
 from django.core.cache import cache
 from django.db import models, transaction
 from django.utils import timezone
@@ -18,6 +19,7 @@ from common.exceptions import (
     ValidationDomainError,
 )
 from common.permissions import get_active_membership, has_agency_permission, is_super_admin
+from common.tenant.context import scoped_agency, scoped_user, tenant_bypass
 from .models import (
     AgencyMembership,
     LoginAttemptLog,
@@ -135,13 +137,20 @@ def register_user(
         platform_role=User.PlatformRole.CUSTOMER,
         status=User.Status.ACTIVE,
     )
-    record_audit_event(
-        action="USER_REGISTERED",
-        resource_type="User",
-        resource_id=str(user.id),
-        actor=user,
-    )
+    with scoped_user(user.id):
+        record_audit_event(
+            action="USER_REGISTERED",
+            resource_type="User",
+            resource_id=str(user.id),
+            actor=user,
+        )
     return user
+
+
+def _record_login_attempt(**data) -> None:
+    """ثبت تلاش ورود در جدول محدود سامانه را ایزوله می‌کند."""
+    with tenant_bypass(reason="authentication_attempt_log"):
+        LoginAttemptLog.objects.create(**data)
 
 
 def authenticate_user_credentials(
@@ -159,25 +168,26 @@ def authenticate_user_credentials(
     user = User.objects.filter(phone_number=identifier).first()
     if user is None or not user.check_password(password):
         _increment_brute_force_fail(identifier, ip_address)
-        LoginAttemptLog.objects.create(
+        _record_login_attempt(
             identifier=identifier,
             user=user,
             ip_address=ip_address,
             succeeded=False,
             failure_reason="INVALID_CREDENTIALS",
         )
-        record_audit_event(
-            action="USER_LOGIN_FAILED",
-            resource_type="User",
-            resource_id=str(user.id) if user else identifier,
-            actor=user,
-            ip_address=ip_address,
-            metadata={"reason": "INVALID_CREDENTIALS"},
-        )
+        with tenant_bypass(reason="authentication_attempt_log"):
+            record_audit_event(
+                action="USER_LOGIN_FAILED",
+                resource_type="User",
+                resource_id=str(user.id) if user else identifier,
+                actor=user,
+                ip_address=ip_address,
+                metadata={"reason": "INVALID_CREDENTIALS"},
+            )
         raise AuthenticationDomainError("شماره موبایل یا رمز عبور نادرست است.")
 
     if not user.can_authenticate():
-        LoginAttemptLog.objects.create(
+        _record_login_attempt(
             identifier=identifier,
             user=user,
             ip_address=ip_address,
@@ -200,7 +210,7 @@ def authenticate_user_credentials(
         totp = pyotp.TOTP(secret) if secret else None
         if not mfa_code or not totp or not totp.verify(mfa_code.strip(), valid_window=1):
             _increment_brute_force_fail(identifier, ip_address)
-            LoginAttemptLog.objects.create(
+            _record_login_attempt(
                 identifier=identifier,
                 user=user,
                 ip_address=ip_address,
@@ -212,65 +222,68 @@ def authenticate_user_credentials(
                 code="MFA_REQUIRED",
             )
 
-    _clear_brute_force_fail(identifier, ip_address)
-    now = timezone.now()
-    user.last_login = now
-    user.save(update_fields=["last_login"])
+    with scoped_user(user.id):
+        _clear_brute_force_fail(identifier, ip_address)
+        now = timezone.now()
+        user.last_login = now
+        user.save(update_fields=["last_login"])
 
-    LoginAttemptLog.objects.create(
-        identifier=identifier,
-        user=user,
-        ip_address=ip_address,
-        succeeded=True,
-    )
+        _record_login_attempt(
+            identifier=identifier,
+            user=user,
+            ip_address=ip_address,
+            succeeded=True,
+        )
 
-    # Suspicious login detection (new IP or recent failed attempts)
-    recent_prior_ips = set(
-        UserSession.objects.filter(user=user).exclude(ip_address__isnull=True).values_list("ip_address", flat=True)[:10]
-    )
-    recent_fails = LoginAttemptLog.objects.filter(
-        identifier=identifier,
-        succeeded=False,
-        created_at__gte=now - timedelta(minutes=15),
-    ).count()
-    is_suspicious = bool((ip_address and recent_prior_ips and ip_address not in recent_prior_ips) or recent_fails >= 3)
+        # Suspicious login detection (new IP or recent failed attempts)
+        recent_prior_ips = set(
+            UserSession.objects.filter(user=user).exclude(ip_address__isnull=True).values_list("ip_address", flat=True)[:10]
+        )
+        with tenant_bypass(reason="authentication_attempt_log"):
+            recent_fails = LoginAttemptLog.objects.filter(
+                identifier=identifier,
+                succeeded=False,
+                created_at__gte=now - timedelta(minutes=15),
+            ).count()
+        is_suspicious = bool((ip_address and recent_prior_ips and ip_address not in recent_prior_ips) or recent_fails >= 3)
 
-    # Enforce max concurrent active sessions
-    max_sessions = int(_get_security_setting("security.max_concurrent_sessions", 5) or 5)
-    active_sessions = list(
-        UserSession.objects.filter(user=user, revoked_at__isnull=True).order_by("last_active_at")
-    )
-    if max_sessions > 0 and len(active_sessions) >= max_sessions:
-        overflow = active_sessions[: len(active_sessions) - max_sessions + 1]
-        UserSession.objects.filter(id__in=[s.id for s in overflow]).update(revoked_at=now)
+        # Enforce max concurrent active sessions
+        max_sessions = int(_get_security_setting("security.max_concurrent_sessions", 5) or 5)
+        active_sessions = list(
+            UserSession.objects.filter(user=user, revoked_at__isnull=True).order_by("last_active_at")
+        )
+        if max_sessions > 0 and len(active_sessions) >= max_sessions:
+            overflow = active_sessions[: len(active_sessions) - max_sessions + 1]
+            UserSession.objects.filter(id__in=[s.id for s in overflow]).update(revoked_at=now)
 
-    refresh_ttl_days = int(_get_security_setting("security.refresh_token_ttl_days", 7) or 7)
-    session = UserSession.objects.create(
-        user=user,
-        device_name=device_name[:128],
-        device_type=_infer_device_type(user_agent, device_name),
-        auth_method="PASSWORD_MFA" if requires_mfa else "PASSWORD",
-        ip_address=ip_address,
-        user_agent=(user_agent or "")[:255],
-        is_suspicious=is_suspicious,
-        last_active_at=now,
-        expires_at=now + timedelta(days=refresh_ttl_days),
-    )
-    membership = (
-        AgencyMembership.objects.select_related("agency", "role", "branch")
-        .filter(user=user, status=AgencyMembership.Status.ACTIVE)
-        .first()
-    )
-    record_audit_event(
-        action="USER_LOGIN_SUCCEEDED",
-        resource_type="User",
-        resource_id=str(user.id),
-        actor=user,
-        agency_id=membership.agency_id if membership else None,
-        ip_address=ip_address,
-        metadata={"device_name": device_name[:128], "is_suspicious": is_suspicious},
-    )
-    return user, session, membership
+        refresh_ttl_days = int(_get_security_setting("security.refresh_token_ttl_days", 7) or 7)
+        session = UserSession.objects.create(
+            user=user,
+            device_name=device_name[:128],
+            device_type=_infer_device_type(user_agent, device_name),
+            auth_method="PASSWORD_MFA" if requires_mfa else "PASSWORD",
+            ip_address=ip_address,
+            user_agent=(user_agent or "")[:255],
+            is_suspicious=is_suspicious,
+            last_active_at=now,
+            expires_at=now + timedelta(days=refresh_ttl_days),
+        )
+        membership = (
+            AgencyMembership.objects.select_related("agency", "role", "branch")
+            .filter(user=user, status=AgencyMembership.Status.ACTIVE)
+            .first()
+        )
+        with scoped_agency(membership.agency_id if membership else None):
+            record_audit_event(
+                action="USER_LOGIN_SUCCEEDED",
+                resource_type="User",
+                resource_id=str(user.id),
+                actor=user,
+                agency_id=membership.agency_id if membership else None,
+                ip_address=ip_address,
+                metadata={"device_name": device_name[:128], "is_suspicious": is_suspicious},
+            )
+        return user, session, membership
 
 
 def setup_mfa_for_user(user: User) -> dict:
@@ -320,6 +333,7 @@ def disable_mfa_for_user(user: User, code: str) -> User:
 
 
 def validate_active_session_for_refresh(*, user_id: str, jti: str) -> tuple[User, UserSession]:
+    """فعال بودن کاربر و مهلت نشست را پیش از تازه‌سازی بررسی می‌کند."""
     user = User.objects.filter(id=user_id).first()
     if not user or not user.can_authenticate():
         raise AuthenticationDomainError("کاربر یافت نشد یا غیرفعال است.")
@@ -328,7 +342,7 @@ def validate_active_session_for_refresh(*, user_id: str, jti: str) -> tuple[User
         raise AuthenticationDomainError("نشست کاربری منقضی یا لغو شده است.")
 
     now = timezone.now()
-    if session.expires_at and session.expires_at < now:
+    if session.expires_at and session.expires_at <= now:
         session.revoked_at = now
         session.save(update_fields=["revoked_at"])
         raise AuthenticationDomainError("نشست کاربری منقضی شده است.")
@@ -342,9 +356,17 @@ def validate_active_session_for_refresh(*, user_id: str, jti: str) -> tuple[User
 
 
 def rotate_user_session(*, old_session: UserSession, new_jti: UUID) -> UserSession:
+    """شناسهٔ نشست را تنها در صورت معتبر ماندن نسخهٔ خوانده‌شده تغییر می‌دهد."""
+    now = timezone.now()
+    updated = UserSession.objects.filter(
+        pk=old_session.pk, jti=old_session.jti, revoked_at__isnull=True,
+    ).filter(
+        models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=now),
+    ).update(jti=new_jti, last_active_at=now)
+    if not updated:
+        raise AuthenticationDomainError("نشست کاربری منقضی یا لغو شده است.")
     old_session.jti = new_jti
-    old_session.last_active_at = timezone.now()
-    old_session.save(update_fields=["jti", "last_active_at"])
+    old_session.last_active_at = now
     return old_session
 
 
@@ -360,25 +382,26 @@ def request_password_reset_otp(*, phone_number: str) -> dict:
 
     from apps.notifications.services import dispatch_sms_with_policy
 
-    sms_res = dispatch_sms_with_policy(
-        phone_number=clean_phone,
-        event_type="PASSWORD_RESET",
-        template_key="password_reset_otp",
-        tokens={"code": otp_code, "name": user.full_name},
-        is_otp=True,
-        actor=user,
-    )
-    record_audit_event(
-        action="PASSWORD_RESET_OTP_REQUESTED",
-        resource_type="User",
-        resource_id=str(user.id),
-        actor=user,
-    )
+    with scoped_user(user.id):
+        sms_res = dispatch_sms_with_policy(
+            phone_number=clean_phone,
+            event_type="PASSWORD_RESET",
+            template_key="password_reset_otp",
+            tokens={"code": otp_code, "name": user.full_name},
+            is_otp=True,
+            actor=user,
+        )
+        record_audit_event(
+            action="PASSWORD_RESET_OTP_REQUESTED",
+            resource_type="User",
+            resource_id=str(user.id),
+            actor=user,
+        )
     return {
         "sent": bool(sms_res.get("accepted")),
         "provider": sms_res.get("provider_key", "console"),
         "expires_in_seconds": 600,
-        "sandbox_otp": otp_code if sms_res.get("provider_key") == "console" else None,
+        "sandbox_otp": otp_code if settings.DEBUG and sms_res.get("provider_key") == "console" else None,
     }
 
 
@@ -386,25 +409,26 @@ def request_password_reset_otp(*, phone_number: str) -> dict:
 def confirm_password_reset_otp(*, phone_number: str, otp_code: str, new_password: str) -> User:
     clean_phone = phone_number.strip()
     _validate_password_policy(new_password)
-    expected_hash = cache.get(f"pwd_reset:{clean_phone}")
-    provided_hash = hashlib.sha256(otp_code.strip().encode()).hexdigest()
-    if not expected_hash or expected_hash != provided_hash:
+    user = User.objects.select_for_update().filter(phone_number=clean_phone, is_active=True).first()
+    if not user:
         raise ValidationDomainError("کد تأیید نامعتبر یا منقضی شده است.")
 
-    user = User.objects.filter(phone_number=clean_phone).first()
-    if not user:
-        raise NotFoundDomainError("کاربر یافت نشد.")
+    expected_hash = cache.get(f"pwd_reset:{clean_phone}")
+    provided_hash = hashlib.sha256(otp_code.strip().encode()).hexdigest()
+    if not expected_hash or not secrets.compare_digest(expected_hash, provided_hash):
+        raise ValidationDomainError("کد تأیید نامعتبر یا منقضی شده است.")
 
-    user.set_password(new_password)
-    user.save(update_fields=["password", "updated_at"])
-    UserSession.objects.filter(user=user, revoked_at__isnull=True).update(revoked_at=timezone.now())
-    cache.delete(f"pwd_reset:{clean_phone}")
-    record_audit_event(
-        action="PASSWORD_RESET_CONFIRMED",
-        resource_type="User",
-        resource_id=str(user.id),
-        actor=user,
-    )
+    with scoped_user(user.id):
+        user.set_password(new_password)
+        user.save(update_fields=["password", "updated_at"])
+        UserSession.objects.filter(user=user, revoked_at__isnull=True).update(revoked_at=timezone.now())
+        cache.delete(f"pwd_reset:{clean_phone}")
+        record_audit_event(
+            action="PASSWORD_RESET_CONFIRMED",
+            resource_type="User",
+            resource_id=str(user.id),
+            actor=user,
+        )
     return user
 
 

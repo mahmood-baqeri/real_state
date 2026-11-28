@@ -1,3 +1,5 @@
+"""کنترل دسترسی، ثبت و دریافت اسناد خصوصی آژانس."""
+
 from typing import Optional
 from uuid import UUID
 from django.db import models, transaction
@@ -20,6 +22,7 @@ def _require_document_permission(user: User, agency_id: UUID, permission: str) -
 
 
 def _validate_document_relations(*, user: User, agency_id: UUID, data: dict) -> None:
+    """فعال بودن ملک و مشتری و محدودهٔ هر رابطهٔ سند را بررسی می‌کند."""
     property_id = data.get("property_id")
     customer_id = data.get("customer_id")
     contract_id = data.get("contract_id")
@@ -27,11 +30,11 @@ def _validate_document_relations(*, user: User, agency_id: UUID, data: dict) -> 
     customer = None
     contract = None
     if property_id is not None:
-        prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id).first()
+        prop = Property.objects.all_tenants().filter(id=property_id, agency_id=agency_id, is_deleted=False).first()
         if prop is None:
             raise ValidationDomainError("ملک انتخاب‌شده متعلق به آژانس فعال نیست.")
     if customer_id is not None:
-        customer = Customer.objects.all_tenants().filter(id=customer_id, agency_id=agency_id).first()
+        customer = Customer.objects.all_tenants().filter(id=customer_id, agency_id=agency_id, is_deleted=False).first()
         if customer is None:
             raise ValidationDomainError("مشتری انتخاب‌شده متعلق به آژانس فعال نیست.")
     if contract_id is not None:
@@ -79,6 +82,7 @@ def list_documents(
     contract_id: Optional[UUID] = None,
     q: Optional[str] = None,
 ):
+    """سندهایی را برمی‌گرداند که کاربر مجوز دیدن تمام روابط آن‌ها را دارد."""
     qs = (
         Document.objects.all_tenants()
         .filter(is_deleted=False)
@@ -93,15 +97,19 @@ def list_documents(
         membership = get_active_membership(user, agency_id)
         if membership and membership.role.code == "REAL_ESTATE_AGENT":
             from django.db.models import Q
+            contract_access = (
+                Q(contract__property__agent_assignments__membership=membership)
+                | Q(contract__parties__customer__assigned_membership=membership)
+            )
             qs = qs.filter(
                 (Q(property__isnull=True) | Q(property__agent_assignments__membership=membership))
                 & (Q(customer__isnull=True) | Q(customer__assigned_membership=membership))
+                & (Q(contract__isnull=True) | contract_access)
             ).filter(
                 Q(created_by=user)
                 | Q(property__agent_assignments__membership=membership)
                 | Q(customer__assigned_membership=membership)
-                | Q(contract__property__agent_assignments__membership=membership)
-                | Q(contract__parties__customer__assigned_membership=membership)
+                | contract_access
             ).distinct()
         elif membership and membership.role.code == "BRANCH_MANAGER":
             from django.db.models import Q
@@ -110,6 +118,7 @@ def list_documents(
                 qs = qs.filter(
                     (Q(property__isnull=True) | Q(property__branch_id=branch_id))
                     & (Q(customer__isnull=True) | Q(customer__assigned_membership__branch_id=branch_id))
+                    & (Q(contract__isnull=True) | Q(contract__property__branch_id=branch_id))
                 ).filter(
                     Q(property__branch_id=branch_id)
                     | Q(customer__assigned_membership__branch_id=branch_id)
@@ -117,7 +126,7 @@ def list_documents(
                     | Q(property__isnull=True, customer__isnull=True, contract__isnull=True, created_by=user)
                 ).distinct()
             else:
-                qs = qs.filter(property__isnull=True, customer__isnull=True, created_by=user)
+                qs = qs.filter(property__isnull=True, customer__isnull=True, contract__isnull=True, created_by=user)
         if not (
             is_super_admin(user)
             or has_agency_permission(user, agency_id, "document.manage_access")

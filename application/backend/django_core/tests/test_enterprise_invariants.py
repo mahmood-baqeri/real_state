@@ -287,7 +287,12 @@ def test_6_viewing_conflict_lead_conversion_and_otp_reset(scoped_seed):
         )
 
     u = register_user(phone_number="09129998877", password="OldPassword123")
-    otp_info = request_password_reset_otp(phone_number="09129998877")
+    from django.test import override_settings
+
+    with override_settings(DEBUG=False):
+        assert request_password_reset_otp(phone_number="09129998877")["sandbox_otp"] is None
+    with override_settings(DEBUG=True):
+        otp_info = request_password_reset_otp(phone_number="09129998877")
     assert otp_info["sandbox_otp"] is not None
     confirm_password_reset_otp(
         phone_number="09129998877", otp_code=otp_info["sandbox_otp"], new_password="NewPassword123"

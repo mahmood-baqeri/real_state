@@ -1,9 +1,13 @@
+"""تنظیمات FastAPI و بارگذاری تنظیمات مشترک برنامه."""
+
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 # .../backend/fastapi_core/app/core/config.py -> parent^4 == .../backend
 BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+load_dotenv(BACKEND_ROOT.parent / ".env")
 
 
 def _parse_origins() -> list[str]:
@@ -19,6 +23,7 @@ def _parse_origins() -> list[str]:
 
 
 class Settings(BaseSettings):
+    """تنظیمات اجرای API، توکن و ارتباط با Django."""
     APP_NAME: str = "بنیان ملک | Core Enterprise Web API"
     API_PREFIX: str = "/api/v1"
     BACKEND_DIR: str = os.environ.get("BACKEND_DIR", str(BACKEND_ROOT / "django_core"))

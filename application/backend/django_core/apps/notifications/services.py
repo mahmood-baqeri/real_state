@@ -7,6 +7,7 @@ from typing import Optional
 from uuid import UUID
 from django.db import models, transaction
 from django.utils import timezone
+from common.tenant.context import tenant_bypass
 from apps.accounts.models import User
 from apps.audit.services import record_audit_event
 from apps.settings.models import ProviderConfiguration
@@ -146,13 +147,14 @@ def get_sms_settings_and_stats(*, user: User, agency_id: Optional[UUID] = None) 
 
 
 def _resolve_sms_provider_chain(agency_id: Optional[UUID] = None) -> list[tuple[str, dict, str]]:
-    configs = list(
-        ProviderConfiguration.objects.filter(
-            category=ProviderConfiguration.Category.SMS,
-            is_active=True,
-            agency_id__in=[None, agency_id] if agency_id else [None],
-        ).order_by("priority", "-updated_at")
-    )
+    """درگاه‌های فعالِ آژانس و پیش‌فرض‌های سراسری پیامک را به ترتیب اولویت می‌خواند."""
+    query = ProviderConfiguration.objects.filter(
+        category=ProviderConfiguration.Category.SMS, is_active=True,
+    ).order_by("priority", "-updated_at")
+    configs = list(query.filter(agency_id=agency_id)) if agency_id else []
+    with tenant_bypass(reason="system_configuration"):
+        configs.extend(query.filter(agency__isnull=True))
+    configs.sort(key=lambda cfg: (cfg.priority, -cfg.updated_at.timestamp()))
     chain: list[tuple[str, dict, str]] = []
     seen = set()
     for cfg in configs:
@@ -235,7 +237,10 @@ def dispatch_sms_with_policy(
             "error_message": "سقف ارسال روزانه پیامک تکمیل شد.",
         }
 
-    tpl = SmsTemplate.objects.filter(key=template_key, is_active=True).first() if template_key else None
+    tpl = None
+    if template_key:
+        with tenant_bypass(reason="system_configuration"):
+            tpl = SmsTemplate.objects.filter(key=template_key, is_active=True).first()
     rendered_body = message or (render_sms_template(tpl.body_template, tokens) if tpl else "اعلان سامانه بنیان ملک")
     seg_cost = Decimal(str(get_setting_value("sms.cost_per_segment", "950", agency_id=agency_id) or "950"))
 

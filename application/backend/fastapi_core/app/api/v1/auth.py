@@ -111,24 +111,35 @@ async def register(body: RegisterBody):
 
 @router.post("/login")
 async def login(body: LoginBody, request: Request):
+    """ورود را انجام می‌دهد و رویداد تلاش ناموفق را پیش از پاسخ خطا ثبت می‌کند."""
+    from common.exceptions import AuthenticationDomainError, PermissionDeniedDomainError
+
     ip = extract_client_ip(request.client.host if request.client else None)
     ua = request.headers.get("user-agent", "")
 
     def _op():
         from apps.accounts.services import authenticate_user_credentials
+        from common.tenant.context import scoped_user
 
-        user, session, membership = authenticate_user_credentials(
-            phone_number=body.phone_number,
-            password=body.password,
-            ip_address=ip,
-            user_agent=ua,
-            device_name=body.device_name,
-            mfa_code=body.mfa_code,
-        )
+        try:
+            user, session, membership = authenticate_user_credentials(
+                phone_number=body.phone_number,
+                password=body.password,
+                ip_address=ip,
+                user_agent=ua,
+                device_name=body.device_name,
+                mfa_code=body.mfa_code,
+            )
+        except (AuthenticationDomainError, PermissionDeniedDomainError) as exc:
+            return exc
         tokens = build_token_pair(user=user, session=session, membership=membership)
-        return {**tokens, "user": _serialize_user(user)}
+        with scoped_user(user.id):
+            return {**tokens, "user": _serialize_user(user)}
 
-    return ok(await run_django(_op))
+    result = await run_django(_op)
+    if isinstance(result, (AuthenticationDomainError, PermissionDeniedDomainError)):
+        raise result
+    return ok(result)
 
 
 @router.post("/refresh")
@@ -157,7 +168,7 @@ async def refresh_token(body: RefreshBody):
         )
         return build_token_pair(user=user, session=rotated, membership=membership)
 
-    return ok(await run_django(_op))
+    return ok(await run_django(_op, user_id=UUID(payload["user_id"])))
 
 
 @router.post("/logout")

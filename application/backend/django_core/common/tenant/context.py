@@ -8,6 +8,7 @@ _current_agency_id: ContextVar[Optional[UUID]] = ContextVar("current_agency_id",
 _bypass_tenant_filter: ContextVar[bool] = ContextVar("bypass_tenant_filter", default=False)
 
 _ALLOWED_BYPASS_REASONS = {
+    "authentication_attempt_log",
     "public_catalog",
     "public_viewing",
     "customer_portal",
@@ -27,6 +28,26 @@ _ALLOWED_BYPASS_REASONS = {
     "data_migration",
     "demo_data_maintenance",
 }
+
+
+@contextmanager
+def scoped_user(user_id: UUID) -> Iterator[None]:
+    """شناسهٔ کاربر را برای سیاست‌های RLS در محدودهٔ عملیات تنظیم می‌کند."""
+    from django.db import connection, transaction
+
+    with transaction.atomic():
+        previous = ""
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COALESCE(current_setting('app.current_user_id', true), '')")
+                previous = cursor.fetchone()[0]
+                cursor.execute("SELECT set_config('app.current_user_id', %s, true)", [str(user_id)])
+        try:
+            yield
+        finally:
+            if connection.vendor == "postgresql" and not connection.needs_rollback:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT set_config('app.current_user_id', %s, true)", [previous])
 
 
 def set_current_agency_id(agency_id: Optional[UUID]) -> None:

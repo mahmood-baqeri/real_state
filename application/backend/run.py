@@ -1,9 +1,10 @@
-# application/backend/run.py
+"""راه‌اندازی سرویس‌های توسعه و مقداردهی پایگاه دادهٔ محلی."""
 import os
 import sys
 import argparse
 import subprocess
 from pathlib import Path
+from dotenv import load_dotenv
 
 BACKEND_DIR = Path(__file__).resolve().parent
 DJANGO_DIR = BACKEND_DIR / "django_core"
@@ -51,7 +52,6 @@ def _reset_database(env):
     drop_sql = (
         "DROP SCHEMA IF EXISTS public CASCADE;"
         "CREATE SCHEMA public;"
-        "GRANT ALL ON SCHEMA public TO public;"
     )
     inline = (
         "from django.db import connection; "
@@ -77,6 +77,7 @@ def _reset_database(env):
 
 
 def main():
+    """راه‌انداز توسعه را پیش از هر دسترسی پایگاه داده محدود می‌کند."""
     parser = argparse.ArgumentParser(description="Run Bonyan Melk backend services.")
     parser.add_argument(
         "--reset-db",
@@ -84,6 +85,13 @@ def main():
         help="Drop all data, re-run migrations, and re-seed the database before starting.",
     )
     args = parser.parse_args()
+
+    load_dotenv(BACKEND_DIR.parent / ".env")
+    if (
+        os.environ.get("DJANGO_ENV", "").strip().lower() == "production"
+        or os.environ.get("DJANGO_SETTINGS_MODULE") == "config.settings.production"
+    ):
+        parser.error("Use the production deployment entry points with production settings.")
 
     env = os.environ.copy()
     env["PYTHONPATH"] = (
