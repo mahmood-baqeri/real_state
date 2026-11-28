@@ -45,12 +45,14 @@ function classifyFile(file: File): "IMAGE" | "PDF" | "OTHER" {
   return "OTHER";
 }
 
+/** فایل‌ها را از انتخاب، کشیدن و در صورت فعال بودن، کلیپ‌بورد به صف می‌افزاید. */
 export function SecureFileUploader({
   accept = "image/jpeg,image/png,image/webp",
   allowedExtensions = ["jpg", "jpeg", "png", "webp"],
   maxSizeBytes = DEFAULT_MAX_BYTES,
   multiple = true,
   allowCoverSelect = false,
+  allowImagePaste = false,
   queue,
   onQueueChange,
   onUploadSingle,
@@ -62,6 +64,7 @@ export function SecureFileUploader({
   maxSizeBytes?: number;
   multiple?: boolean;
   allowCoverSelect?: boolean;
+  allowImagePaste?: boolean;
   queue: QueuedUploadFile[];
   onQueueChange: React.Dispatch<React.SetStateAction<QueuedUploadFile[]>>;
   onUploadSingle?: (item: QueuedUploadFile) => Promise<void>;
@@ -84,7 +87,7 @@ export function SecureFileUploader({
     };
   }, []);
 
-  const addFiles = (fileList: FileList | null) => {
+  const addFiles = (fileList: ArrayLike<File> | null) => {
     if (!fileList || fileList.length === 0) return;
     setValidationErr(null);
 
@@ -169,6 +172,28 @@ export function SecureFileUploader({
   return (
     <div className="space-y-3">
       <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        onPaste={allowImagePaste ? (event) => {
+          const images = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/"));
+          if (!images.length) return;
+          event.preventDefault();
+          const extensions = new Map([
+            ["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"],
+          ]);
+          addFiles(images.map((file, index) => {
+            const extension = extensions.get(file.type);
+            return extension && !/\.[^./]+$/.test(file.name)
+              ? new File([file], `clipboard-${index + 1}.${extension}`, { type: file.type })
+              : file;
+          }));
+        } : undefined}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -204,6 +229,11 @@ export function SecureFileUploader({
           فایل‌ها را اینجا بکشید و رها کنید یا کلیک کنید
         </div>
         <div className="text-[11px] text-slate-500 dark:text-slate-400">{hint}</div>
+        {allowImagePaste && (
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+            برای چسباندن تصویر، این بخش را انتخاب کنید و Ctrl+V یا ⌘+V بزنید.
+          </div>
+        )}
       </div>
 
       {validationErr && (

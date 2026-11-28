@@ -237,6 +237,8 @@ For important relationships, record the relevant source file paths.
 
 ## 2.4 Modules and Business Logic
 
+- VERIFIED در سورس — بارگذاری تصویر ملک در `frontend/src/app/dashboard/properties/[id]/page.tsx` از `SecureFileUploader` استفاده می‌کند. گزینهٔ `allowImagePaste` چسباندن تصویر را فقط در ناحیهٔ بارگذاری همان فرم فعال می‌کند و فایل را وارد صف اعتبارسنجی و پیش‌نمایش می‌کند.
+
 Maintain a structured inventory of the project's main modules.
 
 For each important module, record:

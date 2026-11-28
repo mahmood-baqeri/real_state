@@ -586,6 +586,7 @@ export default function DashboardPropertyDetailPage() {
                 allowedExtensions={["jpg", "jpeg", "png", "webp"]}
                 multiple
                 allowCoverSelect
+                allowImagePaste
                 queue={uploadQueue}
                 onQueueChange={setUploadQueue}
                 onUploadSingle={uploadSingleMedia}
