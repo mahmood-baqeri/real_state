@@ -32,6 +32,7 @@ class DocumentPatchBody(BaseModel):
 
 
 def _ser_doc(d) -> dict:
+    """سند و نسخه‌های آن را با استفاده از دادهٔ پیش‌بارگذاری‌شده سریال می‌کند."""
     return {
         "id": str(d.id),
         "agency_id": str(d.agency_id),
@@ -52,7 +53,7 @@ def _ser_doc(d) -> dict:
                 "mime_type": v.mime_type,
                 "file_size_bytes": v.file_size_bytes,
             }
-            for v in d.versions.order_by("-version_number")
+            for v in sorted(d.versions.all(), key=lambda version: version.version_number, reverse=True)
         ],
         "created_at": d.created_at.isoformat(),
     }
@@ -201,7 +202,6 @@ async def download_document_endpoint(
         doc = log_document_download(
             user=ctx.user, agency_id=ctx.agency_id, document_id=document_id, ip_address=ip
         )
-        latest = doc.versions.order_by("-version_number").first()
         return {
             "id": str(doc.id),
             "title": doc.title,

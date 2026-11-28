@@ -148,7 +148,7 @@ def _ser_contract(c) -> dict:
                 "approved_at": a.approved_at.isoformat() if a.approved_at else None,
                 "created_at": a.created_at.isoformat(),
             }
-            for a in c.amendments.order_by("amendment_number")
+            for a in sorted(c.amendments.all(), key=lambda amendment: amendment.amendment_number)
         ],
         "created_at": c.created_at.isoformat(),
     }
@@ -355,7 +355,7 @@ async def get_contract_endpoint(contract_id: UUID, ctx: RequestContext = Depends
                 "created_at": h.changed_at.isoformat(),
                 "changed_at": h.changed_at.isoformat(),
             }
-            for h in c.status_history.order_by("-changed_at")
+            for h in sorted(c.status_history.all(), key=lambda entry: entry.changed_at, reverse=True)
         ]
         return data
 

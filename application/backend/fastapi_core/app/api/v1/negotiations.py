@@ -136,7 +136,7 @@ def _ser_neg(n, include_activities: bool = False) -> dict:
                 "valid_until": o.valid_until.isoformat() if o.valid_until else None,
                 "created_at": o.created_at.isoformat(),
             }
-            for o in n.offer_versions.order_by("version_number")
+            for o in sorted(n.offer_versions.all(), key=lambda offer: offer.version_number)
         ],
         "created_at": n.created_at.isoformat(),
     }
@@ -156,7 +156,7 @@ def _ser_neg(n, include_activities: bool = False) -> dict:
                 ),
                 "created_at": a.created_at.isoformat(),
             }
-            for a in n.activities.order_by("-created_at")
+            for a in sorted(n.activities.all(), key=lambda activity: activity.created_at, reverse=True)
         ]
     return payload
 
