@@ -309,6 +309,103 @@ def test_concurrent_lead_conversion_is_recorded_once(seed_base):
         assert AuditLog.objects.filter(action="LEAD_CONVERTED", resource_id=str(lead.id)).count() == 1
 
 
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_deal_viewings_and_payment(seed_base, settings, monkeypatch):
+    """بستن معامله، تأیید بازدید و شروع پرداخت را با اتصال‌های مستقل آزمایش می‌کند."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from unittest.mock import Mock
+    from django.db import connections
+    from apps.appointments.services import transition_appointment_status
+    from apps.commissions.models import DealCommission
+    from apps.contracts.services import close_deal_won
+    from apps.payments.models import PaymentGatewayTransaction
+    from apps.payments.services import initiate_gateway_payment
+    from apps.subscriptions.models import AgencySubscription, SubscriptionPlan
+    from common.exceptions import ConflictDomainError
+    from integrations.payment import SandboxPaymentAdapter
+
+    agency = seed_base["agency_a"]
+    user = seed_base["u_super"]
+    agent = seed_base["m_agent_a"]
+    start = timezone.now() + timedelta(days=1)
+    prop = Property.objects.all_tenants().create(
+        agency=agency, property_code="RACE-P", title="Concurrent property",
+        property_type=seed_base["apt"], deal_type=seed_base["sale"],
+    )
+    contract = Contract.objects.all_tenants().create(
+        agency=agency, contract_number="RACE-C", internal_tracking_code="RACE-C",
+        property=prop, deal_type=seed_base["sale"], start_date=start,
+    )
+    deal = Deal.objects.all_tenants().create(
+        agency=agency, deal_code="RACE-D", contract=contract, property=prop,
+        primary_agent=agent, deal_value=Decimal("1000000"),
+    )
+    policy = CommissionPolicy.objects.all_tenants().create(
+        agency=agency, deal_type=seed_base["sale"], name="Concurrent policy",
+    )
+    CommissionPolicyVersion.objects.create(policy=policy, version_number=1)
+    customer = Customer.objects.all_tenants().create(
+        agency=agency, full_name="Concurrent buyer", primary_phone="09128889903",
+    )
+    appointments = [
+        ViewingAppointment.objects.all_tenants().create(
+            agency=agency, property=prop, customer=customer, agent_membership=agent,
+            scheduled_start=start, scheduled_end=start + timedelta(hours=1),
+        )
+        for _ in range(2)
+    ]
+    plan = SubscriptionPlan.objects.create(code="RACE", name_fa="تست", name_en="Test", monthly_price=1000)
+    settings.DEBUG = True
+    gateway = SandboxPaymentAdapter()
+    call_gateway = Mock(wraps=gateway.create_payment_intent)
+    monkeypatch.setattr(gateway, "create_payment_intent", call_gateway)
+    monkeypatch.setattr("apps.payments.services.get_payment_provider", lambda key: gateway)
+
+    def race(operation, inputs):
+        """دو فراخوانی را هم‌زمان از اتصال‌های مستقل آغاز می‌کند."""
+        ready = Barrier(2, timeout=10)
+
+        def run(value):
+            try:
+                with scoped_agency(agency.id):
+                    ready.wait()
+                    return operation(value)
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(run, value) for value in inputs]
+            return [future.result(timeout=20) for future in futures]
+
+    closed = race(lambda pk: close_deal_won(user=user, agency_id=agency.id, deal_id=pk).closed_at, [deal.id] * 2)
+    assert closed[0] is not None and closed[0] == closed[1]
+    assert DealCommission.objects.all_tenants().filter(deal=deal).count() == 1
+
+    def confirm(pk):
+        try:
+            transition_appointment_status(
+                user=user, agency_id=agency.id, appt_id=pk, new_status=ViewingAppointment.Status.CONFIRMED,
+            )
+            return True
+        except ConflictDomainError:
+            return False
+
+    assert sorted(race(confirm, [item.id for item in appointments])) == [False, True]
+    assert ViewingAppointment.objects.all_tenants().filter(
+        pk__in=[item.id for item in appointments], status=ViewingAppointment.Status.CONFIRMED,
+    ).count() == 1
+
+    payments = race(lambda key: initiate_gateway_payment(
+        user=user, agency_id=agency.id, plan_code=plan.code, provider_key="sandbox", idempotency_key=key,
+    ), ["phase-two-race"] * 2)
+    assert payments[0]["transaction_id"] == payments[1]["transaction_id"]
+    assert payments[0]["redirect_url"] == payments[1]["redirect_url"]
+    assert call_gateway.call_count == 1
+    assert PaymentGatewayTransaction.objects.filter(agency=agency, idempotency_key="phase-two-race").count() == 1
+    assert AgencySubscription.objects.filter(agency=agency, plan=plan).count() == 1
+
+
 def test_lead_conversion_rolls_back_when_audit_fails(scoped_seed, monkeypatch):
     """شکست ثبت ممیزی، مشتری و فعالیت نیمه‌کاره باقی نمی‌گذارد."""
     from apps.customers import services

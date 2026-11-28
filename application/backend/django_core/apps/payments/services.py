@@ -20,7 +20,7 @@ from apps.settings.services import (
     upsert_provider_config,
 )
 from apps.subscriptions.models import AgencySubscription, SubscriptionPlan
-from common.exceptions import ConflictDomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
+from common.exceptions import ConflictDomainError, DomainError, NotFoundDomainError, PermissionDeniedDomainError, ValidationDomainError
 from common.permissions import get_active_membership, has_agency_permission, is_super_admin
 from integrations.registry import PAYMENT_PROVIDERS, get_payment_provider
 from .models import PaymentGatewayTransaction
@@ -192,18 +192,24 @@ def initiate_gateway_payment(
     )
 
     order_id = f"BM-{now.strftime('%Y%m%d')}-{uuid_lib.uuid4().hex[:8].upper()}"
-    init_res = adapter.create_payment_intent(
-        amount=amount,
-        currency=plan.currency_id,
-        callback_url=callback_url,
-        metadata={
-            "description": f"اشتراک {plan.name_fa} ({billing_cycle}) — کد سفارش {order_id}",
-            "order_id": order_id,
-            "mobile": user.phone_number,
-        },
-        credentials=creds,
-        is_sandbox=is_sandbox,
-    )
+    try:
+        init_res = adapter.create_payment_intent(
+            amount=amount,
+            currency=plan.currency_id,
+            callback_url=callback_url,
+            metadata={
+                "description": f"اشتراک {plan.name_fa} ({billing_cycle}) — کد سفارش {order_id}",
+                "order_id": order_id,
+                "mobile": user.phone_number,
+            },
+            credentials=creds,
+            is_sandbox=is_sandbox,
+        )
+    except ValueError as exc:
+        raise DomainError(
+            "درگاه پرداخت درخواست را تکمیل نکرد. دوباره تلاش کنید.",
+            code="PAYMENT_GATEWAY_UNAVAILABLE", status_code=502,
+        ) from exc
 
     tx = PaymentGatewayTransaction.objects.create(
         agency_id=agency_id,

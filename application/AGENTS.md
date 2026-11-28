@@ -221,6 +221,8 @@ Keep this section concise and update it when the structure changes.
 
 ## 2.3 Architecture and System Communication
 
+- VERIFIED در سورس — مسیر FastAPI توکن و عضویت را در `app/dependencies/auth.py` تعیین می‌کند و `app/core/django_bridge.py` زمینهٔ PostgreSQL را برای هر عملیات همگام تنظیم می‌کند. درخواست‌های مستقیم Django از `common/tenant/middleware.py` عبور می‌کنند. ابزارهای زمینهٔ تو در تو در `common/tenant/context.py` هستند. تغییر سیاست زمینه باید هر دو مسیر را پوشش دهد.
+
 Record verified information about:
 
 - Main application components.
@@ -297,6 +299,8 @@ Update this section when important security or business rules are discovered or 
 ---
 
 ## 2.7 Testing and Verification
+
+- VERIFIED — در `backend/django_core/tests/test_enterprise_invariants.py` آزمون‌های هم‌زمانی تبدیل سرنخ، بستن معامله، تأیید بازدید و شروع پرداخت با دو اتصال مستقل PostgreSQL و زمینهٔ آژانس اجرا می‌شوند. پرداخت از درگاه آزمایشی استفاده می‌کند. آزمون جداگانه بازگشت تراکنش تبدیل را هنگام خطای ممیزی بررسی می‌کند.
 
 - VERIFIED — تست Django از `backend/django_core` با `python -m pytest` اجرا می‌شود. برای تست FastAPI از `backend/fastapi_core`، مسیر Django را به `PYTHONPATH` اضافه کنید و `DJANGO_SETTINGS_MODULE=config.settings.test` و `TEST_DATABASE_URL` را به محیط آزمایشی تنظیم کنید. گردش WebSocket به Redis آزمایشی نیاز دارد.
 - VERIFIED — در `frontend`، `npm test` تست واحد، `npm run lint` بررسی نوع و `npm run build` ساخت تولیدی را اجرا می‌کند.

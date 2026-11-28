@@ -495,6 +495,22 @@ def test_7_and_8_iranian_payment_gateways_and_localization(settings):
     idem_key = f"idem-{uuid.uuid4().hex[:10]}"
     orig_post = httpx.Client.post
 
+    from apps.payments.models import PaymentGatewayTransaction
+    from apps.subscriptions.models import AgencySubscription
+    from integrations.payment import ZarinpalPaymentAdapter
+
+    agency_id = headers["X-Agency-ID"]
+    subscription_count = AgencySubscription.objects.filter(agency_id=agency_id).count()
+    transaction_count = PaymentGatewayTransaction.objects.filter(agency_id=agency_id).count()
+    with patch.object(ZarinpalPaymentAdapter, "create_payment_intent", side_effect=ValueError("gateway unavailable")):
+        rejected = client.post("/api/v1/payments/initiate", headers=headers, json={
+            "plan_code": "PRO", "billing_cycle": "MONTHLY", "provider_key": "zarinpal",
+            "callback_url": "http://localhost:3000/dashboard/subscriptions", "idempotency_key": idem_key,
+        })
+    assert rejected.status_code == 502
+    assert AgencySubscription.objects.filter(agency_id=agency_id).count() == subscription_count
+    assert PaymentGatewayTransaction.objects.filter(agency_id=agency_id).count() == transaction_count
+
     def fake_zarinpal_post(self, url, *args, **kwargs):
         url_str = str(url)
         if "zarinpal.com" not in url_str:
