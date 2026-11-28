@@ -325,11 +325,13 @@ def update_contract(*, user: User, agency_id: Optional[UUID], contract_id: UUID,
 def transition_contract_status(
     *, user: User, agency_id: Optional[UUID], contract_id: UUID, to_status: str, reason: str = ""
 ) -> Contract:
+    """وضعیت قرارداد را زیر قفل رکورد بررسی می‌کند و انتقال را یک بار ثبت می‌کند."""
     valid_statuses = {c[0] for c in Contract.Status.choices}
     if to_status not in valid_statuses:
         raise ValidationDomainError(f"وضعیت «{to_status}» برای قرارداد معتبر نیست.")
 
-    contract = list_contracts(user=user, agency_id=agency_id).filter(id=contract_id).first()
+    visible = list_contracts(user=user, agency_id=agency_id).filter(id=contract_id).order_by()
+    contract = Contract.objects.all_tenants().select_for_update().filter(pk__in=visible.values("pk")).first()
     if not contract:
         raise NotFoundDomainError("قرارداد یافت نشد.")
 
@@ -540,14 +542,18 @@ def create_deal(*, user: User, agency_id: Optional[UUID], data: dict) -> Deal:
 
 @transaction.atomic
 def close_deal_won(*, user: User, agency_id: Optional[UUID], deal_id: UUID, auto_calculate_commission: bool = True) -> Deal:
-    deal = list_deals(user=user, agency_id=agency_id).filter(id=deal_id).first()
+    """معامله را یک بار می‌بندد و ایجاد کمیسیون را با قفل معامله هماهنگ می‌کند."""
+    deal = list_deals(user=user, agency_id=agency_id).select_for_update(of=("self",)).filter(id=deal_id).first()
     if not deal:
         raise NotFoundDomainError("معامله یافت نشد.")
     eff_agency_id = deal.agency_id
-    deal.status = Deal.Status.CLOSED_WON
-    deal.closed_at = timezone.now()
-    deal.updated_by = user
-    deal.save(update_fields=["status", "closed_at", "updated_by", "updated_at"])
+    if deal.status == Deal.Status.VOIDED:
+        raise ValidationDomainError("معاملهٔ ابطال‌شده قابل بستن نیست.")
+    if deal.status != Deal.Status.CLOSED_WON:
+        deal.status = Deal.Status.CLOSED_WON
+        deal.closed_at = timezone.now()
+        deal.updated_by = user
+        deal.save(update_fields=["status", "closed_at", "updated_by", "updated_at"])
 
     if auto_calculate_commission and not hasattr(deal, "commission"):
         policy = (
@@ -561,6 +567,19 @@ def close_deal_won(*, user: User, agency_id: Optional[UUID], deal_id: UUID, auto
             if ver:
                 calculate_deal_commission(deal=deal, policy_version=ver, actor=user)
     return deal
+
+
+@transaction.atomic
+def save_deal_obligation(*, deal: Deal, user: User, key: str, value: dict) -> None:
+    """بخش پرداخت یا اتاق معامله را زیر قفل قرارداد در اطلاعات موجود ادغام می‌کند."""
+    contract = Contract.objects.all_tenants().select_for_update().get(
+        pk=deal.contract_id, agency_id=deal.agency_id,
+    )
+    obligations = dict(contract.obligations_json or {})
+    obligations[key] = value
+    contract.obligations_json = obligations
+    contract.updated_by = user
+    contract.save(update_fields=["obligations_json", "updated_by", "updated_at"])
 
 
 def get_contract(*, user: User, agency_id: Optional[UUID], contract_id: UUID) -> Contract:

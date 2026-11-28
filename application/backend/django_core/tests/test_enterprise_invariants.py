@@ -232,6 +232,23 @@ def test_5_commission_precision_and_agent_cannot_approve(scoped_seed):
     agency_share = next(s for s in shares if s.beneficiary_type == "AGENCY")
     assert agency_share.share_percent_of_net == Decimal("50.0000")
 
+    from apps.contracts.services import close_deal_won, save_deal_obligation, transition_contract_status
+
+    contract_args = dict(user=seed_base["u_super"], agency_id=deal.agency_id, contract_id=cnt.id)
+    transition_contract_status(**contract_args, to_status=Contract.Status.COMPLETED)
+    transition_contract_status(**contract_args, to_status=Contract.Status.COMPLETED)
+    assert cnt.status_history.filter(to_status=Contract.Status.COMPLETED).count() == 1
+    deal_args = dict(user=seed_base["u_super"], agency_id=deal.agency_id, deal_id=deal.id)
+    closed = close_deal_won(**deal_args)
+    repeated = close_deal_won(**deal_args)
+    assert repeated.closed_at == closed.closed_at
+    assert repeated.commission.id == dc.id
+    save_deal_obligation(deal=closed, user=seed_base["u_super"], key="deal_room", value={"events": []})
+    save_deal_obligation(deal=repeated, user=seed_base["u_super"], key="deal_payment_schedule", value={"items": []})
+    cnt.refresh_from_db()
+    assert cnt.obligations_json["deal_room"] == {"events": []}
+    assert cnt.obligations_json["deal_payment_schedule"] == {"items": []}
+
     with pytest.raises(ValidationError):
         calculate_deal_commission(deal=deal, policy_version=ver)
 
@@ -264,9 +281,14 @@ def test_6_viewing_conflict_lead_conversion_and_otp_reset(scoped_seed):
     _, cust = convert_lead_to_customer(
         user=seed_base["u_agent_a"], agency_id=seed_base["agency_a"].id, lead_id=lead.id
     )
+    repeated, same_customer = convert_lead_to_customer(
+        user=seed_base["u_agent_a"], agency_id=seed_base["agency_a"].id, lead_id=lead.id
+    )
+    assert same_customer.id == cust.id
+    assert repeated.activities.filter(activity_type="CONVERTED").count() == 1
     assert list_customers(user=seed_base["u_agent_a"], agency_id=seed_base["agency_a"].id).filter(id=cust.id).exists()
 
-    ViewingAppointment.schedule_safely(
+    appointment = ViewingAppointment.schedule_safely(
         agency=seed_base["agency_a"],
         property=prop,
         customer=cust,
@@ -275,6 +297,13 @@ def test_6_viewing_conflict_lead_conversion_and_otp_reset(scoped_seed):
         scheduled_end=now + timedelta(hours=3),
         status=ViewingAppointment.Status.CONFIRMED,
     )
+    from apps.appointments.services import transition_appointment_status
+
+    confirmed = transition_appointment_status(
+        user=seed_base["u_agent_a"], agency_id=prop.agency_id, appt_id=appointment.id,
+        new_status=ViewingAppointment.Status.CONFIRMED,
+    )
+    assert confirmed.updated_at == appointment.updated_at
     with pytest.raises(ValidationError):
         ViewingAppointment.schedule_safely(
             agency=seed_base["agency_a"],

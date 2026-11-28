@@ -550,13 +550,16 @@ def _sync_property_amenities(*, prop: Property, amenity_codes: Optional[list[str
                 )
 
 
-def _resolve_editable_property(*, user: User, agency_id: Optional[UUID], property_id: UUID) -> Property:
+def _resolve_editable_property(
+    *, user: User, agency_id: Optional[UUID], property_id: UUID, lock: bool = False,
+) -> Property:
+    """ملک فعال را در محدودهٔ آژانس پیدا می‌کند و در صورت درخواست آن را قفل می‌کند."""
     qs = Property.objects.all_tenants().filter(id=property_id, is_deleted=False)
     if agency_id:
         qs = qs.filter(agency_id=agency_id)
     elif not is_super_admin(user):
         raise PermissionDeniedDomainError("ابتدا آژانس را انتخاب کنید.")
-    prop = qs.first()
+    prop = (qs.select_for_update() if lock else qs).first()
     if not prop:
         raise NotFoundDomainError("ملک یافت نشد.")
     return prop
@@ -695,7 +698,8 @@ def create_property(*, user: User, agency_id: Optional[UUID], data: dict) -> Pro
 
 @transaction.atomic
 def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID, data: dict) -> Property:
-    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id)
+    """ویرایش ملک و ثبت تاریخچهٔ قیمت را در یک تراکنش هماهنگ می‌کند."""
+    prop = _resolve_editable_property(user=user, agency_id=agency_id, property_id=property_id, lock=True)
     if not can_edit_property(user, prop):
         raise PermissionDeniedDomainError("شما مجوز ویرایش این ملک را ندارید.")
 
@@ -713,9 +717,9 @@ def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID,
     if data.get("visibility") == Property.Visibility.PUBLIC_PORTAL or data.get("is_featured") is True:
         if not has_agency_permission(user, prop.agency_id, "property.publish"):
             raise PermissionDeniedDomainError("مجوز انتشار یا ویژه‌سازی ملک را ندارید.")
-    location_data = data.pop("location", None)
-    amenity_codes = data.pop("amenity_codes", None)
-    amenity_values = data.pop("amenity_values", None)
+    location_data = data.get("location")
+    amenity_codes = data.get("amenity_codes")
+    amenity_values = data.get("amenity_values")
 
     updatable = [
         "title", "description", "property_type_id", "deal_type_id", "usage_type", "visibility",
@@ -758,7 +762,8 @@ def update_property(*, user: User, agency_id: Optional[UUID], property_id: UUID,
         # never invalidate the property price update.
         try:
             from apps.search.phase4 import notify_saved_search_price_change
-            notify_saved_search_price_change(prop, actor=user)
+            with transaction.atomic():
+                notify_saved_search_price_change(prop, actor=user)
         except Exception:
             pass
 

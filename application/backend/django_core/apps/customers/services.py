@@ -572,7 +572,13 @@ def soft_delete_lead(*, user: User, agency_id: Optional[UUID], lead_id: UUID) ->
 
 @transaction.atomic
 def convert_lead_to_customer(*, user: User, agency_id: Optional[UUID], lead_id: UUID) -> tuple[Lead, Customer]:
-    lead = _resolve_lead(user=user, agency_id=agency_id, lead_id=lead_id)
+    """سرنخ را یک بار تبدیل می‌کند و در تکرار همان نتیجه را برمی‌گرداند."""
+    visible = list_leads(user=user, agency_id=agency_id).filter(id=lead_id).order_by()
+    lead = Lead.objects.all_tenants().select_for_update().filter(pk__in=visible.values("pk")).first()
+    if not lead:
+        raise NotFoundDomainError("سرنخ یافت نشد.")
+    if lead.status == Lead.Status.CONVERTED and lead.converted_customer_id:
+        return lead, lead.converted_customer
     eff_agency_id = lead.agency_id
     membership = get_active_membership(user, eff_agency_id)
     customer, _ = Customer.objects.all_tenants().get_or_create(

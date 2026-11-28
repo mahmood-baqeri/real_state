@@ -268,6 +268,7 @@ def create_agency_appointment(
 def transition_appointment_status(
     *, user: User, agency_id: Optional[UUID], appt_id: UUID, new_status: str, agent_report: Optional[str] = None
 ) -> ViewingAppointment:
+    """تغییر وضعیت بازدید را زیر قفل انجام می‌دهد و تکرار همان تغییر را می‌پذیرد."""
     visible = list_appointments(user=user, agency_id=agency_id).filter(id=appt_id).first()
     if not visible:
         raise NotFoundDomainError("قرار بازدید یافت نشد.")
@@ -278,6 +279,8 @@ def transition_appointment_status(
         raise NotFoundDomainError("قرار بازدید یافت نشد.")
     if new_status not in ViewingAppointment.Status.values:
         raise ValidationDomainError("وضعیت بازدید نامعتبر است.")
+    if new_status == appt.status and (agent_report is None or agent_report == appt.agent_report):
+        return appt
     allowed = {
         ViewingAppointment.Status.REQUESTED: {
             ViewingAppointment.Status.CONFIRMED,
