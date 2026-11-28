@@ -11,6 +11,9 @@ export interface ExportColumn<T> {
   getExportValue: (row: T) => string | number | boolean | null | undefined;
 }
 
+const persianCollator = new Intl.Collator("fa");
+
+/** ردیف‌ها را بدون تغییر آرایهٔ ورودی فیلتر و مرتب می‌کند. */
 export function filterAndSortRows<T>(
   rows: T[],
   options: {
@@ -19,16 +22,15 @@ export function filterAndSortRows<T>(
     sort?: TableSortSpec<T> | null;
   }
 ): T[] {
-  let list = [...rows];
   const q = (options.query || "").trim().toLowerCase();
-  if (q) {
-    list = list.filter((item) => {
+  const list = q
+    ? rows.filter((item) => {
       const haystack = options.searchableText
         ? options.searchableText(item)
         : JSON.stringify(item);
       return haystack.toLowerCase().includes(q);
-    });
-  }
+    })
+    : [...rows];
 
   if (options.sort?.getSortValue) {
     const fn = options.sort.getSortValue;
@@ -39,7 +41,7 @@ export function filterAndSortRows<T>(
       if (typeof va === "number" && typeof vb === "number") {
         return dir === "asc" ? va - vb : vb - va;
       }
-      const cmp = String(va).localeCompare(String(vb), "fa");
+      const cmp = persianCollator.compare(String(va), String(vb));
       return dir === "asc" ? cmp : -cmp;
     });
   }
