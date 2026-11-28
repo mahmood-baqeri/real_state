@@ -24,7 +24,7 @@ from .sms import (
     SMSIrSMSAdapter,
     SMSProviderBase,
 )
-from .storage import LocalSecureStorageAdapter, S3CompatibleStorageAdapter, StorageProviderBase
+from .storage import LocalSecureStorageAdapter, StorageProviderBase
 
 PAYMENT_PROVIDERS = {
     "sandbox": SandboxPaymentAdapter,
@@ -58,7 +58,6 @@ AI_PROVIDERS = {
 
 STORAGE_PROVIDERS = {
     "local": LocalSecureStorageAdapter,
-    "s3": S3CompatibleStorageAdapter,
 }
 
 PUSH_PROVIDERS = {

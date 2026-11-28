@@ -132,6 +132,7 @@ async def get_optional_context(
 async def get_current_context(
     ctx: RequestContext = Depends(get_optional_context),
 ) -> RequestContext:
+    """دسترسی به مسیر محافظت‌شده را به هویت و نشست تأییدشده محدود می‌کند."""
     if not ctx.is_authenticated or ctx.user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -143,6 +144,7 @@ async def get_current_context(
 async def require_agency_context(
     ctx: RequestContext = Depends(get_current_context),
 ) -> RequestContext:
+    """برای کاربران آژانس زمینهٔ فعال می‌خواهد و استثنای مدیر کل را اعمال می‌کند."""
     from common.permissions import is_super_admin
 
     if ctx.agency_id is None and not is_super_admin(ctx.user):

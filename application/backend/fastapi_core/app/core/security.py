@@ -1,3 +1,5 @@
+"""صدور و اعتبارسنجی توکن نشست و عادی‌سازی نشانی IP برای ممیزی."""
+
 from datetime import datetime, timedelta, timezone as dt_timezone
 from typing import Any, Optional
 import ipaddress
@@ -7,6 +9,7 @@ from .config import settings
 
 
 def extract_client_ip(raw_host: Optional[str]) -> Optional[str]:
+    """فقط IP معتبر را برای ذخیره در فیلد نشانی شبکه برمی‌گرداند."""
     if not raw_host:
         return None
     if raw_host == "testclient":
@@ -18,6 +21,7 @@ def extract_client_ip(raw_host: Optional[str]) -> Optional[str]:
 
 
 def _resolve_dynamic_ttl() -> tuple[int, int]:
+    """مدت توکن را از تنظیمات فعال و در صورت خطا از پیش‌فرض اجرا می‌گیرد."""
     access_mins = settings.ACCESS_TOKEN_EXPIRE_MINUTES
     refresh_days = settings.REFRESH_TOKEN_EXPIRE_DAYS
     try:
@@ -31,6 +35,7 @@ def _resolve_dynamic_ttl() -> tuple[int, int]:
 
 
 def build_token_pair(*, user, session, membership=None) -> dict[str, Any]:
+    """توکن دسترسی و تازه‌سازی را با شناسهٔ مشترک نشست صادر می‌کند."""
     now = datetime.now(dt_timezone.utc)
     access_mins, refresh_days = _resolve_dynamic_ttl()
     access_exp = now + timedelta(minutes=access_mins)
@@ -87,4 +92,5 @@ def decode_jwt_token(token: str, *, expected_type: Optional[str] = None) -> dict
 
 
 def new_jti() -> uuid.UUID:
+    """شناسهٔ تازه برای صدور یا چرخش نشست فراهم می‌کند."""
     return uuid.uuid4()

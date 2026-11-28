@@ -46,14 +46,6 @@ except Exception as exc:
 if FIELD_ENCRYPTION_KEY in {SECRET_KEY, JWT_SIGNING_KEY}:
     raise RuntimeError("Field-encryption key must be independent from Django and JWT signing keys.")
 
-if PRIVATE_MEDIA_ROOT == MEDIA_ROOT or MEDIA_ROOT in PRIVATE_MEDIA_ROOT.parents or PRIVATE_MEDIA_ROOT in MEDIA_ROOT.parents:
-    raise RuntimeError("PRIVATE_MEDIA_ROOT and PUBLIC_MEDIA_ROOT must be separate and non-overlapping.")
-if ACTIVE_STORAGE_PROVIDER == "s3":
-    if not S3_PRIVATE_BUCKET_NAME or S3_PRIVATE_BUCKET_NAME == S3_BUCKET_NAME:
-        raise RuntimeError("S3_PRIVATE_BUCKET_NAME must be a dedicated bucket, different from S3_BUCKET_NAME.")
-    if not S3_PRIVATE_BUCKET_BLOCK_PUBLIC_ACCESS:
-        raise RuntimeError("S3_PRIVATE_BUCKET_BLOCK_PUBLIC_ACCESS=true is required in Production.")
-
 if ACTIVE_PAYMENT_PROVIDER == "sandbox":
     raise RuntimeError("Sandbox payment provider is forbidden in Production.")
 if ACTIVE_PAYMENT_PROVIDER not in {"zarinpal", "zibal", "idpay"}:

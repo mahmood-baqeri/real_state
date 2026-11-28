@@ -95,18 +95,20 @@ def parse_database_url(url: str) -> dict:
     parsed = urlparse(url)
     if parsed.scheme in ("postgres", "postgresql"):
         query_params = {k: v[-1] for k, v in parse_qs(parsed.query).items() if v}
+        host = parsed.hostname or os.environ.get("POSTGRES_HOST") or "127.0.0.1"
+        if host not in {"localhost", "127.0.0.1", "::1"} or {"host", "hostaddr", "service"} & query_params.keys():
+            raise ValueError("PostgreSQL must connect through a local loopback address.")
         db_config = {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": unquote(parsed.path.lstrip("/")) or os.environ.get("POSTGRES_NAME", ""),
             "USER": unquote(parsed.username) if parsed.username is not None else os.environ.get("POSTGRES_USER", ""),
             "PASSWORD": unquote(parsed.password) if parsed.password is not None else os.environ.get("POSTGRES_PASSWORD", ""),
-            "HOST": parsed.hostname or os.environ.get("POSTGRES_HOST", ""),
+            "HOST": host,
             "PORT": parsed.port or os.environ.get("POSTGRES_PORT", ""),
             "CONN_MAX_AGE": 60,
             "CONN_HEALTH_CHECKS": True,
         }
-        if query_params:
-            db_config["OPTIONS"] = query_params
+        db_config["OPTIONS"] = {**query_params, "hostaddr": "127.0.0.1" if host == "localhost" else host}
         return db_config
     raise ValueError(
         f"Unsupported DATABASE_URL scheme '{parsed.scheme}'. PostgreSQL is strictly required."
@@ -139,6 +141,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("PUBLIC_MEDIA_ROOT", str(BASE_DIR / "media"))).resolve()
 PRIVATE_MEDIA_ROOT = Path(os.environ.get("PRIVATE_MEDIA_ROOT", str(BASE_DIR / "private_media"))).resolve()
+if PRIVATE_MEDIA_ROOT == MEDIA_ROOT or MEDIA_ROOT in PRIVATE_MEDIA_ROOT.parents or PRIVATE_MEDIA_ROOT in MEDIA_ROOT.parents:
+    raise RuntimeError("PUBLIC_MEDIA_ROOT and PRIVATE_MEDIA_ROOT must be separate.")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Localization Defaults (Country-agnostic architecture; configurable per Agency/User)
@@ -179,6 +183,8 @@ ACTIVE_SMS_PROVIDER = os.environ.get("ACTIVE_SMS_PROVIDER", "console")
 ACTIVE_EMAIL_PROVIDER = os.environ.get("ACTIVE_EMAIL_PROVIDER", "console")
 ACTIVE_MAP_PROVIDER = os.environ.get("ACTIVE_MAP_PROVIDER", "osm")
 ACTIVE_STORAGE_PROVIDER = os.environ.get("ACTIVE_STORAGE_PROVIDER", "local")
+if ACTIVE_STORAGE_PROVIDER != "local":
+    raise RuntimeError("Only local file storage is supported in this deployment.")
 ACTIVE_PUSH_PROVIDER = os.environ.get("ACTIVE_PUSH_PROVIDER", "sandbox")
 ACTIVE_ANALYTICS_PROVIDER = os.environ.get("ACTIVE_ANALYTICS_PROVIDER", "internal")
 ACTIVE_AI_PROVIDER = os.environ.get("ACTIVE_AI_PROVIDER", "gapgpt")

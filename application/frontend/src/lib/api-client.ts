@@ -45,6 +45,7 @@ function notifyApiRequestCount() {
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("bonyan-api-request-count", { detail: { count: apiRequestCount } }));
 }
 
+/** درخواست‌های هم‌زمان تازه‌سازی را در یک Promise مشترک هماهنگ می‌کند. */
 async function tryRefreshAccessToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
   if (refreshPromise) return refreshPromise;
@@ -102,6 +103,7 @@ function extractErrorMessage(json: unknown, status: number): string {
   return `خطا در ارتباط با سرویس API (${status})`;
 }
 
+/** خطای HTTP و پاسخ پوشش‌دار API را به قرارداد مشترک رابط تبدیل می‌کند. */
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { token?: string | null; agencyId?: string | null; skipRefresh?: boolean } = {}
@@ -168,6 +170,7 @@ export async function apiFetch<T>(
   }
 }
 
+/** فایل احراز هویت‌شده را با نشانی موقت مرورگر برای ذخیره آماده می‌کند. */
 export async function apiDownloadBlob(
   path: string,
   options: { token?: string | null; agencyId?: string | null; filenameFallback?: string } = {}

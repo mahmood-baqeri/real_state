@@ -11,6 +11,7 @@ load_dotenv(BACKEND_ROOT.parent / ".env")
 
 
 def _parse_origins() -> list[str]:
+    """مبدأهای صریح رابط را برای کنترل CORS جمع‌آوری می‌کند."""
     raw = os.environ.get(
         "CORS_ALLOWED_ORIGINS",
         "http://localhost:3000,http://127.0.0.1:3000",
@@ -38,6 +39,7 @@ class Settings(BaseSettings):
 
     @property
     def CORS_ALLOWED_ORIGINS(self) -> list[str]:
+        """مبدأهای مجاز را از تنظیمات جاری اجرا می‌خواند."""
         return _parse_origins()
 
 

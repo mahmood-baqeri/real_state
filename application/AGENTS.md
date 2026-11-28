@@ -182,23 +182,25 @@ Do not replace this section with generic information.
 ## 2.1 Project Identity
 
 Project Name:
-[PROJECT NAME]
+بنیان ملک
 
 Project Purpose:
-[PROJECT PURPOSE]
+مدیریت فایل ملک، مشتری، بازدید، قرارداد و امور مالی آژانس‌های املاک.
 
 Main Technologies:
-[TECHNOLOGY STACK]
+Django، FastAPI، PostgreSQL، Redis و Next.js با TypeScript.
 
 Project Root:
-[PROJECT ROOT PATH]
+`app/` در فضای کار، استخراج‌شده از آرشیو پایهٔ جاری.
 
 Project Status:
-[CURRENT PROJECT STATUS]
+نتایج آزمون و موارد باز هر فاز در `IMPLEMENTATION_PLAN.md` ثبت شده‌اند.
 
 ---
 
 ## 2.2 Project Structure and Entry Points
+
+- VERIFIED — ورودی توسعهٔ بک‌اند `backend/run.py` است. ثبت مسیرهای API در `backend/fastapi_core/app/main.py` و برنامه‌ها و مهاجرت‌های Django در `backend/django_core/apps/` قرار دارند. رابط Next.js از `frontend/src/app/` آغاز می‌شود.
 
 Record the actual repository structure and important entry points.
 
@@ -276,6 +278,8 @@ Preserve decisions that prevent previous bugs or rejected implementation approac
 
 ## 2.6 Security and Business Rules
 
+- VERIFIED در سورس — این استقرار فقط ذخیره‌ساز فایل `local` و PostgreSQL روی loopback دارد. سیاست در `backend/django_core/config/settings/base.py` و رجیستری ذخیره‌ساز در `backend/django_core/integrations/registry.py` اعمال می‌شود. ریشهٔ فایل عمومی و خصوصی مجزا هستند.
+
 Record project-specific security and business constraints, including:
 
 - Authentication.
@@ -293,6 +297,9 @@ Update this section when important security or business rules are discovered or 
 ---
 
 ## 2.7 Testing and Verification
+
+- VERIFIED — تست Django از `backend/django_core` با `python -m pytest` اجرا می‌شود. برای تست FastAPI از `backend/fastapi_core`، مسیر Django را به `PYTHONPATH` اضافه کنید و `DJANGO_SETTINGS_MODULE=config.settings.test` و `TEST_DATABASE_URL` را به محیط آزمایشی تنظیم کنید. گردش WebSocket به Redis آزمایشی نیاز دارد.
+- VERIFIED — در `frontend`، `npm test` تست واحد، `npm run lint` بررسی نوع و `npm run build` ساخت تولیدی را اجرا می‌کند.
 
 Record reusable testing knowledge:
 
@@ -363,6 +370,7 @@ Format:
 | YYYY-MM-DD | Architecture | Description of change | Source paths or test |
 | YYYY-MM-DD | Testing | Description of discovery | Test name |
 | 2026-11-28 | 2.9 | استفاده از کش پیش‌بارگذاری مذاکره و مقایسه‌گر مشترک فارسی جدول | سنجش قبل و بعد در IMPLEMENTATION_PLAN.md |
+| 2026-11-28 | 2.1، 2.2، 2.7 | ثبت هویت پروژه، نقاط ورود و شرایط اجرای آزمون پذیرش | backend/run.py، app/main.py، package.json و اجرای محلی |
 
 Do not record every file modification.
 

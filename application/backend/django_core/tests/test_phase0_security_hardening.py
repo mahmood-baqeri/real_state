@@ -11,6 +11,21 @@ from integrations.storage import LocalSecureStorageAdapter
 from apps.properties.models import Property
 
 
+def test_runtime_storage_and_database_are_local():
+    """تنظیمات و رجیستری اتصال و ذخیره‌سازی محلی را اعمال می‌کنند."""
+    from config.settings.base import parse_database_url
+    from integrations.registry import get_storage_provider
+
+    assert parse_database_url("postgresql://localhost/example")["OPTIONS"]["hostaddr"] == "127.0.0.1"
+    with pytest.raises(ValueError, match="local loopback"):
+        parse_database_url("postgresql://database.example/example")
+    with pytest.raises(ValueError, match="local loopback"):
+        parse_database_url("postgresql://127.0.0.1/example?hostaddr=192.0.2.1")
+    assert get_storage_provider().provider_key == "local"
+    with pytest.raises(ValueError, match="Unknown storage provider"):
+        get_storage_provider("s3")
+
+
 @pytest.mark.parametrize("public_policy", [False, True])
 def test_s3_verifier_distinguishes_missing_policy_from_public_policy(monkeypatch, public_policy):
     """نبود سیاست سطل قابل قبول است و سیاست عمومی باعث رد بررسی می‌شود."""

@@ -163,6 +163,20 @@ def test_4_double_entry_balance_and_reversal(scoped_seed):
         )
     assert JournalEntry.objects.all_tenants().filter(entry_number="JE-BAD-1").count() == 0
 
+    # تراز برقرار است، اما خط دوم پس از ثبت خط اول رد می‌شود.
+    from uuid import uuid4
+
+    with pytest.raises(ValidationError, match="must belong to the same agency"):
+        create_and_post_journal_entry(
+            agency=seed_base["agency_a"], fiscal_period=fp,
+            entry_number="JE-LATE-FAILURE", description="Missing account in second line",
+            lines=[
+                {"account": acc1, "debit": Decimal("1000"), "credit": Decimal("0")},
+                {"account_id": uuid4(), "debit": Decimal("0"), "credit": Decimal("1000")},
+            ],
+        )
+    assert not JournalEntry.objects.all_tenants().filter(entry_number="JE-LATE-FAILURE").exists()
+
     good = create_and_post_journal_entry(
         agency=seed_base["agency_a"],
         fiscal_period=fp,
@@ -259,6 +273,63 @@ def test_5_commission_precision_and_agent_cannot_approve(scoped_seed):
             commission_id=dc.id,
             status_value="SETTLED",
         )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_lead_conversion_is_recorded_once(seed_base):
+    """دو اتصال مستقل برای یک سرنخ همان پرونده و یک رویداد تبدیل می‌گیرند."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from django.db import connections
+    from apps.audit.models import AuditLog
+
+    agency = seed_base["agency_a"]
+    user = seed_base["u_agent_a"]
+    with scoped_agency(agency.id):
+        lead = create_lead(
+            user=user, agency_id=agency.id,
+            data={"full_name": "Concurrent Buyer", "phone_number": "09128889901"},
+        )
+    ready = Barrier(2, timeout=10)
+
+    def convert():
+        """هر فراخوانی را در اتصال مستقل و زمینهٔ همان آژانس اجرا می‌کند."""
+        try:
+            with scoped_agency(agency.id):
+                ready.wait()
+                return convert_lead_to_customer(user=user, agency_id=agency.id, lead_id=lead.id)[1].id
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, second = [pool.submit(convert) for _ in range(2)]
+        assert first.result(timeout=20) == second.result(timeout=20)
+    with scoped_agency(agency.id):
+        assert lead.activities.filter(activity_type="CONVERTED").count() == 1
+        assert AuditLog.objects.filter(action="LEAD_CONVERTED", resource_id=str(lead.id)).count() == 1
+
+
+def test_lead_conversion_rolls_back_when_audit_fails(scoped_seed, monkeypatch):
+    """شکست ثبت ممیزی، مشتری و فعالیت نیمه‌کاره باقی نمی‌گذارد."""
+    from apps.customers import services
+    from apps.customers.models import Customer
+
+    agency = scoped_seed["agency_a"]
+    user = scoped_seed["u_agent_a"]
+    phone = "09128889902"
+    lead = create_lead(user=user, agency_id=agency.id, data={"full_name": "Rollback Buyer", "phone_number": phone})
+
+    def fail_audit(**kwargs):
+        """خطا را پس از مراحل نوشتنِ تبدیل شبیه‌سازی می‌کند."""
+        raise RuntimeError("audit unavailable")
+
+    monkeypatch.setattr(services, "record_audit_event", fail_audit)
+    with pytest.raises(RuntimeError, match="audit unavailable"):
+        convert_lead_to_customer(user=user, agency_id=agency.id, lead_id=lead.id)
+    lead.refresh_from_db()
+    assert lead.converted_customer_id is None
+    assert not lead.activities.filter(activity_type="CONVERTED").exists()
+    assert not Customer.objects.all_tenants().filter(agency_id=agency.id, primary_phone=phone).exists()
 
 
 def test_6_viewing_conflict_lead_conversion_and_otp_reset(scoped_seed):
